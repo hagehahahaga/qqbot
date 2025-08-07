@@ -1,0 +1,57 @@
+{
+  "frame_server_url": "",
+  "sql_config": {
+    "host": "",
+    "user": "",
+    "password": "",
+    "database": ""
+  },
+  "bot_config": {
+    "id": 0,
+    "must_at": false,
+    "command_prefixes": [
+      ""
+    ],
+    "operators": [
+      0
+    ]
+  },
+  "commands_configs": {
+    "random_pic": {
+      "default_tags": ""
+    }
+  },
+  "lottery_pool": 0,
+  "next_lottery_time": "00000000000000",
+  "log_level": "INF",
+  "ai": {
+    "api_key": "",
+    "base_url": "",
+    "characters": {
+      "": {
+        "vision": false,
+        "r18": false,
+        "prompts": [
+          {
+            "role": "system",
+            "content": ""
+          }
+        ]
+      }
+    }
+  },
+  "vits_url": {
+    "tts": "",
+    "svc": "",
+    "speakers": {
+      "": [
+        "tts",
+        "svc"
+      ]
+    }
+  },
+  "weather_api": {
+    "api_host": "",
+    "api_key": ""
+  }
+}

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Status Page</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<div class="container">
+    <div class="sidebar">
+        <ul>
+            <li><a href="#" id="status-link">状态</a></li>
+            <li><a href="#" id="logs-link">日志</a></li>
+            <li>
+                <div class="dark-mode-container">
+                    <span>黑夜模式</span>
+                    <label class="switch">
+                        <input type="checkbox" id="dark-mode-toggle">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </li>
+        </ul>
+    </div>
+    <div class="content">
+        <div id="status-page" class="page">
+            <h1>服务器状态</h1>
+            <p>连接状态: <span id="connected">未连接</span></p>
+            <button id="reconnect-button" onclick="reconnect()" style="display:none;">重连</button>
+            <div id="loading" class="loading"></div>
+            <p id="reconnect-status" class="reconnect-status"></p>
+            <h2>服务状态</h2>
+            <div id="service-status"></div>
+        </div>
+        <div id="logs-page" class="page">
+            <h1>日志</h1>
+            <div id="logs-content" class="scrollable">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/script.js"></script>
+</body>
+</html>

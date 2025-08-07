@@ -1,0 +1,215 @@
+html, body {
+    overflow: hidden; /* 禁止页面滚动 */
+    height: 100%; /* 确保占满整个视口 */
+    margin: 0; /* 去掉默认的外边距 */
+    padding: 0; /* 去掉默认的内边距 */
+}
+
+body {
+    font-family: Arial, sans-serif;
+}
+
+body.dark-mode {
+    background-color: #333;
+    color: #fff;
+}
+
+body.dark-mode .sidebar {
+    background-color: #222;
+}
+
+body.dark-mode .sidebar ul li a {
+    color: #fff;
+}
+
+body.dark-mode .scrollable {
+    border: 1px solid #777;
+}
+
+.container {
+    display: flex;
+}
+
+.sidebar {
+    width: 200px;
+    background-color: #f4f4f4;
+    padding: 20px;
+    height: 100vh;
+}
+
+.sidebar ul {
+    list-style: none;
+    padding: 0;
+}
+
+.sidebar ul li {
+    margin-bottom: 10px;
+}
+
+.sidebar ul li a {
+    text-decoration: none;
+    color: #333;
+}
+
+.content {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto; /* 允许内容区域滚动 */
+    max-height: calc(100vh - 200px); /* 根据需要调整高度 */
+}
+
+.page {
+    display: none;
+}
+
+.page.active {
+    display: block;
+}
+
+#status-page h1 {
+    text-align: center; /* 水平居中 */
+    margin: 0 auto; /* 垂直居中 */
+    padding-top: 50px; /* 调整顶部间距 */
+}
+
+.scrollable {
+    height: 300px;
+    overflow-y: auto;
+    border: 1px solid #5a5a5a;
+    padding: 10px;
+    margin-top: 10px;
+    scroll-behavior: smooth;
+}
+
+.loading {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    border: 2px solid rgba(0, 0, 0, 0.2);
+    border-left-color: #000;
+    border-radius: 100%;
+
+    animation: circle infinite 0.75s linear;
+}
+
+@keyframes circle {
+    0% {
+        transform: rotate(0);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* 黑夜模式下的 spinner 样式 */
+body.dark-mode .loading {
+    border: 5px solid rgba(255, 255, 255, 0.1);
+    border-top: 5px solid #fff;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.reconnect-status {
+    color: red;
+}
+
+/* 黑夜模式容器样式 */
+.dark-mode-container {
+    position: fixed; /* 固定定位 */
+    bottom: 20px; /* 距离底部20px */
+    left: 20px; /* 距离左侧20px */
+    display: flex; /* 使用flex布局 */
+    align-items: center; /* 垂直居中 */
+    gap: 10px; /* 字样和开关之间的间距 */
+}
+
+/* 自定义开关样式 */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 40px; /* 调整宽度 */
+    height: 24px; /* 调整高度 */
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px; /* 调整高度 */
+    width: 18px; /* 调整宽度 */
+    left: 3px; /* 调整左边距 */
+    bottom: 3px; /* 调整底部边距 */
+    background-color: white;
+    transition: .4s;
+}
+
+input:checked + .slider {
+    background-color: #2196F3;
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+    transform: translateX(18px); /* 调整滑块移动距离 */
+}
+
+/* Rounded sliders */
+.slider.round {
+    border-radius: 24px; /* 调整圆角 */
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}
+
+/* 日志信息样式 */
+.log-entry {
+    margin-bottom: 10px;
+}
+
+/* 非黑夜模式下的日志颜色 */
+.log-entry.deb {
+    color: limegreen; /* 亮绿色 */
+}
+
+.log-entry.inf {
+    color: black; /* 黑色 */
+}
+
+.log-entry.war {
+    color: gold; /* 亮黄色 */
+}
+
+.log-entry.err {
+    color: red; /* 鲜红色 */
+}
+
+/* 黑夜模式下的日志颜色 */
+body.dark-mode .log-entry.deb {
+    color: darkgreen; /* 深绿色 */
+}
+
+body.dark-mode .log-entry.inf {
+    color: white; /* 白色 */
+}
