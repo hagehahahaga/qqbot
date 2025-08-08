@@ -1,7 +1,8 @@
 from abstract.bases.importer import threading, time, os, requests, urllib3
 from abstract.bases.importer import select
 from requests.adapters import HTTPAdapter
-from urllib3.connection import HTTPConnection
+from  requests import RequestException
+from urllib3.connection import HTTPConnection, HTTPSConnection
 from urllib3.util import connection
 
 from abstract.bases.exceptions import *
@@ -12,15 +13,29 @@ from abstract.bases.iterruptible_tasks.iterruptible_task import InterruptibleTas
 current_socket = threading.local()
 
 
-def _interruptible_socket_create_connection(address, *args, **kwargs):
-    """替换urllib3的socket创建函数，捕获socket"""
-    sock = connection.create_connection(address, *args, **kwargs)
-    current_socket.sock = sock  # 存储到线程本地变量
-    return sock
+def _interruptible_new_conn(self):
+    """替换 urllib3 的 _new_conn 方法，正确传递 address 参数"""
+    try:
+        # 构建正确的 (host, port) 元组（复用 urllib3 内部的 DNS 解析结果和端口）
+        address = (self._dns_host, self.port)
+        # 调用底层 create_connection，传递正确的 address 元组
+        sock = connection.create_connection(
+            address,  # 正确的 (host, port) 元组
+            self.timeout,
+            source_address=self.source_address,
+            socket_options=self.socket_options,
+        )
+        # 存储 socket 到线程本地变量
+        current_socket.sock = sock
+        return sock
+    except Exception as e:
+        print(f"创建连接时出错: {e}")
+        raise  # 保持原有错误处理逻辑
 
 
 # 替换urllib3的默认连接创建函数
-HTTPConnection._create_connection = _interruptible_socket_create_connection
+HTTPConnection._new_conn = _interruptible_new_conn
+HTTPSConnection._new_conn = _interruptible_new_conn
 
 
 class InterruptibleRequest(InterruptibleTask):
@@ -81,44 +96,103 @@ class InterruptibleRequest(InterruptibleTask):
         return self._response
 
     def _request_worker(self, url, method, **kwargs):
-        """请求工作线程逻辑"""
         session = None
         try:
             session = requests.Session()
             session.mount("http://", HTTPAdapter())
             session.mount("https://", HTTPAdapter())
 
-            # 准备请求
             req = requests.Request(method, url,** kwargs).prepare()
-            send_kwargs = {"stream": True, "timeout": None}
-            conn = session.send(req, **send_kwargs, verify=False)
+            send_kwargs = {"stream": True, "timeout": 10}
+            conn = session.send(req, **send_kwargs, verify=True)
 
-            # 获取当前请求的socket（通过钩子函数存储）
+            if not hasattr(current_socket, 'sock'):
+                self._exception = RequestException("socket 捕获失败")
+                self._update_status(OperationStatus.FAILED)
+                return
+
             sock = current_socket.sock
-            read_fds = [sock, self._interrupt_r]
+            try:
+                sock_fd = sock.fileno()
+                interrupt_fd = self._interrupt_r
+            except OSError:
+                # 初始化时socket已关闭：若响应已获取，视为正常；否则异常
+                if conn:  # 响应已拿到，socket关闭是正常的
+                    self._response = conn
+                    self._update_status(OperationStatus.COMPLETED)
+                else:
+                    self._exception = RequestException("socket 初始化失败")
+                    self._update_status(OperationStatus.FAILED)
+                return
 
-            # 用select监听socket和中断管道
+            if sock_fd < 0 or interrupt_fd < 0:
+                # 初始fd无效：同样先检查是否已有响应
+                if conn:
+                    self._response = conn
+                    self._update_status(OperationStatus.COMPLETED)
+                else:
+                    self._exception = RequestException("初始文件描述符无效")
+                    self._update_status(OperationStatus.FAILED)
+                return
+
+            read_fds = [sock_fd, interrupt_fd]
+
             while self.is_running():
-                ready_fds, _, _ = select.select(read_fds, [], [])
+                # 检查socket是否已关闭（正常关闭的核心判断）
+                try:
+                    current_fd = sock.fileno()
+                    if current_fd != sock_fd:  # fd变化，说明socket已关闭并重建（极少发生）
+                        raise OSError("socket 已重建")
+                except OSError:
+                    # socket已关闭：判断是否已有响应
+                    if self._response:  # 响应已获取，正常结束
+                        self._update_status(OperationStatus.COMPLETED)
+                        break
+                    else:  # 未获取响应就关闭，视为异常
+                        self._exception = RequestException("socket 意外关闭（未接收响应）")
+                        self._update_status(OperationStatus.FAILED)
+                        break
 
-                if self._interrupt_r in ready_fds:
-                    # 收到中断信号（已在stop()中处理，此处仅退出循环）
-                    os.read(self._interrupt_r, 1)
+                if interrupt_fd < 0:
+                    # 管道关闭：若已有响应则正常结束，否则异常
+                    if self._response:
+                        self._update_status(OperationStatus.COMPLETED)
+                        break
+                    else:
+                        self._exception = RequestException("中断管道意外关闭")
+                        self._update_status(OperationStatus.FAILED)
+                        break
+
+                # 执行select（带超时，避免永久阻塞）
+                try:
+                    ready_fds, _, _ = select.select(read_fds, [], [], 0.1)
+                except ValueError as e:
+                    # select失败：若已有响应则忽略，否则报错
+                    if self._response:
+                        self._update_status(OperationStatus.COMPLETED)
+                        break
+                    else:
+                        self._exception = RequestException(f"select 失败：{str(e)}")
+                        self._update_status(OperationStatus.FAILED)
+                        break
+
+                if interrupt_fd in ready_fds:
+                    os.read(interrupt_fd, 1)
                     break
 
-                if sock in ready_fds:
-                    # 读取响应数据（此处简化为直接保存响应对象）
+                if sock_fd in ready_fds:
+                    # 读取响应（标记响应已获取）
                     self._response = conn
                     self._update_status(OperationStatus.COMPLETED)
                     break
 
         except Exception as e:
-            if not self.status == OperationStatus.INTERRUPTED:
-                # 非中断导致的错误
-                self._exception = e
+            # 仅在未完成且非中断状态时视为错误
+            if not self.status in (OperationStatus.INTERRUPTED, OperationStatus.COMPLETED):
+                self._exception = RequestException(f"请求失败: {str(e)}")
                 self._update_status(OperationStatus.FAILED)
 
         finally:
             if session:
                 session.close()
-            self._result_event.set()  # 通知结果就绪
+            self._result_event.set()

@@ -38,7 +38,7 @@ class Bot:
             except SendFailure as error:
                 LOG.WAR(error)
                 message.reply_text(error.__str__())
-            except CommandCancel as error:
+            except (CommandCancel, OperationInterrupted) as error:
                 LOG.WAR(error)
                 message.reply_text(error.__str__())
             except AssertionError as error:
@@ -67,7 +67,7 @@ class Bot:
         :return: decorated method
         """
         def decorator(func):
-            self.commands.add(Command(func, command_name, type, info))
+            self.commands.add(Command(func, command_name, type, info, cancelable))
 
             return func
 
