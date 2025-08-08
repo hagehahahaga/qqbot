@@ -25,7 +25,7 @@ class Weather:
 
         self.city_name = api.search_city(self.city_id)['location'][0]['name']
 
-    def today_weather(self) -> dict[str: tuple[int, int] | tuple[str, str, bool] | tuple[int, str]]:
+    def today_weather(self, session) -> dict[str: tuple[int, int] | tuple[str, str, bool] | tuple[int, str]]:
         """
         Fetches today's weather information including temperature, weather conditions, and UV index.
         {
@@ -36,7 +36,7 @@ class Weather:
 
         :return: A dictionary containing today's weather details.
         """
-        response = self.api.get_weather(self.city_id)
+        response = self.api.get_weather(self.city_id, session)
         max_temp = int(response['daily'][0]['tempMax'])
         min_temp = int(response['daily'][0]['tempMin'])
         weather_day = response['daily'][0]['textDay']
@@ -74,7 +74,7 @@ class Weather:
 
         :return: A dictionary containing current weather details.
         """
-        response = self.api.get_weather(self.city_id)
+        response = self.api.get_weather(self.city_id, session)
 
         time_obs = datetime.datetime.fromisoformat(response['now']['obsTime']).timetuple()
         temp = int(response['now']['temp'])

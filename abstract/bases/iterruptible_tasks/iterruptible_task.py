@@ -13,7 +13,7 @@ class OperationStatus(Enum):
 
 # 抽象基类：可中断IO操作
 class InterruptibleTask(metaclass=abc.ABCMeta):
-    def __init__(self, session):
+    def __init__(self, session=None):
         """
         :type session: abstract.session.Session
         """
@@ -40,7 +40,8 @@ class InterruptibleTask(metaclass=abc.ABCMeta):
         调用后状态应变为 RUNNING
         """
         self._update_status(OperationStatus.RUNNING)
-        self.session.set_breakpoint(self)
+        if self.session:
+            self.session.set_breakpoint(self)
 
     @abc.abstractmethod
     def stop(self):
