@@ -1,10 +1,11 @@
-import PIL.Image
 from third.PicImageSearch.sync import *
 
 from abstract.bases.importer import datetime, functools, threading
 from abstract.bases.importer import getopt, io, random, time
 from abstract.bases.importer import filetype, numpy, pymysql
-from abstract.bases.importer import json
+from abstract.bases.importer import json, PIL
+
+import PIL.Image
 
 import abstract.message
 from abstract.message import *
@@ -14,7 +15,7 @@ from extra.chat_ai import LLM, CHAT_AIs
 from abstract.bases.exceptions import *
 from abstract.apis.table import GROUP_OPTION_TABLE, STOCK_TABLE, NOTICE_SCHEDULE_TABLE
 from abstract.apis.table import NULL
-from abstract.bases.iterruptible_tasks.iterruptible_request import InterruptibleRequest
+from abstract.bases.interruptible_tasks.interruptible_request import InterruptibleRequest
 from extra.vits_speaker import SPEAKER_MANAGER
 from extra.weather import weather_modules, Weather
 
@@ -203,26 +204,29 @@ def random_pic(message: MESSAGE, session: Session, args):
         return
     image.putpixel((0, 0), image.getpixel((0, 1)))
     image_file = io.BytesIO()
-    image.save(image_file, format='PNG')
-    image_file.seek(0)
     try:
-        message.reply(
-            [
-                TextMessage(
-                    text=f'作者: {output["author"]}\n'
-                         f'标题: {output["title"]}\n'
-                         f'pid: {output["pid"]}\n'
-                         f'url: {output["urls"]["original"]}'
-                ),
-                ImageMessage(
-                    data=image_file.read()
-                )
-            ]
-        )
-    except SendFailure:
-        message.reply_text('发送失败, 重试中...')
-        LOG.WAR('Pic send failed. ')
-        random_pic.__wrapped__.__wrapped__(message, session, args)
+        image.save(image_file, format='PNG')
+        image_file.seek(0)
+        try:
+            message.reply(
+                [
+                    TextMessage(
+                        text=f'作者: {output["author"]}\n'
+                             f'标题: {output["title"]}\n'
+                             f'pid: {output["pid"]}\n'
+                             f'url: {output["urls"]["original"]}'
+                    ),
+                    ImageMessage(
+                        data=image_file.read()
+                    )
+                ]
+            )
+        except SendFailure:
+            message.reply_text('发送失败, 重试中...')
+            LOG.WAR('Pic send failed. ')
+            random_pic.__wrapped__.__wrapped__(message, session, args)
+    finally:
+        image_file.close()
 
 
 @BOT.register_command(('compress', '压缩', '压缩图'), {'needed_type': ImageMessage}, '一键电子包浆')
@@ -836,35 +840,42 @@ def forge_chat(message: MESSAGE, session: Session):
 
 
 @BOT.register_command(('weather', '天气', '现在天气'), 1, '获取实时天气', cancelable=True)
+@cost(2)
 @group_only
 @ask_for_wait
 def weather(message: MESSAGE, session: Session, args):
-    if not args:
-        message.reply_text('未指定城市, 将使用群设置城市.')
-        city = GROUP_OPTION_TABLE.get(f'where id = {message.target.id}', attr='city')[0]
-        assert city, '未设置默认城市, 请联系管理员使用 option 指令设置.'
-    else:
+    city = None
+    hourly = 'hourly' in args
+    if hourly:
+        args.remove('hourly')
+
+    if args:
         city = args[0]
+    else:
+        city = GROUP_OPTION_TABLE.get(f'where id = {message.target.id}', attr='city')[0]
 
     try:
-        weather_module: Weather = weather_modules[city]
+        weather_module = weather_modules[city]
     except KeyError:
         try:
             weather_module = weather_modules[city] = Weather(city)
         except CityNotFound:
             raise CommandCancel('未找到指定城市, 检查输入.')
 
-    weather = weather_module.get_weather(session)
-    message.reply_text(
-        '\n' +
-        '\n'.join(
-            (
-                f'城市: {weather_module.city_name}',
-                f'数据时间: {time.strftime("%H时%M分%S秒", weather["time"][0])}',
-                f'温度: {weather["temp"][0]}℃',
-                f'体感温度: {weather["temp"][1]}℃',
-                f'天气: {weather["weather"][0]}',
-                f'湿度: {weather["humidity"][0]}%'
+    if hourly:
+        message.reply(ImageMessage(weather_module.get_weather_hourly(session)))
+    else:
+        weather = weather_module.get_weather_daily(session)
+        message.reply_text(
+            '\n' +
+            '\n'.join(
+                (
+                    f'城市: {weather_module.city_name}',
+                    f'数据时间: {time.strftime("%H时%M分%S秒", weather["time"][0])}',
+                    f'温度: {weather["temp"][0]}℃',
+                    f'体感温度: {weather["temp"][1]}℃',
+                    f'天气: {weather["weather"][0]}',
+                    f'湿度: {weather["humidity"][0]}%'
+                )
             )
         )
-    )

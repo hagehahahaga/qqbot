@@ -11,3 +11,7 @@ filetype~=1.2.0
 numpy~=2.2.1
 psutil~=6.1.1
 pillow~=11.0.0
+matplotlib~=3.10.5
+urllib3~=2.2.3
+CairoSVG~=2.8.2
+pandas~=2.3.1

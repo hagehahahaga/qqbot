@@ -1,7 +1,7 @@
 from abstract.bases.importer import queue, threading, dispatch, time
 
 from abstract.bases.exceptions import *
-from abstract.bases.iterruptible_tasks.iterruptible_task import InterruptibleTask
+from abstract.bases.interruptible_tasks.interruptible_task import InterruptibleTask
 from abstract.bases.log import LOG
 from abstract.command import Command
 from abstract.target import User

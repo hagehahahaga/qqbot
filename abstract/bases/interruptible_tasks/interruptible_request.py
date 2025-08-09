@@ -7,7 +7,7 @@ from urllib3.util import connection
 
 from abstract.bases.exceptions import *
 from abstract.bases.log import LOG
-from abstract.bases.iterruptible_tasks.iterruptible_task import InterruptibleTask, OperationStatus
+from abstract.bases.interruptible_tasks.interruptible_task import InterruptibleTask, OperationStatus
 
 
 current_socket = threading.local()

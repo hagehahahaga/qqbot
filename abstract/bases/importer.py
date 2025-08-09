@@ -30,4 +30,9 @@ import urllib3
 import os
 import select
 import enum
+import cairosvg
+import matplotlib
+import pandas
+import PIL
+import warnings
 last_commit = git.Repo(pathlib.Path(__file__).parents[2]).head.commit

@@ -6,7 +6,7 @@ from abstract.apis.table import NULL
 from config import CONFIG
 from abstract.bases.log import LOG
 from abstract.session import Session
-from abstract.bases.iterruptible_tasks.iterruptible_request import InterruptibleRequest
+from abstract.bases.interruptible_tasks.interruptible_request import InterruptibleRequest
 
 
 class LLM:

@@ -1,6 +1,6 @@
 from abstract.bases.exceptions import CommandCancel
 from abstract.bases.importer import threading, requests, functools
-from abstract.bases.iterruptible_tasks.iterruptible_request import InterruptibleRequest
+from abstract.bases.interruptible_tasks.interruptible_request import InterruptibleRequest
 
 from abstract.bases.log import LOG
 from abstract.session import Session
@@ -112,4 +112,7 @@ LOG.INF('Loading VITS speaker modules...')
 SPEAKER_MANAGER: SpeakerManager[Speaker] = SpeakerManager(
     CONFIG.get("vits", {}).get("speakers", [])
 )
-LOG.INF(f'Loaded {len(SPEAKER_MANAGER)} VITS speaker modules: {", ".join(SPEAKER_MANAGER.keys())}')
+LOG.INF(
+    f'Loaded {len(SPEAKER_MANAGER)} VITS speaker modules:'
+    f'{", ".join(SPEAKER_MANAGER.keys())}'
+)
