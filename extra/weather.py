@@ -11,7 +11,10 @@ from abstract.bases.exceptions import *
 from abstract.session import Session
 
 
-matplotlib.pyplot.rcParams["font.family"] = ["SimHei", "Microsoft YaHei"]
+matplotlib.pyplot.rcParams["font.family"] = [
+    "Noto Sans CJK SC",
+    "Microsoft YaHei"
+]
 warnings.filterwarnings("ignore", message="This figure includes Axes that are not compatible with tight_layout")
 
 
