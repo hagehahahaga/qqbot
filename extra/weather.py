@@ -161,7 +161,6 @@ class Weather:
         ax1.plot(data['fxTime'], data['temp'], color=color1, marker='o',
                  linestyle='-', label='温度', linewidth=2)
         ax1.tick_params(axis='y', labelcolor=color1)
-        ax1.tick_params(axis='x', rotation=45)
         ax1.set_ylim(temp_lower, temp_upper)  # 固定温度最大值为50度（确保折线不会太高）
         for x, y in zip(data['fxTime'], data['temp']):
             ax1.text(
