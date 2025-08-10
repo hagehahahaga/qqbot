@@ -13,10 +13,10 @@ from web import FRAME_CLIENT
 
 LOG.INF('Registering commands...')
 import commands
-LOG.INF('Commands registered.')
+LOG.INF('Commands registered successfully.')
 LOG.INF('Registering services...')
 import services
-LOG.INF('Services registered.')
+LOG.INF('Services registered successfully.')
 
 
 def main():

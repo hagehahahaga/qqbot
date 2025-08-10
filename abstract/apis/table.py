@@ -113,7 +113,7 @@ NULL = Null()
 
 LOG.INF('Connecting to MySQL database...')
 sqldb = pymysql.connect(**CONFIG['sql_config'])
-LOG.INF('Connected to MySQL database successfully.')
+LOG.INF(f'Connected to MySQL database: {sqldb.get_server_info()} at {sqldb.host}:{sqldb.port}')
 LOG.INF('Loading database tables...')
 USER_TABLE = Table(sqldb, 'qq_users')
 STOCK_TABLE = Table(sqldb, 'stocks')
