@@ -12,8 +12,8 @@ from abstract.session import Session
 
 
 matplotlib.pyplot.rcParams["font.family"] = [
-    "Noto Sans CJK SC",
-    "Microsoft YaHei"
+    "Microsoft YaHei",
+    "WenQuanYi Zen Hei"
 ]
 warnings.filterwarnings("ignore", message="This figure includes Axes that are not compatible with tight_layout")
 
