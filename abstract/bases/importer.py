@@ -35,4 +35,5 @@ import matplotlib
 import pandas
 import PIL
 import warnings
+import copy
 last_commit = git.Repo(pathlib.Path(__file__).parents[2]).head.commit

@@ -1,5 +1,5 @@
 from abstract.bases.importer import datetime, time, itertools, io, pandas
-from abstract.bases.importer import matplotlib, warnings
+from abstract.bases.importer import matplotlib, sys
 from PIL import Image
 import matplotlib.pyplot
 import matplotlib.dates
@@ -9,13 +9,9 @@ from abstract.apis.table import GROUP_OPTION_TABLE
 from abstract.bases.log import LOG
 from abstract.bases.exceptions import *
 from abstract.session import Session
+from config import CONFIG
 
-
-matplotlib.pyplot.rcParams["font.family"] = [
-    "Microsoft YaHei",
-    "WenQuanYi Zen Hei"
-]
-warnings.filterwarnings("ignore", message="This figure includes Axes that are not compatible with tight_layout")
+matplotlib.pyplot.rcParams["font.family"] = CONFIG['zh_font']
 
 
 class Weather:
@@ -36,7 +32,7 @@ class Weather:
 
         self.city_name = api.search_city(self.city_id)['location'][0]['name']
 
-    def today_weather(self, session) -> dict[str: tuple[int, int] | tuple[str, str, bool] | tuple[int, str]]:
+    def get_weather_today(self, session) -> dict[str: tuple[int, int] | tuple[str, str, bool] | tuple[int, str]]:
         """
         Fetches today's weather information including temperature, weather conditions, and UV index.
         {
@@ -47,33 +43,32 @@ class Weather:
 
         :return: A dictionary containing today's weather details.
         """
-        response = self.api.get_weather(self.city_id, session)
+        response = self.api.get_weather_prediction(3, self.city_id, session=session)
         max_temp = int(response['daily'][0]['tempMax'])
         min_temp = int(response['daily'][0]['tempMin'])
         weather_day = response['daily'][0]['textDay']
         weather_night = response['daily'][0]['textNight']
         uv = int(response['daily'][0]['uvIndex'])
 
-        rain = '雨' in weather_night or '雨' in weather_day
         match uv:
-            case range(0, 3):
+            case _ if uv in range(0, 3):
                 uv_text = '最弱'
-            case range(3, 5):
+            case _ if uv in range(3, 5):
                 uv_text = '弱'
-            case range(5, 7):
+            case _ if uv in range(5, 7):
                 uv_text = '中等'
-            case range(7, 10):
+            case _ if uv in range(7, 10):
                 uv_text = '强'
             case _:
                 uv_text = '极强'
 
         return {
             'temp': (min_temp, max_temp),
-            'weather': (weather_day, weather_night, rain),
-            'uv': (uv, uv_text)
+            'weather': (weather_day, weather_night, '雨' in itertools.chain(*weather_day, *weather_night)),
+            'uv': (uv, uv_text, uv >= 7)
         }
 
-    def get_weather_daily(self, session: Session) -> dict[str: tuple[time.struct_time] | tuple[int, int] | tuple[int] | tuple[str, bool]]:
+    def get_weather_now(self, session: Session) -> dict[str: tuple[time.struct_time] | tuple[int, int] | tuple[int] | tuple[str, bool]]:
         """
         Fetches the current weather information including temperature, humidity, weather conditions, and rain status.
         {
@@ -93,12 +88,10 @@ class Weather:
         weather = response['now']['text']
         humidity = int(response['now']['humidity'])
 
-        rain = '雨' in weather
-
         return {
             'time': (time_obs, ),
             'temp': (temp, temp_feel),
-            'weather': (weather, rain),
+            'weather': (weather, '雨' in weather),
             'humidity': (humidity, )
         }
 
@@ -162,9 +155,16 @@ class Weather:
                  linestyle='-', label='温度', linewidth=2)
         ax1.tick_params(axis='y', labelcolor=color1)
         ax1.set_ylim(temp_lower, temp_upper)  # 固定温度最大值为50度（确保折线不会太高）
-        for x, y in zip(data['fxTime'], data['temp']):
+        for i, (x, y) in enumerate(zip(data['fxTime'], data['temp'])):
+            # 计算与前后数据点的差值
+            prev_diff = data['temp'][i - 1] - y if i > 0 else 0
+            next_diff = data['temp'][i + 1] - y if i < len(data['temp']) - 1 else 0
+
+            # 取最大值作为偏移距离
+            offset = max(prev_diff, next_diff)
+
             ax1.text(
-                x, y + 0.25,  # 位置：在数据点上方偏移0.5单位
+                x, y + (0.125 if offset == 0 else offset / 3),  # 只向上偏移
                 f'{y:.0f}°C',    # 显示温度值+单位
                 color='tab:red',  # 与折线同色
                 fontsize=9,
@@ -181,7 +181,7 @@ class Weather:
         )
         for x, y in zip(data['fxTime'], data['humidity']):
             ax2.text(
-                x, y - 3,    # 位置：在数据点下方偏移3单位（避免与折线重叠）
+                x, y + 3,    # 位置：在数据点上方偏移3单位（避免与折线重叠）
                 f'{y:.0f}%',     # 显示湿度值+单位
                 color='tab:blue',
                 fontsize=9,
@@ -193,7 +193,7 @@ class Weather:
         )
         for x, y in zip(data['fxTime'], data['pop']):
             ax2.text(
-                x, y - 3,    # 位置：在数据点上方偏移3单位
+                x, y + 3,    # 位置：在数据点上方偏移3单位
                 f'{y:.0f}%',     # 显示降水概率+单位
                 color='tab:green',
                 fontsize=9,
@@ -263,4 +263,7 @@ for city in groups:
         GROUP_OPTION_TABLE.set('city', city, 'city', None)
         LOG.WAR(f'City {city} not found, removed from group options.')
 
-LOG.INF('Weather modules loaded.')
+LOG.INF(
+    'Loaded Weather modules:\n' +
+    ',\n'.join(weather_modules)
+)

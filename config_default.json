@@ -53,5 +53,8 @@
   "weather_api": {
     "api_host": "",
     "api_key": ""
-  }
+  },
+  "zh_font": [
+    "Arial Unicode MS"
+  ]
 }
