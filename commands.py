@@ -255,12 +255,12 @@ def option(message: MESSAGE, session: Session, args):
             except Exception as error:
                 match error:
                     case pymysql.OperationalError(args=(1054, x)):
-                        message.reply_text(f'错误: 设置项不存在.')
+                        raise CommandCancel('错误: 设置项不存在.')
                     case pymysql.OperationalError(args=(3819, x)):
-                        message.reply_text(f'错误: 本群不在白名单中或输入不合法.')
+                        raise CommandCancel('错误: 本群不在白名单中或输入不合法.')
                     case _:
                         LOG.WAR(f'Group option {key} set failed.')
-                        message.reply_text(f'错误: {error}.')
+                        raise CommandCancel(f'错误: {error}.')
 
             option.__wrapped__(message, session, (key,))
         case [key]:
@@ -272,12 +272,12 @@ def option(message: MESSAGE, session: Session, args):
             except Exception as error:
                 match error:
                     case pymysql.OperationalError(args=(1054, x)):
-                        message.reply_text(f'错误: 查询项不存在.')
+                        raise CommandCancel('错误: 查询项不存在.')
                     case _:
                         LOG.WAR(f'Group option {key} query failed.')
-                        message.reply_text(f'错误: {error}.')
+                        raise CommandCancel(f'错误: {error}.')
         case final:
-            message.reply_text(f'参数 {final} 有误!')
+            raise CommandCancel(f'参数 {final} 有误!')
 
 
 @BOT.register_command(('points', '点数', '韭菜盒子'), info='查询韭菜盒子数')
