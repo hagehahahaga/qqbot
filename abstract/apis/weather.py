@@ -1,10 +1,9 @@
-from abstract.bases.importer import abc, pathlib, cairosvg, io
+from abstract.bases.importer import abc, pathlib, cairosvg, io, requests
 from PIL import Image
 
 from config import CONFIG
 from abstract.bases.log import LOG
 from abstract.bases.exceptions import *
-from abstract.bases.interruptible_tasks.interruptible_request import InterruptibleRequest
 
 
 class WeatherAPI(abc.ABC):
@@ -18,7 +17,7 @@ class WeatherAPI(abc.ABC):
         self.api_host = api_host
 
     @abc.abstractmethod
-    def get_weather(self, location: str, session=None) -> dict:
+    def get_weather(self, location: str) -> dict:
         """
         Fetches the current weather data for a specific location.
 
@@ -30,7 +29,7 @@ class WeatherAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_weather_prediction(self, time: int, location: str, hourly: bool = False, session=None) -> dict:
+    def get_weather_prediction(self, time: int, location: str, hourly: bool = False) -> dict:
         """
         Fetches weather predictions for a specific location.
 
@@ -44,7 +43,7 @@ class WeatherAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def search_city(self, city_name: str, session=None) -> dict:
+    def search_city(self, city_name: str) -> dict:
         """
         Searches for a city by name and returns its location ID.
 
@@ -56,7 +55,7 @@ class WeatherAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_icon(self, icon: int, session=None) -> bytes:
+    def get_icon(self, icon: int) -> bytes:
         """
         Fetches the weather icon image for a specific icon code.
 
@@ -71,9 +70,9 @@ class QWeatherAPI(WeatherAPI):
     A class to interact with the QWeather API for weather data.
     """
 
-    def get_weather(self, location: str, session=None) -> dict:
+    def get_weather(self, location: str) -> dict:
         if not location.isdigit():
-            location = self.search_city(location, session)['location'][0]['id']
+            location = self.search_city(location)['location'][0]['id']
 
         url = f"{self.api_host}/v7/weather/now"
         params = {
@@ -81,11 +80,11 @@ class QWeatherAPI(WeatherAPI):
             'location': location
         }
 
-        return InterruptibleRequest(session).run(url, params=params).json()
+        return requests.get(url, params=params).json()
 
-    def get_weather_prediction(self, time: int, location: str, hourly: bool = False, session=None) -> dict:
+    def get_weather_prediction(self, time: int, location: str, hourly: bool = False) -> dict:
         if not location.isdigit():
-            location = self.search_city(location, session)['location'][0]['id']
+            location = self.search_city(location)['location'][0]['id']
 
         url = f"{self.api_host}/v7/weather/{time}"
         if hourly:
@@ -100,27 +99,27 @@ class QWeatherAPI(WeatherAPI):
             'location': location
         }
 
-        return InterruptibleRequest(session).run(url, params=params).json()
+        return requests.get(url, params=params).json()
 
-    def search_city(self, city_name: str, session=None) -> dict:
+    def search_city(self, city_name: str) -> dict:
         url = f"{self.api_host}/geo/v2/city/lookup"
         params = {
             'key': self.api_key,
             'location': city_name
         }
 
-        result = InterruptibleRequest(session).run(url, params=params).json()
-        if result['code'] != '200':
-            match result['title'].upper():
+        result = requests.get(url, params=params).json()
+        if result.get('code') != '200':
+            match result['error']['title'].upper():
                 case 'NOT FOUND':
                     raise CityNotFound(city_name)
                 case other:
                     LOG.WAR('Unsupported error title: ', other)
-                    raise Exception(f"Error searching city: {result['title']}")
+                    raise Exception(f"Error searching city: {result['error']['title']}")
 
         return result
 
-    def get_icon(self, icon: int, session=None) -> bytes:
+    def get_icon(self, icon: int) -> bytes:
         try:
             # 1. 调用你的API获取SVG二进制数据（替换为实际API调用）
             svg_bytes = (
@@ -140,10 +139,9 @@ class QWeatherAPI(WeatherAPI):
 
         except Exception as e:
             LOG.WAR(f"SVG处理失败: {e}")
+            # 创建内存缓冲区
+            buffer = io.BytesIO()
             try:
-                # 创建内存缓冲区
-                buffer = io.BytesIO()
-
                 # 将图像保存到缓冲区，格式为PNG
                 Image.new('RGB', (30, 30), color='gray').save(buffer, format='PNG')
 

@@ -36,4 +36,5 @@ import pandas
 import PIL
 import warnings
 import copy
+import socket
 last_commit = git.Repo(pathlib.Path(__file__).parents[2]).head.commit

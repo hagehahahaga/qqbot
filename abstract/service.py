@@ -41,13 +41,13 @@ class Service:
         self.kwargs = kwargs
         self.thread = threading.Thread(target=self.func, args=self.args, kwargs=self.kwargs)
         self.thread.start()
-        LOG.INF(f'Service {self} started...')
+        LOG.INF(f'Service {self} started.')
 
     def stop(self, timeout=None):
         LOG.INF(f'Service {self} stopping...')
         self.stop_flag.set()
         self.thread.join(timeout)
-        LOG.INF(f'Service {self} stopped...')
+        LOG.INF(f'Service {self} stopped.')
 
     def is_alive(self):
         return self.thread.is_alive()

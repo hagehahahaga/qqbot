@@ -1,4 +1,4 @@
-from abstract.bases.importer import threading, time, os, requests, urllib3
+from abstract.bases.importer import threading, os, requests, socket
 from abstract.bases.importer import select
 from requests.adapters import HTTPAdapter
 from  requests import RequestException
@@ -42,25 +42,43 @@ class InterruptibleRequest(InterruptibleTask):
     def __init__(self, session):
         super().__init__(session)
         self._thread = None
-        self._response = None  # 存储成功响应
-        self._exception = None  # 存储异常
-        self._interrupt_r, self._interrupt_w = os.pipe()  # 中断通知管道
+        self._response = None
+        self._exception = None
+
+        # 跨平台中断通知机制：Windows 用套接字对，类 Unix 用管道
+        if os.name == 'nt':  # Windows 系统
+            # 创建本地套接字对（替代管道）
+            self._interrupt_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._interrupt_server.bind(('127.0.0.1', 0))  # 绑定随机端口
+            self._interrupt_server.listen(1)
+            server_addr = self._interrupt_server.getsockname()
+
+            self._interrupt_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._interrupt_client.connect(server_addr)
+            self._interrupt_r, _ = self._interrupt_server.accept()  # 读端（socket对象）
+            self._interrupt_w = self._interrupt_client  # 写端（socket对象）
+        else:  # 类 Unix 系统（Linux/macOS）
+            self._interrupt_r, self._interrupt_w = os.pipe()  # 管道（整数fd）
 
     def _release_resource(self):
-        """释放底层资源（实现抽象基类隐含的资源释放逻辑）"""
-        # 关闭捕获的socket（若存在）
+        # 关闭 socket（若存在）
         if hasattr(current_socket, 'sock'):
             try:
                 current_socket.sock.close()
             except Exception as e:
                 LOG.WAR(f"关闭socket时出错: {e}")
             finally:
-                del current_socket.sock  # 清除引用
+                del current_socket.sock
 
-        # 关闭管道（避免资源泄露）
+        # 关闭中断通知用的资源（区分套接字和管道）
         try:
-            os.close(self._interrupt_r)
-            os.close(self._interrupt_w)
+            if os.name == 'nt':  # Windows 关闭套接字
+                self._interrupt_r.close()
+                self._interrupt_w.close()
+                self._interrupt_server.close()
+            else:  # 类 Unix 关闭管道
+                os.close(self._interrupt_r)
+                os.close(self._interrupt_w)
         except OSError:
             pass
 
@@ -82,6 +100,11 @@ class InterruptibleRequest(InterruptibleTask):
             # 向管道写入数据，触发select返回
             os.write(self._interrupt_w, b'x')
             self._exception = OperationInterrupted("请求被主动中断")
+
+            # 等待工作线程退出（设置超时避免永久阻塞）
+            if self._thread and self._thread.is_alive():
+                self._thread.join(timeout=1.0)
+
             self._release_resource()  # 释放资源
 
         super().stop()  # 调用基类更新状态为INTERRUPTED
@@ -113,8 +136,14 @@ class InterruptibleRequest(InterruptibleTask):
 
             sock = current_socket.sock
             try:
-                sock_fd = sock.fileno()
-                interrupt_fd = self._interrupt_r
+                sock_fd = sock.fileno()  # socket的整数fd
+                # 关键修改：根据系统类型获取中断描述符的整数fd
+                if os.name == 'nt':
+                    # Windows 下 _interrupt_r 是socket对象，需取其fd
+                    interrupt_fd = self._interrupt_r.fileno()
+                else:
+                    # 类 Unix 下 _interrupt_r 是管道fd（直接使用）
+                    interrupt_fd = self._interrupt_r
             except OSError:
                 # 初始化时socket已关闭：若响应已获取，视为正常；否则异常
                 if conn:  # 响应已拿到，socket关闭是正常的
@@ -163,6 +192,19 @@ class InterruptibleRequest(InterruptibleTask):
                         self._update_status(OperationStatus.FAILED)
                         break
 
+                try:
+                    # 再次验证 socket 有效性（避免竞态条件）
+                    if sock.fileno() != sock_fd:
+                        raise OSError("socket 已关闭或重建")
+                except OSError:
+                    # socket 已无效，处理逻辑
+                    if self._response:
+                        self._update_status(OperationStatus.COMPLETED)
+                    else:
+                        self._exception = RequestException("socket 已关闭（操作中断）")
+                        self._update_status(OperationStatus.FAILED)
+                    break
+
                 # 执行select（带超时，避免永久阻塞）
                 try:
                     ready_fds, _, _ = select.select(read_fds, [], [], 0.1)
@@ -175,6 +217,23 @@ class InterruptibleRequest(InterruptibleTask):
                         self._exception = RequestException(f"select 失败：{str(e)}")
                         self._update_status(OperationStatus.FAILED)
                         break
+                except OSError as e:
+                    # 处理 Windows 非套接字操作错误
+                    if hasattr(e, 'winerror') and e.winerror == 10038:
+                        # 此时 socket 已无效，判断是否已有响应
+                        if self._response:
+                            self._update_status(OperationStatus.COMPLETED)
+                        else:
+                            self._exception = RequestException(f"套接字已关闭：{str(e)}")
+                            self._update_status(OperationStatus.FAILED)
+                        break
+                    # 处理其他 select 错误
+                    if self._response:
+                        self._update_status(OperationStatus.COMPLETED)
+                    else:
+                        self._exception = RequestException(f"select 失败：{str(e)}")
+                        self._update_status(OperationStatus.FAILED)
+                    break
 
                 if interrupt_fd in ready_fds:
                     os.read(interrupt_fd, 1)

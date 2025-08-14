@@ -6,7 +6,6 @@ from abstract.bases.importer import json, PIL
 import PIL.Image
 from third.PicImageSearch.sync import *
 
-import abstract.message
 from abstract.message import *
 from abstract.bot import BOT
 from abstract.session import Session
@@ -16,7 +15,7 @@ from abstract.apis.table import GROUP_OPTION_TABLE, STOCK_TABLE, NOTICE_SCHEDULE
 from abstract.apis.table import NULL
 from abstract.bases.interruptible_tasks.interruptible_request import InterruptibleRequest
 from extra.vits_speaker import SPEAKER_MANAGER
-from extra.weather import weather_modules, Weather
+from extra.weather_city import WEATHER_CITY_MANAGER, WeatherCity
 from abstract.bases.one_time_var import OneTimeVar
 
 
@@ -839,7 +838,7 @@ def forge_chat(message: MESSAGE, session: Session):
     )
 
 
-@BOT.register_command(('weather', '天气', '现在天气'), 1, '获取实时天气', cancelable=True)
+@BOT.register_command(('weather', '天气', '现在天气'), 1, '获取实时天气')
 @cost(2)
 @group_only
 @ask_for_wait
@@ -867,39 +866,24 @@ def weather(message: MESSAGE, session: Session, args):
     else:
         city = GROUP_OPTION_TABLE.get(f'where id = {message.target.id}', attr='city')[0]
         if not city:
-            raise CommandCancel('未设置默认城市, 请在命令后添加城市名, 或让管理员设置默认城市.')
+            raise CommandCancel('未设置默认城市, 在命令后添加城市名, 或让管理员设置默认城市.')
+        message.reply_text(f'未指定城市, 将使用群默认城市 {city}.')
 
     try:
-        weather_module = weather_modules[city]
-    except KeyError:
-        try:
-            weather_module = weather_modules[city] = Weather(city)
-        except CityNotFound:
-            raise CommandCancel(f'未能找到城市 {city}.')
+        weather_city = WEATHER_CITY_MANAGER[city]
+    except CityNotFound:
+        raise CommandCancel(f'未能找到城市 {city}. 如为默认城市则让管理员更正, 或手动输入.')
 
     match option.value:
         case None | 'now':
-            weather = weather_module.get_weather_now(session)
             message.reply_text(
-                '\n现在天气'
-                f'\n  城市: {weather_module.city_name}'
-                f'\n  数据时间: {time.strftime("%H时%M分%S秒", weather["time"][0])}'
-                f'\n  温度: {weather["temp"][0]}℃'
-                f'\n  体感温度: {weather["temp"][1]}℃'
-                f'\n  天气: {weather["weather"][0]}'
-                f'\n  湿度: {weather["humidity"][0]}%' +
-                ('\n现在有雨, 出门注意带伞' if weather['weather'][1] else '')
+                '\n' +
+                weather_city.get_weather_now_text()
             )
         case 'hourly':
-            message.reply(ImageMessage(weather_module.get_weather_hourly(session)))
+            message.reply(ImageMessage(weather_city.get_weather_hourly()))
         case 'today':
-            weather = weather_module.get_weather_today(session)
             message.reply_text(
-                '\n今日天气'
-                f'\n  城市: {weather_module.city_name}'
-                f'\n  温度: {" - ".join(map(str, weather["temp"]))}℃'
-                f'\n  天气: 白天{weather["weather"][0]}, 晚上{weather["weather"][1]}'
-                f'\n  紫外线强度: {weather["uv"][1]}({weather["uv"][0]})' +
-                ('\n现在有雨, 出门注意带伞' if weather['weather'][2] else '') +
-                ('\n紫外线较强, 出门注意防晒措施' if weather['uv'][2] else '')
+                '\n' +
+                weather_city.get_weather_today_text()
             )

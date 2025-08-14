@@ -1,3 +1,5 @@
+import operator
+
 from abstract.bases.importer import datetime, time, itertools, io, pandas
 from abstract.bases.importer import matplotlib, sys
 from PIL import Image
@@ -5,16 +7,15 @@ import matplotlib.pyplot
 import matplotlib.dates
 
 from abstract.apis.weather import WEATHER_API, WeatherAPI
-from abstract.apis.table import GROUP_OPTION_TABLE
-from abstract.bases.log import LOG
+from abstract.apis.table import *
 from abstract.bases.exceptions import *
-from abstract.session import Session
+from abstract.message import *
 from config import CONFIG
 
 matplotlib.pyplot.rcParams["font.family"] = CONFIG['zh_font']
 
 
-class Weather:
+class WeatherCity:
     """
     A class to fetch and manage weather information for a specified city using the WeatherAPI.
     It provides methods to retrieve today's weather and current weather conditions.
@@ -32,7 +33,7 @@ class Weather:
 
         self.city_name = api.search_city(self.city_id)['location'][0]['name']
 
-    def get_weather_today(self, session) -> dict[str: tuple[int, int] | tuple[str, str, bool] | tuple[int, str]]:
+    def get_weather_today(self) -> dict[str: tuple[int, int] | tuple[str, str, bool] | tuple[int, str]]:
         """
         Fetches today's weather information including temperature, weather conditions, and UV index.
         {
@@ -43,7 +44,7 @@ class Weather:
 
         :return: A dictionary containing today's weather details.
         """
-        response = self.api.get_weather_prediction(3, self.city_id, session=session)
+        response = self.api.get_weather_prediction(3, self.city_id)
         max_temp = int(response['daily'][0]['tempMax'])
         min_temp = int(response['daily'][0]['tempMin'])
         weather_day = response['daily'][0]['textDay']
@@ -68,7 +69,19 @@ class Weather:
             'uv': (uv, uv_text, uv >= 7)
         }
 
-    def get_weather_now(self, session: Session) -> dict[str: tuple[time.struct_time] | tuple[int, int] | tuple[int] | tuple[str, bool]]:
+    def get_weather_today_text(self):
+        weather = self.get_weather_today()
+        return (
+            '今日天气:'
+            f'\n  城市: {self.city_name}'
+            f'\n  温度: {" - ".join(map(str, weather["temp"]))}℃'
+            f'\n  天气: 白天{weather["weather"][0]}, 晚上{weather["weather"][1]}'
+            f'\n  紫外线强度: {weather["uv"][1]}({weather["uv"][0]})' +
+            ('\n现在有雨, 出门注意带伞' if weather['weather'][2] else '') +
+            ('\n紫外线较强, 出门注意防晒措施' if weather['uv'][2] else '')
+        )
+
+    def get_weather_now(self) -> dict[str: tuple[time.struct_time] | tuple[int, int] | tuple[int] | tuple[str, bool]]:
         """
         Fetches the current weather information including temperature, humidity, weather conditions, and rain status.
         {
@@ -80,7 +93,7 @@ class Weather:
 
         :return: A dictionary containing current weather details.
         """
-        response = self.api.get_weather(self.city_id, session)
+        response = self.api.get_weather(self.city_id)
 
         time_obs = datetime.datetime.fromisoformat(response['now']['obsTime']).timetuple()
         temp = int(response['now']['temp'])
@@ -95,11 +108,24 @@ class Weather:
             'humidity': (humidity, )
         }
 
-    def get_weather_hourly(self, session: Session):
+    def get_weather_now_text(self):
+        weather = self.get_weather_now()
+        return (
+            '现在天气'
+            f'\n  城市: {self.city_name}'
+            f'\n  数据时间: {time.strftime("%H时%M分%S秒", weather["time"][0])}'
+            f'\n  温度: {weather["temp"][0]}℃'
+            f'\n  体感温度: {weather["temp"][1]}℃'
+            f'\n  天气: {weather["weather"][0]}'
+            f'\n  湿度: {weather["humidity"][0]}%' +
+            ('\n现在有雨, 出门注意带伞' if weather['weather'][1] else '')
+        )
+
+    def get_weather_hourly(self):
         """生成包含温度、湿度、降水概率和天气图标的折线图"""
         # 1. 准备数据
         # 解析天气数据并转换为可绘图格式
-        hourly_data = self.api.get_weather_prediction(24, self.city_id, True, session)['hourly']
+        hourly_data = self.api.get_weather_prediction(24, self.city_id, True)['hourly']
 
         # 提取需要的字段并转换数据类型
         data_list = []
@@ -251,19 +277,43 @@ class Weather:
         return png_binary
 
 
+class WeatherCityManager(dict):
+    """
+    A manager class for handling multiple WeatherCity instances.
+    It allows easy access to weather data for different cities.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def __getitem__(self, item) -> WeatherCity:
+        """Get the WeatherCity instance for the specified city."""
+        if item not in self.keys():
+            self[item] = WeatherCity(item)
+        return super().__getitem__(item)
+
+    def __setitem__(self, key, value):
+        return super().__setitem__(key, value)
+
+
 LOG.INF('Loading weather modules...')
 
-groups = set(itertools.chain(*GROUP_OPTION_TABLE.get_all('where city is not NULL', attr='city')))
-weather_modules: dict[str: Weather] = {}
-for city in groups:
+_groups = set(itertools.chain(*GROUP_OPTION_TABLE.get_all('where city is not NULL', attr='city')))
+WEATHER_CITY_MANAGER: dict[str: WeatherCity] = WeatherCityManager()
+for city in _groups:
     try:
-        weather_modules[city] = Weather(city, WEATHER_API)
+        WEATHER_CITY_MANAGER[city] = WeatherCity(city)
     except CityNotFound:
-        LOG.WAR(Exception)
+        for id, city in GROUP_OPTION_TABLE.get_all('where city is not NULL', attr='id, city'):
+            id = int(id)
+            GroupMessage(
+                f'未能找到此群默认城市 {city}, 已重置天气选项.',
+                Group(id)
+            ).send()
+        GROUP_OPTION_TABLE.set('city', city, 'weather_notice', 0)
         GROUP_OPTION_TABLE.set('city', city, 'city', None)
-        LOG.WAR(f'City {city} not found, removed from group options.')
+        LOG.WAR(f'City {city} not found, reset weather option of groups.')
 
 LOG.INF(
     'Loaded Weather modules:\n' +
-    ',\n'.join(weather_modules)
+    ',\n'.join(WEATHER_CITY_MANAGER)
 )
