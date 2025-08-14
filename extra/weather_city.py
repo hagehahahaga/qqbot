@@ -77,7 +77,7 @@ class WeatherCity:
             f'\n  温度: {" - ".join(map(str, weather["temp"]))}℃'
             f'\n  天气: 白天{weather["weather"][0]}, 晚上{weather["weather"][1]}'
             f'\n  紫外线强度: {weather["uv"][1]}({weather["uv"][0]})' +
-            ('\n现在有雨, 出门注意带伞' if weather['weather'][2] else '') +
+            ('\n今天有雨, 出门注意带伞' if weather['weather'][2] else '') +
             ('\n紫外线较强, 出门注意防晒措施' if weather['uv'][2] else '')
         )
 
