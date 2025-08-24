@@ -85,6 +85,7 @@ def weather_noticer():
             try:
                 city = WEATHER_CITY_MANAGER[city]
             except CityNotFound:
+                GROUP_OPTION_TABLE.set('city', city, 'weather_notice', 0)
                 GROUP_OPTION_TABLE.set('city', city, 'city', None)
                 LOG.WAR(f'City {city} from group {id} not found, reset from group options.')
                 try:
