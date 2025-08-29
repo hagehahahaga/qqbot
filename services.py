@@ -55,11 +55,13 @@ def weather_noticer():
     now = datetime.datetime.now()
 
     # 计算今天的目标时间
-    target_time = now.replace(hour=6, minute=30, second=0, microsecond=0)
+    target_time = [
+        now.replace(hour=6, minute=30, second=0, microsecond=0),
+        now.replace(hour=23, minute=00, second=0, microsecond=0),
+    ]
 
     # 如果当前时间已过今天的目标时间，则设定为明天的目标时间
-    if now > target_time:
-        target_time += datetime.timedelta(days=1)
+    target_time = min(map(lambda a: a if a > now else a + datetime.timedelta(days=1), target_time))
 
     # 计算需要等待的秒数
     wait_seconds = (target_time - now).total_seconds()
@@ -72,7 +74,7 @@ def weather_noticer():
         id = int(id)
         try:
             if not city:
-                GROUP_OPTION_TABLE.set('city', city, 'weather_notice', 0)
+                GROUP_OPTION_TABLE.set('id', id, 'weather_notice', 0)
                 try:
                     GroupMessage(
                         f'此群未设置默认天气城市, 已关闭天气提醒服务.',
@@ -85,8 +87,8 @@ def weather_noticer():
             try:
                 city = WEATHER_CITY_MANAGER[city]
             except CityNotFound:
-                GROUP_OPTION_TABLE.set('city', city, 'weather_notice', 0)
-                GROUP_OPTION_TABLE.set('city', city, 'city', None)
+                GROUP_OPTION_TABLE.set('id', id, 'weather_notice', 0)
+                GROUP_OPTION_TABLE.set('id', id, 'city', None)
                 LOG.WAR(f'City {city} from group {id} not found, reset from group options.')
                 try:
                     GroupMessage(
