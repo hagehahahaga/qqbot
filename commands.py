@@ -263,9 +263,9 @@ def option(message: MESSAGE, session: Session, args):
                 GROUP_OPTION_TABLE.set('id', message.target.id, key, value)
             except Exception as error:
                 match error:
-                    case pymysql.OperationalError(args=(1054, x)):
+                    case pymysql.OperationalError(args=(1054, _)):
                         raise CommandCancel('错误: 设置项不存在.')
-                    case pymysql.OperationalError(args=(3819, x)):
+                    case pymysql.OperationalError(args=(3819, _)):
                         raise CommandCancel('错误: 本群不在白名单中或输入不合法.')
                     case _:
                         LOG.WAR(f'Group option {key} set failed.')
@@ -280,7 +280,7 @@ def option(message: MESSAGE, session: Session, args):
                 )
             except Exception as error:
                 match error:
-                    case pymysql.OperationalError(args=(1054, x)):
+                    case pymysql.OperationalError(args=(1054, _)):
                         raise CommandCancel('错误: 查询项不存在.')
                     case _:
                         LOG.WAR(f'Group option {key} query failed.')
@@ -307,7 +307,7 @@ def transfer(message: MESSAGE, session: Session, args):
                 raise CommandCancel('输入的额度无法转换为数字!')
             match args:
                 case [AtMessage(target=recipients), TextMessage(), AtMessage(target=target)]:
-                    if recipients.get_points() < num:\
+                    if recipients.get_points() < num:
                         raise CommandCancel('转账人余额不足!')
                     recipients.add_points(-num)
                     target.add_points(num)
@@ -796,7 +796,12 @@ def TTS(message: MESSAGE, session: Session, args):
     )
 
 
-@BOT.register_command(('svc', 'ai变音', '变音', '变声'), {'needed_type': RecordMessage, 'needed_num': 1}, 'ai变音', cancelable=True)
+@BOT.register_command(
+    ('svc', 'ai变音', '变音', '变声'),
+    {'needed_type': RecordMessage, 'needed_num': 1},
+    'ai变音',
+    cancelable=True
+)
 @cost(2)
 @ask_for_wait
 def SVC(message: MESSAGE, session: Session, args: list[RecordMessage]):
