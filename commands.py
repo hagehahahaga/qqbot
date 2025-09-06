@@ -170,43 +170,43 @@ def pic_searching(message: MESSAGE, session: Session, image: list[ImageMessage])
 @ask_for_wait
 @cost(2)
 def random_pic(message: MESSAGE, session: Session, args):
-    if type(message) is GroupMessage:
-        r18 = GROUP_OPTION_TABLE.get(f'where id = {message.target.id}', attr='r18')[0]
-    else:
-        r18 = 0
-    output = InterruptibleRequest(session).run(
-        url='https://api.lolicon.app/setu/v2?' +
-            (
-                args[0] if args else
-                CONFIG.get('commands_configs', {}).get('random_pic', {}).get('default_tags', '')
-            ) +
-            '&size=regular&size=original&'
-            'excludeAI=true&'
-            f'r18={r18}'
-    ).json()
+    def worker():
+        nonlocal message, session, args, r18, retry_times
+        if retry_times >= 3:
+            raise CommandCancel('失败次数过多, 放弃.')
+        retry_times += 1
+        output = InterruptibleRequest(session).run(
+            url='https://api.lolicon.app/setu/v2?' +
+                (
+                    args[0] if args else
+                    CONFIG.get('commands_configs', {}).get('random_pic', {}).get('default_tags', '')
+                ) +
+                '&size=regular&size=original&'
+                'excludeAI=true&'
+                f'r18={r18}'
+        ).json()
 
-    if output['error']:
-        raise CommandCancel(f'图床错误: {output["error"]}')
+        if output['error']:
+            raise CommandCancel(f'图床错误: {output["error"]}')
 
-    try:
-        output = output['data'][0]
-        image = PIL.Image.open(
-            io.BytesIO(
-                InterruptibleRequest(session).run(output["urls"].get("regular", output["urls"]['original'])).content
-            )
-        )
-    except IndexError:
-        raise CommandCancel('无结果, 可能是你的xp太邪门了.')
-    except (PIL.UnidentifiedImageError, requests.ConnectionError):
-        message.reply_text('图片获取失败, 重试中...')
-        random_pic.__wrapped__.__wrapped__(message, session, args)
-        return
-    image.putpixel((0, 0), image.getpixel((0, 1)))
-    image_file = io.BytesIO()
-    try:
-        image.save(image_file, format='PNG')
-        image_file.seek(0)
         try:
+            output = output['data'][0]
+            image = PIL.Image.open(
+                io.BytesIO(
+                    InterruptibleRequest(session).run(output["urls"].get("regular", output["urls"]['original'])).content
+                )
+            )
+        except IndexError:
+            raise CommandCancel('无结果, 可能是你的xp太邪门了.')
+        except (PIL.UnidentifiedImageError, requests.ConnectionError):
+            message.reply_text('图片获取失败, 重试中...')
+            worker()
+            return
+        image.putpixel((0, 0), image.getpixel((0, 1)))
+        image_file = io.BytesIO()
+        try:
+            image.save(image_file, format='PNG')
+            image_file.seek(0)
             message.reply(
                 [
                     TextMessage(
@@ -223,9 +223,17 @@ def random_pic(message: MESSAGE, session: Session, args):
         except SendFailure:
             message.reply_text('发送失败, 重试中...')
             LOG.WAR('Pic send failed. ')
-            random_pic.__wrapped__.__wrapped__(message, session, args)
-    finally:
-        image_file.close()
+            worker()
+        finally:
+            image_file.close()
+
+    if isinstance(message, GroupMessage):
+        r18 = GROUP_OPTION_TABLE.get(f'where id = {message.target.id}', attr='r18')[0]
+    else:
+        r18 = 0
+    retry_times = 0
+
+    worker()
 
 
 @BOT.register_command(('compress', '压缩', '压缩图'), {'needed_type': ImageMessage}, '一键电子包浆')
