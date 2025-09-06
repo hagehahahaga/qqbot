@@ -6,6 +6,7 @@ from abstract.bases.importer import json, PIL
 import PIL.Image
 from third.PicImageSearch.sync import *
 
+import abstract.message
 from abstract.message import *
 from abstract.bot import BOT
 from abstract.session import Session
@@ -15,7 +16,7 @@ from abstract.apis.table import GROUP_OPTION_TABLE, STOCK_TABLE, NOTICE_SCHEDULE
 from abstract.apis.table import NULL
 from abstract.bases.interruptible_tasks.interruptible_request import InterruptibleRequest
 from extra.vits_speaker import SPEAKER_MANAGER
-from extra.weather_city import WEATHER_CITY_MANAGER, WeatherCity
+from extra.weather_city import WEATHER_CITY_MANAGER
 from abstract.bases.one_time_var import OneTimeVar
 
 
