@@ -47,9 +47,12 @@ class Session:
             raise AssertionError(f'{timeout}秒内未继续输入, 指令已取消')
         finally:
             self.getting = False
-        args = result.get_parts_by_type(TextMessage)
-        if args and text_to_args(args[0].text)[0] == 'cancel':
-            raise CommandCancel('用户取消输入.')
+        try:
+            args = result.get_parts_by_type(TextMessage)
+            if args and text_to_args(args[0].text)[0] == 'cancel':
+                raise CommandCancel('用户取消输入.')
+        except IndexError:
+            ...
         return result
 
     def handle(self, message: MESSAGE, command_name, is_command: bool):
