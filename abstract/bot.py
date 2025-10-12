@@ -1,4 +1,4 @@
-from abstract.bases.importer import operator, last_commit, psutil, inspect
+from abstract.bases.importer import operator, last_commit, psutil, inspect, platform
 
 import abstract
 from abstract.command import CommandGroup, Command
@@ -330,8 +330,10 @@ def version(message: MESSAGE, session: Session):
 
 @BOT.register_command(('status', '状态', '状态信息'))
 def status(message: MESSAGE, session: Session):
+    system = platform.system()
     message.reply_text(
         '当前状态:\n'
-        f'  cpu:{psutil.cpu_percent()}%({psutil.sensors_temperatures()["coretemp"][0].current}℃)\n'
+        f'  cpu:{psutil.cpu_percent()}%'
+        f'  ({psutil.sensors_temperatures()["coretemp"][0].current if system == "Linux" else "当前平台不支持温度传感"}℃)\n'
         f'  dram:{psutil.virtual_memory().available / (1024 ** 3)}GiB可用'
     )

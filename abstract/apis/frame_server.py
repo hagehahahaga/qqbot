@@ -6,8 +6,9 @@ from abstract.bases.log import LOG
 
 
 class FrameServer(abc.ABC):
-    def __init__(self, host: str):
+    def __init__(self, host: str, token: str):
         self.host = host.removesuffix('/')
+        self.token = token
 
     @abc.abstractmethod
     def get_msg(self, message_id: int) -> dict: ...
@@ -174,12 +175,14 @@ class OneBotHttpServer(FrameServer):
 
     def get_login_info(self) -> dict:
         return requests.get(
+            headers={"Authorization": self.token},
             url=self.host + '/get_login_info'
         ).json()['data']
 
     def get_record(self, file_id: str) -> bytes:
         return base64.urlsafe_b64decode(
             requests.post(
+                headers={"Authorization": self.token},
                 url=self.host + '/get_record',
                 json={
                     'file_id': file_id,
@@ -190,6 +193,7 @@ class OneBotHttpServer(FrameServer):
 
     def get_msg(self, message_id: int) -> dict:
         return requests.get(
+            headers={"Authorization": self.token},
             url=self.host + '/get_msg',
             params={
                 'message_id': message_id
@@ -198,7 +202,8 @@ class OneBotHttpServer(FrameServer):
 
     def send_group_msg(self, message) -> int:
         data = requests.post(
-            self.host + '/send_group_msg',
+            headers={"Authorization": self.token},
+            url=self.host + '/send_group_msg',
             json={
                 'group_id': message.target.id,
                 'message': message.get_json()
@@ -210,7 +215,8 @@ class OneBotHttpServer(FrameServer):
 
     def send_private_msg(self, message) -> int:
         data = requests.post(
-            self.host + '/send_private_msg',
+            headers={"Authorization": self.token},
+            url=self.host + '/send_private_msg',
             json={
                 'user_id': message.target.id,
                 'message': message.get_json()
@@ -222,6 +228,7 @@ class OneBotHttpServer(FrameServer):
 
     def get_stranger_info(self, id: int):
         return requests.get(
+            headers={"Authorization": self.token},
             url=self.host + '/get_stranger_info',
             params={
                 'user_id':  id
@@ -230,6 +237,7 @@ class OneBotHttpServer(FrameServer):
 
     def get_group_info(self, id: int):
         return requests.get(
+            headers={"Authorization": self.token},
             url=self.host + '/get_group_info',
             params={
                 'group_id':  id
@@ -238,6 +246,7 @@ class OneBotHttpServer(FrameServer):
 
     def set_friend_add_request(self, flag: str, approve: bool = True):
         return requests.get(
+            headers={"Authorization": self.token},
             url=self.host + '/set_friend_add_request',
             params={
                 'flag': flag,
@@ -247,6 +256,7 @@ class OneBotHttpServer(FrameServer):
 
     def set_group_add_request(self, flag: str, approve: bool = True):
         return requests.get(
+            headers={"Authorization": self.token},
             url=self.host + '/set_group_add_request',
             params={
                 'flag': flag,
@@ -256,17 +266,20 @@ class OneBotHttpServer(FrameServer):
 
     def get_friend_list(self) -> list:
         return requests.get(
+            headers={"Authorization": self.token},
             url=self.host + '/get_friend_list'
         ).json()['data']
 
     def get_group_list(self) -> list:
         return requests.get(
+            headers={"Authorization": self.token},
             url=self.host + '/get_group_list'
         ).json()['data']
 
     @dispatch
     def poke(self, user_id: int, group_id: int) -> None:
         requests.get(
+            headers={"Authorization": self.token},
             url=self.host + '/send_poke',
             params={
                 'group_id': group_id,
@@ -277,6 +290,7 @@ class OneBotHttpServer(FrameServer):
     @dispatch
     def poke(self, user_id: int) -> None:
         requests.get(
+            headers={"Authorization": self.token},
             url=self.host + '/send_poke',
             params={
                 'user_id': user_id,
@@ -285,6 +299,7 @@ class OneBotHttpServer(FrameServer):
 
     def get_forward_msg(self, message_id: str) -> list[dict]:
         return requests.get(
+            headers={"Authorization": self.token},
             url=self.host + '/get_forward_msg',
             params={
                 'message_id': message_id
@@ -293,5 +308,5 @@ class OneBotHttpServer(FrameServer):
 
 
 LOG.INF('Loading Frame Server API...')
-FRAME_SERVER = OneBotHttpServer(CONFIG['frame_server_url'])
+FRAME_SERVER = OneBotHttpServer(**CONFIG['frame_server_config'])
 LOG.INF(f'Frame Server API loaded: {FRAME_SERVER.host}')

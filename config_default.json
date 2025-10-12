@@ -1,5 +1,8 @@
 {
-  "frame_server_url": "",
+  "frame_server_config": {
+    "host": "",
+    "token": ""
+  },
   "sql_config": {
     "host": "",
     "user": "",
