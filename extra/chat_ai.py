@@ -25,6 +25,8 @@ class LLM:
                     return {'url': message[2]}
                 case 'text':
                     return message[2]
+                case _:
+                    raise ValueError(f'Unknown message type{message[1]}')
 
         def get_part_from_role_group(role, group):
             match role:

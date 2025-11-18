@@ -1,6 +1,7 @@
-from abstract.bases.importer import Iterable, threading, sys
-from abstract.bases.exceptions import *
+from abstract.bases.importer import Iterable, threading, inspect
 
+from abstract.bases.exceptions import *
+from abstract.bases.log import LOG
 from abstract.message import MESSAGE_PART
 
 
@@ -9,11 +10,28 @@ class Command:
             self,
             func,
             command_names: Iterable,
-            type: int | dict[str: MESSAGE_PART | str: int] = 0,
+            type: int | dict[str, MESSAGE_PART | int] = 0,
             info='',
             cancelable=False
     ):
-        self.func = func
+        def decorated(*args, **kwargs):
+            message = args[list(inspect.signature(func).parameters).index('message')]
+            try:
+                func(*args, **kwargs)
+            except SendFailure as error:
+                LOG.WAR(error)
+                message.reply_text(error.__str__())
+            except (CommandCancel, OperationInterrupted) as error:
+                LOG.WAR(error)
+                message.reply_text(error.__str__())
+            except AssertionError as error:
+                LOG.WAR(error)
+                message.reply_text(f'检查不通过: {error.__str__()}.')
+            except Exception as error:
+                LOG.ERR(error)
+                message.reply_text(f'错误: {error}. 哥我错啦——')
+                raise error
+        self.func = decorated
         self.command_names = command_names
         self.type = type
         self.info = info

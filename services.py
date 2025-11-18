@@ -49,64 +49,141 @@ def noticer():
     time.sleep(1)
 
 
-@BOT.register_service('weather_noticer', auto_restart=True)
-def weather_noticer():
-    # 获取当前时间
+def _get_wait_seconds(target_times: list[datetime.datetime]) -> float:
+    """计算距离最近目标时间的等待秒数（通用时间处理逻辑）"""
     now = datetime.datetime.now()
+    # 筛选未过期的目标时间，若均过期则取明天的同一时间
+    valid_targets = [t if t > now else t + datetime.timedelta(days=1) for t in target_times]
+    nearest_target = min(valid_targets)  # 取最近的目标时间
+    return (nearest_target - now).total_seconds()
 
-    # 计算今天的目标时间
-    target_time = [
-        now.replace(hour=6, minute=30, second=0, microsecond=0),
-        now.replace(hour=23, minute=00, second=0, microsecond=0),
-    ]
 
-    # 如果当前时间已过今天的目标时间，则设定为明天的目标时间
-    target_time = min(map(lambda a: a if a > now else a + datetime.timedelta(days=1), target_time))
-
-    # 计算需要等待的秒数
-    wait_seconds = (target_time - now).total_seconds()
-
-    # 等待到目标时间
-    time.sleep(wait_seconds)
-
-    # 执行任务
+def _execute_weather_task(
+        weather_getter: typing.Callable,  # 获取天气数据的方法（差异化逻辑）
+        message_cls: typing.Type,  # 消息类型（ImageMessage/TextMessage，差异化逻辑）
+):
+    """执行天气提醒任务的通用逻辑（处理群组、城市验证、消息发送）"""
     for id, city in GROUP_OPTION_TABLE.get_all('where weather_notice = 1', attr="id, city"):
-        id = int(id)
+        group_id = int(id)
         try:
+            # 处理未设置城市的情况
             if not city:
-                GROUP_OPTION_TABLE.set('id', id, 'weather_notice', 0)
+                GROUP_OPTION_TABLE.set('id', group_id, 'weather_notice', 0)
                 try:
                     GroupMessage(
                         f'此群未设置默认天气城市, 已关闭天气提醒服务.',
-                        Group(id)
+                        Group(group_id)
                     ).send()
                 except SendFailure as e:
                     LOG.WAR(e)
                 continue
 
+            # 验证城市是否存在
             try:
-                city = WEATHER_CITY_MANAGER[city]
+                city_obj = WEATHER_CITY_MANAGER[city]
             except CityNotFound:
-                GROUP_OPTION_TABLE.set('id', id, 'weather_notice', 0)
-                GROUP_OPTION_TABLE.set('id', id, 'city', None)
-                LOG.WAR(f'City {city} from group {id} not found, reset from group options.')
+                GROUP_OPTION_TABLE.set('id', group_id, 'weather_notice', 0)
+                GROUP_OPTION_TABLE.set('id', group_id, 'city', None)
+                LOG.WAR(f'City {city} from group {group_id} not found, reset from group options.')
                 try:
                     GroupMessage(
                         f'未能找到此群默认城市 {city}, 已重置天气选项.',
-                        Group(id)
+                        Group(group_id)
                     ).send()
                 except SendFailure as e:
                     LOG.WAR(e)
                 continue
 
+            # 发送对应类型的天气消息（差异化逻辑通过参数传入）
             GroupMessage(
-                [
-                    TextMessage(city.get_weather_today_text()),
-                    ImageMessage(city.get_weather_hourly())
-                ],
-                Group(id)
+                message_cls(weather_getter(city_obj)),
+                Group(group_id)
             ).send()
+
         except SendFailure as e:
             LOG.WAR(e)
         except Exception as e:
             LOG.ERR(e)
+
+
+@BOT.register_service('weather_predictor_hourly', auto_restart=True)
+def weather_predictor_hourly():
+    # 每小时任务的差异化参数：目标时间、天气获取方法、消息类型
+    now = datetime.datetime.now()
+    target_times = [
+        now.replace(hour=6, minute=30, second=0, microsecond=0),
+        now.replace(hour=23, minute=0, second=0, microsecond=0),
+    ]
+
+    # 等待到目标时间
+    wait_seconds = _get_wait_seconds(target_times)
+    time.sleep(wait_seconds)
+
+    # 执行任务（传入 hourly 特有的逻辑）
+    _execute_weather_task(
+        weather_getter=lambda city: city.get_weather_hourly(),
+        message_cls=ImageMessage
+    )
+
+
+@BOT.register_service('weather_predictor_daily', auto_restart=True)
+def weather_predictor_daily():
+    # 每日任务的差异化参数：目标时间、天气获取方法、消息类型
+    now = datetime.datetime.now()
+    target_times = [
+        now.replace(hour=23, minute=00, second=0, microsecond=0)
+    ]
+
+    # 等待到目标时间
+    wait_seconds = _get_wait_seconds(target_times)
+    time.sleep(wait_seconds)
+
+    # 执行任务（传入 daily 特有的逻辑）
+    _execute_weather_task(
+        weather_getter=lambda city: city.get_weather_day_text(delay=1),
+        message_cls=TextMessage
+    )
+
+
+@BOT.register_service('weather_today', auto_restart=True)
+def weather_today():
+    # 每日任务的差异化参数：目标时间、天气获取方法、消息类型
+    now = datetime.datetime.now()
+    target_times = [
+        now.replace(hour=6, minute=30, second=0, microsecond=0)
+    ]
+
+    # 等待到目标时间
+    wait_seconds = _get_wait_seconds(target_times)
+    time.sleep(wait_seconds)
+
+    # 执行任务（传入 daily 特有的逻辑）
+    _execute_weather_task(
+        weather_getter=lambda city: city.get_weather_day_text(delay=0),
+        message_cls=TextMessage
+    )
+
+
+@BOT.register_service('weather_predictor_weekly', auto_restart=True)
+def weather_predictor_weekly():
+    """每周日23点执行一次，发送7天天气预报图表（修复负等待时间问题）"""
+    now = datetime.datetime.now()
+
+    # 计算下一个周日23:00:00
+    days_until_sunday = (6 - now.weekday()) % 7  # 0=今天是周日，1=明天是周日，...，6=下周六
+    next_sunday = now + datetime.timedelta(days=days_until_sunday)
+    target_time = next_sunday.replace(hour=23, minute=0, second=0, microsecond=0)
+
+    # 关键修复：如果目标时间已过期（如周日23点后执行），则延后一周
+    if target_time <= now:
+        target_time += datetime.timedelta(days=7)
+
+    # 等待到目标时间（此时wait_seconds一定非负）
+    wait_seconds = (target_time - now).total_seconds()
+    time.sleep(wait_seconds)
+
+    # 执行任务（复用现有逻辑）
+    _execute_weather_task(
+        weather_getter=lambda city: city.get_weather_daily(),
+        message_cls=ImageMessage
+    )

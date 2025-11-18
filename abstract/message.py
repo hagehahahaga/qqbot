@@ -1,3 +1,6 @@
+import typing
+from abc import ABC
+
 from abstract.bases.importer import abc, base64, pathlib, requests, dispatch, Iterable
 
 from config import CONFIG
@@ -95,6 +98,7 @@ class ImageMessage(BaseMessagePart):
         if self.url:
             self.data = requests.get(self.url).content
             return self.data
+        raise ValueError('The image neither has data nor url!')
 
     def get_json(self):
         if self.data:
@@ -150,7 +154,7 @@ class NodeMessage(BaseMessagePart):
 MESSAGE_PART = RecordMessage | ReplyMessage | AtMessage | TextMessage | ImageMessage | NodeMessage
 
 
-class BaseMessage:
+class BaseMessage(ABC):
     send_api: classmethod
     target: User | Group
 
@@ -231,9 +235,13 @@ class BaseMessage:
             )
         )
 
-    def split_when(self, condition) -> list[MESSAGE_PART] | MESSAGE_PART:
+    def split_when(self, condition) -> typing.Generator[list[MESSAGE_PART] | MESSAGE_PART]:
         for out in split_when(self.messages, condition):
             yield out
+
+    def delete(self):
+        FRAME_SERVER.delete_message(self.message_id)
+        LOG.INF(f'Deleted message {self.message_id}')
 
 
 class PrivateMessage(BaseMessage):
@@ -389,7 +397,7 @@ def text_to_args(text: str) -> list[str]:
     )
 
 
-def split_when(inpu, condition) -> list[MESSAGE_PART] | MESSAGE_PART:
+def split_when(inpu, condition) -> typing.Generator[list[MESSAGE_PART] | MESSAGE_PART]:
     output = []
     for part in inpu:
         if condition(part):

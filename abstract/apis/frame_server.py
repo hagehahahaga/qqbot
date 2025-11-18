@@ -160,6 +160,15 @@ class FrameServer(abc.ABC):
     :rtype: dict
     """
 
+    @abc.abstractmethod
+    def delete_message(self, message_id: int) -> None: ...
+    """
+    撤回消息
+    
+    :param message_id: 消息ID
+    :type message_id: int
+    """
+
 
 class OneBotHttpServer(FrameServer):
     """
@@ -172,6 +181,15 @@ class OneBotHttpServer(FrameServer):
 
     :raises SendFailure: 发送消息失败时抛出
     """
+
+    def delete_message(self, message_id: int) -> None:
+        requests.get(
+            headers={"Authorization": self.token},
+            url=self.host + '/delete_msg',
+            params={
+                'message_id': message_id
+            }
+        )
 
     def get_login_info(self) -> dict:
         return requests.get(

@@ -21,8 +21,6 @@ class WeatherAPI(abc.ABC):
         """
         Fetches the current weather data for a specific location.
 
-        :param session: The session object for managing state.
-        :type session: abstract.session.Session
         :param location: The location ID or name.
 
         :return: A dictionary containing the current weather data.
@@ -33,8 +31,6 @@ class WeatherAPI(abc.ABC):
         """
         Fetches weather predictions for a specific location.
 
-        :param session: The session object for managing state.
-        :type session: abstract.session.Session
         :param time: The number of days or hours for the forecast (3, 7, 10, 15, 30 for days; 24, 48, 72 for hours).
         :param location: The location ID or name.
         :param hourly: If True, fetches hourly predictions; otherwise, fetches daily predictions.
@@ -47,8 +43,6 @@ class WeatherAPI(abc.ABC):
         """
         Searches for a city by name and returns its location ID.
 
-        :param session: The session object for managing state.
-        :type session: abstract.session.Session
         :param city_name: The name of the city to search for.
 
         :return: A dictionary containing the search results.

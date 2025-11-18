@@ -1,12 +1,10 @@
-import operator
-
 from abstract.bases.importer import datetime, time, itertools, io, pandas
-from abstract.bases.importer import matplotlib, sys
+from abstract.bases.importer import matplotlib
 from PIL import Image
 import matplotlib.pyplot
 import matplotlib.dates
 
-from abstract.apis.weather import WEATHER_API, WeatherAPI
+from extra.weather import WEATHER_API, WeatherAPI
 from abstract.apis.table import *
 from abstract.bases.exceptions import *
 from abstract.message import *
@@ -33,7 +31,7 @@ class WeatherCity:
 
         self.city_name = api.search_city(self.city_id)['location'][0]['name']
 
-    def get_weather_today(self) -> dict[str: tuple[int, int] | tuple[str, str, bool] | tuple[int, str]]:
+    def get_weather_day(self, delay = 0) -> dict[str, tuple[int, int] | tuple[str, str, bool] | tuple[int, str]]:
         """
         Fetches today's weather information including temperature, weather conditions, and UV index.
         {
@@ -45,11 +43,11 @@ class WeatherCity:
         :return: A dictionary containing today's weather details.
         """
         response = self.api.get_weather_prediction(3, self.city_id)
-        max_temp = int(response['daily'][0]['tempMax'])
-        min_temp = int(response['daily'][0]['tempMin'])
-        weather_day = response['daily'][0]['textDay']
-        weather_night = response['daily'][0]['textNight']
-        uv = int(response['daily'][0]['uvIndex'])
+        max_temp = int(response['daily'][delay]['tempMax'])
+        min_temp = int(response['daily'][delay]['tempMin'])
+        weather_day = response['daily'][delay]['textDay']
+        weather_night = response['daily'][delay]['textNight']
+        uv = int(response['daily'][delay]['uvIndex'])
 
         match uv:
             case _ if uv in range(0, 3):
@@ -69,19 +67,29 @@ class WeatherCity:
             'uv': (uv, uv_text, uv >= 7)
         }
 
-    def get_weather_today_text(self):
-        weather = self.get_weather_today()
+    def get_weather_day_text(self, delay = 0):
+        weather = self.get_weather_day(delay)
+        match delay:
+            case 0:
+                delay_text = '今日'
+            case 1:
+                delay_text = '明天'
+            case 2:
+                delay_text = '后天'
+            case _:
+                delay_text = f'{delay}天后'
         return (
-            '今日天气:'
+            delay_text +
+            '天气:'
             f'\n  城市: {self.city_name}'
             f'\n  温度: {" - ".join(map(str, weather["temp"]))}℃'
             f'\n  天气: 白天{weather["weather"][0]}, 晚上{weather["weather"][1]}'
             f'\n  紫外线强度: {weather["uv"][1]}({weather["uv"][0]})' +
-            ('\n今天有雨, 出门注意带伞' if weather['weather'][2] else '') +
-            ('\n紫外线较强, 出门注意防晒措施' if weather['uv'][2] else '')
+            ('\n有雨, 出门注意带伞' if weather['weather'][2] else '') +
+            ('\n紫外线较强, 出门注意防晒' if weather['uv'][2] else '')
         )
 
-    def get_weather_now(self) -> dict[str: tuple[time.struct_time] | tuple[int, int] | tuple[int] | tuple[str, bool]]:
+    def get_weather_now(self) -> dict[str, tuple[time.struct_time] | tuple[int, int] | tuple[int] | tuple[str, bool]]:
         """
         Fetches the current weather information including temperature, humidity, weather conditions, and rain status.
         {
@@ -121,160 +129,378 @@ class WeatherCity:
             ('\n现在有雨, 出门注意带伞' if weather['weather'][1] else '')
         )
 
-    def get_weather_hourly(self):
-        """生成包含温度、湿度、降水概率和天气图标的折线图"""
-        # 1. 准备数据
-        # 解析天气数据并转换为可绘图格式
-        hourly_data = self.api.get_weather_prediction(24, self.city_id, True)['hourly']
-
-        # 提取需要的字段并转换数据类型
-        data_list = []
-        for item in hourly_data:
-            # 时间格式转换：字符串 -> datetime
-            fx_time = datetime.datetime.fromisoformat(item['fxTime'].replace('+08:00', ''))
-            # 数值字段转换为float/int
-            data_list.append({
-                'fxTime': fx_time,
-                'temp': float(item['temp']),         # 温度
-                'humidity': float(item['humidity']),  # 湿度
-                'pop': float(item['pop']),           # 降水概率
-                'icon': int(item['icon'])            # 天气图标代码
-            })
-
-        # 转换为DataFrame便于处理
-        data = pandas.DataFrame(data_list)
-
-        if data.empty:
+    @staticmethod
+    def _parse_common_weather_data(raw_data: list, data_type: str) -> pandas.DataFrame:
+        """
+        通用天气数据解析函数（适配hourly/daily数据）
+        :param raw_data: 原始接口数据（hourly/daily列表）
+        :param data_type: 数据类型（'hourly'/'daily'）
+        :return: 标准化DataFrame
+        """
+        if not raw_data:
             raise ValueError("没有可用的天气数据")
 
+        data_list = []
+        for item in raw_data:
+            row = {}
+            if data_type == 'hourly':
+                # 24小时数据解析（复用原有逻辑，供原接口调用）
+                row['time'] = datetime.datetime.fromisoformat(item['fxTime'].replace('+08:00', ''))
+                row['temp'] = float(item['temp'])
+                row['humidity'] = float(item['humidity'])
+                row['pop'] = float(item['pop'])
+                row['icon'] = int(item['icon'])
+            elif data_type == 'daily':
+                # 7天数据解析（新增逻辑）
+                row['date'] = datetime.datetime.strptime(item['fxDate'], '%Y-%m-%d')
+                row['temp_max'] = float(item['tempMax'])
+                row['temp_min'] = float(item['tempMin'])
+                row['humidity'] = float(item['humidity'])
+                row['precip'] = float(item['precip'])
+                row['uv_index'] = int(item['uvIndex']) if item['uvIndex'].strip() else 0
+                row['icon_day'] = int(item['iconDay'])
+
+            data_list.append(row)
+
+        return pandas.DataFrame(data_list)
+
+    @staticmethod
+    def _get_uv_text(uv_index: int) -> str:
+        """紫外线强度指数转文字描述（通用逻辑）"""
+        match uv_index:
+            case _ if uv_index in range(0, 3):
+                return '最弱'
+            case _ if uv_index in range(3, 5):
+                return '弱'
+            case _ if uv_index in range(5, 7):
+                return '中等'
+            case _ if uv_index in range(7, 10):
+                return '强'
+            case _:
+                return '极强'
+
+    @staticmethod
+    def _add_weather_icon(
+            fig: matplotlib.pyplot.Figure,
+            ax: matplotlib.pyplot.Axes,
+            raw_x_pos: float,  # 原始数据点的x坐标（如时间/日期的数值）
+            xlim: tuple,  # 新增参数：x轴范围 (x_min, x_max)
+            icon_y_pos: float,  # 新增参数：图标y轴位置
+            icon_code: int,
+            api
+    ) -> None:
+        """
+        新增参数说明：
+        - raw_x_pos：原始数据点的x坐标（如时间的数值化结果）
+        - xlim：x轴的范围 (x_min, x_max)，用于计算相对位置
+        - icon_y_pos：图标在y轴的固定位置
+        """
+        try:
+            icon_bytes = api.get_icon(icon_code)
+            icon_img = Image.open(io.BytesIO(icon_bytes))
+
+            # 计算图标x轴的相对位置（核心公式，使用传入的xlim）
+            adjusted_x_pos = (raw_x_pos - xlim[0]) / (xlim[1] - xlim[0]) * 0.91 + 0.023
+
+            # 创建图标子图（使用新的位置和尺寸）
+            ax_icon = fig.add_axes((
+                adjusted_x_pos,  # 计算后的x位置
+                icon_y_pos,  # 传入的y位置
+                0.04,  # 宽度（缩小）
+                0.04  # 高度（缩小）
+            ), anchor='C')
+
+            ax_icon.imshow(icon_img, interpolation='nearest')
+            ax_icon.axis('off')
+            icon_img.close()
+        except Exception as e:
+            LOG.WAR(f"加载天气图标失败：{e}")
+
+    @staticmethod
+    def _save_figure_to_binary(fig: matplotlib.pyplot.Figure) -> bytes:
+        """通用图表保存为二进制函数（复用图片存储逻辑）"""
+        buffer = io.BytesIO()
+        fig.savefig(
+            buffer,
+            format='png',
+            dpi=300,
+            bbox_inches='tight',  # 改回官方支持的'tight'模式
+            pad_inches=0.1
+        )
+        buffer.seek(0)
+        png_binary = buffer.getvalue()
+        buffer.close()
+        matplotlib.pyplot.close(fig)
+        return png_binary
+
+    def get_weather_daily(self):
+        """生成7天天气预报图表（包含图标、温湿度、降水量、紫外线）"""
+        # 1. 数据获取与解析（调用通用解析函数）
+        raw_daily_data = self.api.get_weather_prediction(7, self.city_id, False)['daily']
+        data = self._parse_common_weather_data(raw_daily_data, data_type='daily')
+
+        # 2. 处理紫外线文字描述（调用通用转换函数）
+        data['uv_text'] = data['uv_index'].apply(self._get_uv_text)
+
+        # 3. 创建基础画布（复用布局逻辑，调整尺寸适配7天数据）
+        fig, ax1 = matplotlib.pyplot.subplots(figsize=(14, 8))
+        matplotlib.pyplot.subplots_adjust(top=0.85, bottom=0.15, left=0.08, right=0.92)
+
+        # 设置标题
+        ax1.set_title(self.city_name, fontsize=14, pad=10)
+        fig.suptitle('未来24小时天气趋势', fontsize=16, y=0.98)
+        ax1.set_xlabel('日期', fontsize=12, labelpad=10)
+        ax1.xaxis.set_major_locator(matplotlib.dates.DayLocator(interval=1))
+        ax1.xaxis.set_major_formatter(matplotlib.dates.DateFormatter('%d日'))
+
+        # 4. 绘制主轴：温度范围（最高温/最低温）
+        x_positions = range(len(data))
+        dates = data['date']
+        width = 0.35  # 柱状图宽度
+
+        # 计算全局温度极值（含所有最高温和最低温）
+        all_temps = pandas.concat([data['temp_max'], data['temp_min']])
+        global_min = all_temps.min()  # 所有温度中的最小值（可能为负）
+        global_max = all_temps.max()  # 所有温度中的最大值
+
+        # 设置y轴范围（预留缓冲，确保所有温度都在范围内）
+        buffer = 2  # 上下缓冲值（℃）
+        ax1.set_ylim(
+            bottom=global_min - buffer,  # 下限：比最低温度还低一点
+            top=global_max + 5  # 上限：比最高温度高5℃（避免碰图标）
+        )
+
+        # 最高温（红色柱状）：从y轴下限向上延伸到最高温
+        ax1.bar(
+            [x + width / 2 for x in x_positions],  # 右偏位置
+            height=data['temp_max'] - (global_min - buffer),  # 高度=最高温 - y轴下限（确保为正）
+            bottom=global_min - buffer,  # 底部从y轴下限开始
+            width=width,
+            color='tab:red',
+            alpha=0.7,
+            label='最高温'
+        )
+
+        # 最低温（蓝色柱状）：从y轴下限向上延伸到最低温
+        ax1.bar(
+            [x - width / 2 for x in x_positions],  # 左偏位置
+            height=data['temp_min'] - (global_min - buffer),  # 高度=最低温 - y轴下限（即使最低温为负，此处也为正）
+            bottom=global_min - buffer,  # 底部从y轴下限开始
+            width=width,
+            color='tab:blue',
+            alpha=0.7,
+            label='最低温'
+        )
+
+        # 温度数值标注
+        for i, (max_t, min_t) in enumerate(zip(data['temp_max'], data['temp_min'])):
+            ax1.text(i + width / 2, max_t + 0.3, f'{max_t:.0f}°C', ha='center', fontsize=9, color='tab:red')
+            ax1.text(i - width / 2, min_t + 0.3, f'{min_t:.0f}°C', ha='center', fontsize=9, color='tab:blue')
+
+        # 5. 创建副轴1：湿度（折线图）
+        ax2 = ax1.twinx()
+        ax2.plot(x_positions, data['humidity'], color='tab:green', marker='s',
+                 linestyle='-', linewidth=2, label='湿度', alpha=0.8)
+        ax2.set_ylabel('湿度 (%) / 降水量 (mm)', fontsize=12, labelpad=10)
+        ax2.tick_params(axis='y', labelcolor='tab:green')
+        ax2.set_ylim(0, 110)  # 湿度最大100%
+
+        # 湿度数值标注
+        for i, hum in enumerate(data['humidity']):
+            ax2.text(i, hum + 3, f'{hum:.0f}%', ha='center', fontsize=9, color='tab:green')
+
+        # 6. 创建副轴2：降水量（柱状图）
+        ax3 = ax1.twinx()
+        ax3.spines['right'].set_position(('outward', 60))  # 偏移避免与ax2重叠
+        ax3.bar(x_positions, data['precip'], width=0.2, color='tab:cyan', alpha=0.6, label='降水量')
+        ax3.tick_params(axis='y', labelcolor='tab:cyan')
+        ax3.set_ylim(0, max(data['precip'].max() * 1.5, 5))  # 适配无降水场景
+
+        # 降水量数值标注（无降水显示"无"）
+        for i, prec in enumerate(data['precip']):
+            text = f'{prec:.1f}mm' if prec > 0 else '无'
+            ax3.text(
+                i,
+                prec + 0.1,
+                text,
+                ha='center',
+                fontsize=13,
+                color='tab:cyan',
+                path_effects=[
+                    matplotlib.patheffects.Stroke(linewidth=1.5, foreground='black'),  # 黑色边框
+                    matplotlib.patheffects.Normal()  # 原始文字颜色
+                ]
+            )
+
+        # 7. 添加紫外线强度标注（文本形式）
+        # 先获取y轴范围（确保在绘制完温度柱后获取，此时y轴范围已确定）
+        ylim = ax1.get_ylim()  # 格式：(y_min, y_max)，包含所有温度的范围
+        # 计算紫外线标注的基础位置（占y轴总高度的70%，可根据需要调整）
+        # 确保在柱子上方且远离顶部图标（假设图标在85%高度以上）
+        uv_base_ratio = 0.7  # 基础比例（70%高度）
+        uv_text_offset = 0.05  # 文字间的垂直偏移比例
+
+        # 计算具体y坐标
+        uv_label_y = ylim[0] + (ylim[1] - ylim[0]) * uv_base_ratio  # “紫外线”文字位置
+        uv_value_y = ylim[0] + (ylim[1] - ylim[0]) * (uv_base_ratio - uv_text_offset)  # 强度文字位置
+
+        for i, (uv_text, uv_idx) in enumerate(zip(data['uv_text'], data['uv_index'])):
+            # 根据紫外线强度设置文字颜色
+            color = 'green' if uv_idx < 3 else 'orange' if uv_idx < 7 else 'red'
+
+            # 强度文字（如“中等”“强”）
+            ax1.text(
+                i, uv_value_y, uv_text,
+                ha='center', fontsize=13, color=color, fontweight='bold'
+            )
+            # “紫外线”标签文字
+            ax1.text(
+                i, uv_label_y, f'紫外线',
+                ha='center', fontsize=13, color=color, fontweight='bold'
+            )
+
+        # 8. 添加天气图标（调用通用图标函数）
+        # 1. 获取x轴范围和图标y位置（在绘制图标前定义）
+        xlim = ax1.get_xlim()  # x轴范围 (x_min, x_max)
+        icon_y_pos = 0.80  # 图标y轴位置（可根据图表调整）
+
+        # 遍历数据时，直接使用循环索引 i 作为 raw_x_pos
+        for i, (date, icon_code) in enumerate(zip(data['date'], data['icon_day'])):
+            raw_x_pos = i  # 替换为索引 0~6
+            self._add_weather_icon(
+                fig=fig,
+                ax=ax1,
+                raw_x_pos=raw_x_pos,  # 直接用索引 i
+                xlim=xlim,
+                icon_y_pos=icon_y_pos,
+                icon_code=icon_code,
+                api=self.api
+            )
+
+        # 9. 合并图例（适配三个轴的图例）
+        lines1, labels1 = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        lines3, labels3 = ax3.get_legend_handles_labels()
+        ax1.legend(
+            lines1 + lines2 + lines3,
+            labels1 + labels2 + labels3,
+            loc='upper right',  # 锚点为右上角
+            bbox_to_anchor=(1.05, 1.2),  # 向右偏移5%，向上偏移20%（完全在图像外上方）
+            fontsize=10,
+            ncol=1
+        )
+
+        # 10. 保存为二进制（调用通用保存函数）
+        return self._save_figure_to_binary(fig)
+
+    def get_weather_hourly(self):
+        """生成包含温度、湿度、降水概率和天气图标的24小时折线图（降冗版）"""
+        # 1. 数据获取与解析（复用通用解析函数）
+        hourly_raw_data = self.api.get_weather_prediction(24, self.city_id, True)['hourly']
+        data = self._parse_common_weather_data(hourly_raw_data, data_type='hourly')
+
+        # 2. 温度轴范围计算（保留原逻辑，适配小时级数据）
         temp_data = data['temp']
-        mean_temp = temp_data.mean()  # 平均值
-        max_temp = temp_data.max()    # 最大值
-        min_temp = temp_data.min()    # 最小值
-
-        # 计算最大偏差（取最大值与平均值的差、平均值与最小值的差中的较大者）
+        mean_temp = temp_data.mean()
+        max_temp = temp_data.max()
+        min_temp = temp_data.min()
         max_deviation = max(max_temp - mean_temp, mean_temp - min_temp)
-
-        # 根据公式计算温度轴范围：平均值 ± (最大偏差 + 1)
         temp_upper = mean_temp + max_deviation + 1
         temp_lower = mean_temp - max_deviation - 1
 
-        # 确保范围合理性（避免上下限相等或倒置）
+        # 确保温度轴范围合理
         if temp_upper <= temp_lower:
             temp_upper = mean_temp + 1
             temp_lower = mean_temp - 1
 
-        # 2. 创建画布和主轴（温度）
+        # 3. 创建画布和主轴（保留原布局，复用通用样式逻辑）
         fig, ax1 = matplotlib.pyplot.subplots(figsize=(16, 10))
-        matplotlib.pyplot.subplots_adjust(top=0.85)  # 减少顶部空间占用（为图标预留位置）
+        matplotlib.pyplot.subplots_adjust(top=0.85)
         ax1.set_title(self.city_name, fontsize=14, pad=10)
 
-        # 每1小时显示一个刻度（根据你的数据间隔调整，如30分钟用interval=30）
+        # 小时级时间刻度设置
         ax1.xaxis.set_major_locator(matplotlib.dates.HourLocator(interval=1))
         ax1.xaxis.set_major_formatter(matplotlib.dates.DateFormatter('%H点'))
 
-        # 3. 绘制温度折线（主纵轴）
+        # 4. 绘制温度折线（主纵轴，保留原样式）
         color1 = 'tab:red'
         ax1.set_xlabel('时间', fontsize=12, labelpad=10)
         ax1.set_ylabel('温度 (°C)', color=color1, fontsize=12, labelpad=10)
-        ax1.plot(data['fxTime'], data['temp'], color=color1, marker='o',
+        ax1.plot(data['time'], data['temp'], color=color1, marker='o',
                  linestyle='-', label='温度', linewidth=2)
         ax1.tick_params(axis='y', labelcolor=color1)
-        ax1.set_ylim(temp_lower, temp_upper)  # 固定温度最大值为50度（确保折线不会太高）
-        for i, (x, y) in enumerate(zip(data['fxTime'], data['temp'])):
-            # 计算与前后数据点的差值
+        ax1.set_ylim(temp_lower, temp_upper)
+
+        # 温度数值标注（保留原偏移逻辑）
+        for i, (x, y) in enumerate(zip(data['time'], data['temp'])):
             prev_diff = data['temp'][i - 1] - y if i > 0 else 0
             next_diff = data['temp'][i + 1] - y if i < len(data['temp']) - 1 else 0
-
-            # 取最大值作为偏移距离
             offset = max(prev_diff, next_diff)
-
             ax1.text(
-                x, y + (0.125 if offset == 0 else offset / 3),  # 只向上偏移
-                f'{y:.0f}°C',    # 显示温度值+单位
-                color='tab:red',  # 与折线同色
-                fontsize=9,
-                ha='center'  # 水平居中对齐
+                x, y + (0.125 if offset == 0 else offset / 3),
+                f'{y:.0f}°C', color=color1, fontsize=9, ha='center'
             )
 
-        # 4. 创建副纵轴（湿度和降水概率，共享x轴）
+        # 5. 创建副纵轴（湿度和降水概率，保留原逻辑）
         color2 = 'tab:blue'
         ax2 = ax1.twinx()
         ax2.set_ylabel('湿度 / 降水概率 (%)', color=color2, fontsize=12, labelpad=10)
+
+        # 湿度折线
         ax2.plot(
-            data['fxTime'], data['humidity'], color=color2, marker='s',
+            data['time'], data['humidity'], color=color2, marker='s',
             linestyle='--', label='湿度', linewidth=2, alpha=0.7
         )
-        for x, y in zip(data['fxTime'], data['humidity']):
-            ax2.text(
-                x, y + 3,    # 位置：在数据点上方偏移3单位（避免与折线重叠）
-                f'{y:.0f}%',     # 显示湿度值+单位
-                color='tab:blue',
-                fontsize=9,
-                ha='center'
-            )
+        for x, y in zip(data['time'], data['humidity']):
+            ax2.text(x, y + 3, f'{y:.0f}%', color=color2, fontsize=9, ha='center')
+
+        # 降水概率折线
         ax2.plot(
-            data['fxTime'], data['pop'], color='tab:green', marker='^',
+            data['time'], data['pop'], color='tab:green', marker='^',
             linestyle='-.', label='降水概率', linewidth=2, alpha=0.7
         )
-        for x, y in zip(data['fxTime'], data['pop']):
-            ax2.text(
-                x, y + 3,    # 位置：在数据点上方偏移3单位
-                f'{y:.0f}%',     # 显示降水概率+单位
-                color='tab:green',
-                fontsize=9,
-                ha='center'
-            )
-        ax2.tick_params(axis='y', labelcolor=color2)
-        ax2.set_ylim(0, 110)  # 固定湿度/降水概率最大值100%
+        for x, y in zip(data['time'], data['pop']):
+            ax2.text(x, y + 3, f'{y:.0f}%', color='tab:green', fontsize=9, ha='center')
 
-        # 5. 合并图例
+        ax2.tick_params(axis='y', labelcolor=color2)
+        ax2.set_ylim(0, 110)
+
+        # 6. 合并图例（保留原位置）
         lines1, labels1 = ax1.get_legend_handles_labels()
         lines2, labels2 = ax2.get_legend_handles_labels()
         ax1.legend(
             lines1 + lines2, labels1 + labels2,
-            loc='upper right',  # 图例移至右上角
-            bbox_to_anchor=(1, 1.1),  # 微调图例位置
-            fontsize=10
+            loc='upper right', bbox_to_anchor=(1, 1.1), fontsize=10
         )
 
-        # 6. 添加天气图标（在每个时间点顶部）
-        xlim = ax1.get_xlim()
-        icon_y_pos = 0.84
+        # 7. 添加天气图标（复用通用图标函数）
+        # 1. 获取x轴范围和图标y位置（在绘制图标前定义）
+        xlim = ax1.get_xlim()  # x轴范围 (x_min, x_max)
+        icon_y_pos = 0.82  # 图标y轴位置（可根据图表调整）
 
-        for idx, row in data.iterrows():
-            # 获取图标并调整大小
-            icon_bytes = self.api.get_icon(row['icon'])
-            icon_img = Image.open(io.BytesIO(icon_bytes))
-            x_pos = matplotlib.dates.date2num(row['fxTime'])
+        # 2. 遍历数据，调用修改后的_add_weather_icon
+        for i, (time, icon_code) in enumerate(zip(data['time'], data['icon'])):
+            # 原始x坐标（日期的索引，或日期的数值化结果）
+            raw_x_pos = matplotlib.dates.date2num(time)  # 7天预报用索引作为原始x坐标（更简单）
 
-            # 图标尺寸缩小，避免占用过多空间
-            ax_icon = fig.add_axes((
-                (x_pos - xlim[0])/(xlim[1]-xlim[0])*0.91 + 0.023,  # x位置
-                icon_y_pos,  # 下移后的y位置
-                0.04,  # 宽度缩小为2.5%
-                0.04   # 高度缩小为4%
-            ), anchor='C')
-            ax_icon.imshow(icon_img, interpolation='nearest')  # 保持图标清晰
-            ax_icon.axis('off')
-            icon_img.close()
+            # 传递所有必要参数
+            self._add_weather_icon(
+                fig=fig,
+                ax=ax1,
+                raw_x_pos=raw_x_pos,  # 原始x坐标（索引i）
+                xlim=xlim,  # 传递x轴范围
+                icon_y_pos=icon_y_pos,  # 传递y位置
+                icon_code=icon_code,
+                api=self.api
+            )
 
-        # 7. 设置标题和格式
+        # 8. 图表格式美化（保留原设置）
         fig.suptitle('未来24小时天气趋势', fontsize=16, y=0.98)
         ax1.grid(True, linestyle='--', alpha=0.5)
         matplotlib.pyplot.tight_layout()
 
-        # 8. 保存为二进制数据
-        buffer = io.BytesIO()
-        fig.savefig(buffer, format='png', dpi=300, bbox_inches='tight')
-        buffer.seek(0)
-        png_binary = buffer.getvalue()
-
-        # 清理资源
-        buffer.close()
-        matplotlib.pyplot.close(fig)
-
-        return png_binary
+        # 9. 保存为二进制（复用通用保存函数）
+        return self._save_figure_to_binary(fig)
 
 
 class WeatherCityManager(dict):
@@ -298,7 +524,7 @@ class WeatherCityManager(dict):
 LOG.INF('Loading weather modules...')
 
 _groups = set(itertools.chain(*GROUP_OPTION_TABLE.get_all('where city is not NULL', attr='city')))
-WEATHER_CITY_MANAGER: dict[str: WeatherCity] = WeatherCityManager()
+WEATHER_CITY_MANAGER = WeatherCityManager()
 for city in _groups:
     try:
         WEATHER_CITY_MANAGER[city] = WeatherCity(city)

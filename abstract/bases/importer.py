@@ -32,6 +32,7 @@ import select
 import enum
 import cairosvg
 import matplotlib
+import matplotlib.patheffects
 import pandas
 import PIL
 import warnings

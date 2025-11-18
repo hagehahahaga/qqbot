@@ -23,8 +23,11 @@ from abstract.bases.one_time_var import OneTimeVar
 def ask_for_wait(func):
     @functools.wraps(func)
     def decorated(*args, **kwargs):
-        args[0].reply_text('别急')
-        func(*args, **kwargs)
+        wait_message: BaseMessage = args[0].reply_text('别急')
+        try:
+            func(*args, **kwargs)
+        finally:
+            wait_message.delete()
 
     return decorated
 
@@ -863,12 +866,18 @@ def weather(message: MESSAGE, session: Session, args):
         if 'hourly' in args_temp:
             option.value = 'hourly'
             args_temp.remove('hourly')
+        if 'daily' in args_temp:
+            option.value = 'daily'
+            args_temp.remove('daily')
         if 'today' in args_temp:
             option.value = 'today'
             args_temp.remove('today')
         if 'now' in args_temp:
             option.value = 'now'
             args_temp.remove('now')
+        if 'tomorrow' in args_temp:
+            option.value = 'tomorrow'
+            args_temp.remove('tomorrow')
     except RuntimeError:
         raise CommandCancel(f'参数{args}错误, 检查输入.')
 
@@ -896,8 +905,15 @@ def weather(message: MESSAGE, session: Session, args):
             )
         case 'hourly':
             message.reply(ImageMessage(weather_city.get_weather_hourly()))
+        case 'daily':
+            message.reply(ImageMessage(weather_city.get_weather_daily()))
         case 'today':
             message.reply_text(
                 '\n' +
-                weather_city.get_weather_today_text()
+                weather_city.get_weather_day_text()
+            )
+        case 'tomorrow':
+            message.reply_text(
+                '\n' +
+                weather_city.get_weather_tomorow_text()
             )

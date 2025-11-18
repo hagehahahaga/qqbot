@@ -15,8 +15,9 @@ class Service:
                 except Exception as error:
                     LOG.ERR(error)
                     if self.auto_restart:
-                        LOG.INF(f'Service {self} automatically restarting...')
+                        LOG.WAR(f'Service {self} automatically restarting...')
                         continue
+                    LOG.WAR(f'Service {self} failed.')
             else:
                 self.stop_flag.clear()
         self.thread = threading.Thread()

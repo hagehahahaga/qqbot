@@ -64,7 +64,7 @@ class Speaker:
     @error_handler
     @check_support('tts')
     @post_process
-    def TTS(self, session: Session, text: str) -> requests.Response:
+    def TTS(self, session: Session, text: str) -> bytes:
         with self.TTS_LOCK:
             return InterruptibleRequest(session).run(
                 self.TTS_URL + '/voiceChangeModel',
@@ -73,12 +73,12 @@ class Speaker:
                     'text': text
                 },
                 method='POST'
-            )
+            ).content
 
     @error_handler
     @check_support('svc')
     @post_process
-    def SVC(self, session: Session, audio: bytes, pitch: float = None) -> requests.Response:
+    def SVC(self, session: Session, audio: bytes, pitch: float = None) -> bytes:
         with self.SVC_LOCK:
             return InterruptibleRequest(session).run(
                 self.SVC_URL + '/voiceChangeModel',
@@ -90,7 +90,7 @@ class Speaker:
                     'pitch': pitch
                 },
                 method='POST'
-            )
+            ).content
 
 
 class SpeakerManager(dict):

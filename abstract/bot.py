@@ -1,4 +1,4 @@
-from abstract.bases.importer import operator, last_commit, psutil, inspect, platform
+from abstract.bases.importer import operator, last_commit, psutil, platform
 
 import abstract
 from abstract.command import CommandGroup, Command
@@ -6,7 +6,6 @@ from abstract.message import *
 from abstract.service import Service
 from abstract.session import SESSIONMANAGER, Session
 from abstract.target import User, Group
-from abstract.bases.exceptions import *
 from abstract.apis.frame_server import FRAME_SERVER
 from abstract.apis.table import GROUP_OPTION_TABLE
 from abstract.bases.log import LOG
@@ -27,31 +26,9 @@ class Bot:
         self.must_at = must_at
         self.command_prefixes = command_prefixes
         self.commands = CommandGroup()
-        self.services: dict[str: Service] = {}
+        self.services: dict[str, Service] = {}
 
-    @staticmethod
-    def error_handler(func):
-        def decorated(*args, **kwargs):
-            message = args[list(inspect.signature(func).parameters).index('message')]
-            try:
-                func(*args, **kwargs)
-            except SendFailure as error:
-                LOG.WAR(error)
-                message.reply_text(error.__str__())
-            except (CommandCancel, OperationInterrupted) as error:
-                LOG.WAR(error)
-                message.reply_text(error.__str__())
-            except AssertionError as error:
-                LOG.WAR(error)
-                message.reply_text(f'检查不通过: {error.__str__()}.')
-            except Exception as error:
-                LOG.ERR(error)
-                message.reply_text(f'错误: {error}. 哥我错啦——')
-                raise error
-
-        return decorated
-
-    def register_command(self, command_name: str | Iterable, type: int | dict[str: MESSAGE_PART | str: int] = 0, info='', cancelable=False):
+    def register_command(self, command_name: str | Iterable, type: int | dict[str, MESSAGE_PART | int] = 0, info='', cancelable=False):
         """
         Register commands that runs them handling messages
 
@@ -89,70 +66,68 @@ class Bot:
 
         return decorator
 
-    def router(self, data):
+    def router(self, data: dict):
+        LOG.DEB(str(data))
         match data['post_type']:
             case 'message':
-                message = Message(data)
-                LOG.INF(f'{message.sender} said to {message.target}: {message.json["raw_message"]}')
-
-                # 获取session
-                session = self.session_manager.get_session(message.sender.id)
-
-                # 获取指令名
-                try:
-                    args = text_to_args(message.get_parts_by_type(TextMessage)[0].text)
-                    command_name, args = args[0], args[1:]
-                except IndexError:
-                    command_name, args = '', []
-
-                # 当消息为Private时始终为True, 否则只有匹配prefix时为True
-                if not self.command_prefixes:
-                    is_command = True
-                else:
-                    for command_prefix in self.command_prefixes:
-                        if command_name.startswith(command_prefix):
-                            is_command = True
-                            command_name = command_name.removeprefix(command_prefix)
-                            break
-                    else:
-                        is_command = isinstance(message, PrivateMessage)
-                if session.getting:
-                    session.pipe_put(message)
-                    return
-
-                if isinstance(message, GroupMessage):
-                    if self.must_at and self.id not in map(
-                            operator.attrgetter('target', 'id'),
-                            message.get_parts_by_type(AtMessage)
-                    ):
-                        return
-                elif isinstance(message, PrivateMessage):
-                    if message.sender.id not in map(
-                            operator.itemgetter('user_id'),
-                            self.frame_server.get_friend_list()
-                    ):
-                        return
-
-                if session.lock.locked():
-                    session.handle(message, command_name, is_command)
-                    return
-
-                if not is_command:
-                    return
-
-                if not command_name:
-                    message.reply_text('我白银我最萌, s8我上我能夺冠, 职业选手都是帅逼.')
-                    return
-
-                with session:
-                    self.message_handler(message, session, command_name, args)
+                self.message_handler(data)
             case 'notice':
                 self.notice_handler(data)
             case 'request':
                 self.request_handler(data)
 
-    @error_handler
-    def message_handler(self, message: MESSAGE, session: Session, command_name: str, args: list):
+    def message_handler(self, data: dict):
+        message = Message(data)
+        LOG.INF(f'{message.sender} said to {message.target}: {message.json["raw_message"]}')
+
+        # 获取session
+        session = self.session_manager.get_session(message.sender.id)
+
+        # 获取指令名
+        try:
+            args = text_to_args(message.get_parts_by_type(TextMessage)[0].text)
+            command_name, args = args[0], args[1:]
+        except IndexError:
+            command_name, args = '', []
+
+        # 当消息为Private时始终为True, 否则只有匹配prefix时为True
+        if not self.command_prefixes:
+            is_command = True
+        else:
+            for command_prefix in self.command_prefixes:
+                if command_name.startswith(command_prefix):
+                    is_command = True
+                    command_name = command_name.removeprefix(command_prefix)
+                    break
+            else:
+                is_command = isinstance(message, PrivateMessage)
+        if session.getting:
+            session.pipe_put(message)
+            return
+
+        if isinstance(message, GroupMessage):
+            if self.must_at and self.id not in map(
+                    operator.attrgetter('target', 'id'),
+                    message.get_parts_by_type(AtMessage)
+            ):
+                return
+        elif isinstance(message, PrivateMessage):
+            if message.sender.id not in map(
+                    operator.itemgetter('user_id'),
+                    self.frame_server.get_friend_list()
+            ):
+                return
+
+        if session.lock.locked():
+            session.handle(message, command_name, is_command)
+            return
+
+        if not is_command:
+            return
+
+        if not command_name:
+            message.reply_text('我白银我最萌, s8我上我能夺冠, 职业选手都是帅逼.')
+            return
         try:
             command = self.commands[command_name]
         except KeyError:
@@ -161,41 +136,43 @@ class Bot:
         session.command = command
 
         LOG.INF(f'{message.sender} used {command_name}')
-        match command.type:
-            case 0:
-                command(message, session)
 
-            case 1:
-                command(message, session, args)
+        with session:
+            match command.type:
+                case 0:
+                    command(message, session)
 
-            case 2:
-                match message.messages:
-                    case [abstract.message.AtMessage(), abstract.message.TextMessage(), *part_args] if self.must_at: ...
-                    case [abstract.message.TextMessage(), *part_args]: ...
-                    case final:
-                        message.reply_text(f'匹配{final}失败, 检查输入.')
-                        return
-                command(message, session, part_args)
+                case 1:
+                    command(message, session, args)
 
-            case {'needed_type': needed_type}:
-                needed_num = command.type.get('needed_num', 1)
-                input_type = message.get_parts_by_type(needed_type)
+                case 2:
+                    match message.messages:
+                        case [abstract.message.AtMessage(), abstract.message.TextMessage(), *part_args] if self.must_at: ...
+                        case [abstract.message.TextMessage(), *part_args]: ...
+                        case final:
+                            message.reply_text(f'匹配{final}失败, 检查输入.')
+                            return
+                    command(message, session, part_args)
 
-                if isinstance(message.messages[0], ReplyMessage):
-                    input_type.extend(message.messages[0].get_reply_message().get_parts_by_type(needed_type))
+                case {'needed_type': needed_type}:
+                    needed_num = command.type.get('needed_num', 1)
+                    input_type = message.get_parts_by_type(needed_type)
 
-                while (input_len := len(input_type)) < needed_num:
-                    message.reply_text(f'此指令需要{needed_num}个{needed_type}, 你输入了{input_len}个, 继续输入.')
-                    message_got = session.pipe_get(message)
-                    if message_got.messages:
-                        if isinstance(message_got.messages[0], ReplyMessage):
-                            message_got = message_got.messages[0].get_reply_message()
-                    input_type.extend(message_got.get_parts_by_type(needed_type))
+                    if isinstance(message.messages[0], ReplyMessage):
+                        input_type.extend(message.messages[0].get_reply_message().get_parts_by_type(needed_type))
 
-                input_type = input_type[:needed_num]
-                command(message, session, input_type)
+                    while (input_len := len(input_type)) < needed_num:
+                        message.reply_text(f'此指令需要{needed_num}个{needed_type}, 你输入了{input_len}个, 继续输入.')
+                        message_got = session.pipe_get(message)
+                        if message_got.messages:
+                            if isinstance(message_got.messages[0], ReplyMessage):
+                                message_got = message_got.messages[0].get_reply_message()
+                        input_type.extend(message_got.get_parts_by_type(needed_type))
 
-    def notice_handler(self, data):
+                    input_type = input_type[:needed_num]
+                    command(message, session, input_type)
+
+    def notice_handler(self, data: dict):
         match data['notice_type']:
             case 'group_recall' if GROUP_OPTION_TABLE.get(f'where id = {data["group_id"]}', attr='recall_catch')[0]:
                 GroupMessage(
@@ -234,7 +211,7 @@ class Bot:
                         else:
                             self.frame_server.poke(data['user_id'])
 
-    def request_handler(self, data):
+    def request_handler(self, data: dict):
         match data['request_type']:
             case 'friend':
                 self.frame_server.set_friend_add_request(data['flag'], True)
