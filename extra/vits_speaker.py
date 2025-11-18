@@ -73,7 +73,7 @@ class Speaker:
                     'text': text
                 },
                 method='POST'
-            ).content
+            )
 
     @error_handler
     @check_support('svc')
@@ -90,7 +90,7 @@ class Speaker:
                     'pitch': pitch
                 },
                 method='POST'
-            ).content
+            )
 
 
 class SpeakerManager(dict):

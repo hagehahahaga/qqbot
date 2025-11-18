@@ -126,7 +126,7 @@ class InterruptibleRequest(InterruptibleTask):
             session.mount("https://", HTTPAdapter())
 
             req = requests.Request(method, url,** kwargs).prepare()
-            send_kwargs = {"stream": True, "timeout": 10}
+            send_kwargs = {"stream": True, "timeout": 60}
             conn = session.send(req, **send_kwargs, verify=True)
 
             if not hasattr(current_socket, 'sock'):
