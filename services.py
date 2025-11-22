@@ -166,13 +166,13 @@ def weather_today():
 
 @BOT.register_service('weather_predictor_weekly', auto_restart=True)
 def weather_predictor_weekly():
-    """每周日23点执行一次，发送7天天气预报图表（修复负等待时间问题）"""
+    """每周日12点执行一次，发送7天天气预报图表（修复负等待时间问题）"""
     now = datetime.datetime.now()
 
     # 计算下一个周日23:00:00
     days_until_sunday = (6 - now.weekday()) % 7  # 0=今天是周日，1=明天是周日，...，6=下周六
     next_sunday = now + datetime.timedelta(days=days_until_sunday)
-    target_time = next_sunday.replace(hour=23, minute=0, second=0, microsecond=0)
+    target_time = next_sunday.replace(hour=12, minute=0, second=0, microsecond=0)
 
     # 关键修复：如果目标时间已过期（如周日23点后执行），则延后一周
     if target_time <= now:
