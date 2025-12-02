@@ -17,7 +17,7 @@ class SendFailure(Exception):
         return f'<{self.__class__.__name__} {self.text}> at {hex(id(self))}\nmessage: {self.message_data}'
 
 
-class CommandCancel(Exception):
+class CommandCancel(BaseException):
     """
     The command is canceled
     """
@@ -49,7 +49,3 @@ class CityNotFound(Exception):
 
     def __repr__(self):
         return f'<{self.__class__.__name__} {self.city}> at {hex(id(self))}'
-
-
-class OperationInterrupted(Exception):
-    pass

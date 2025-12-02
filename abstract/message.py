@@ -218,9 +218,9 @@ class BaseMessage(ABC):
         return message
 
     @abc.abstractmethod
-    def reply(self, messages: list | MESSAGE_PART): ...
+    def reply(self, messages: list | MESSAGE_PART) -> MESSAGE | None: ...
 
-    def reply_text(self, text: str):
+    def reply_text(self, text: str) -> MESSAGE:
         return self.reply(
             TextMessage(
                 text=text
@@ -267,14 +267,14 @@ class PrivateMessage(BaseMessage):
         self.sender = User(CONFIG['bot_config']['id'])
 
     @dispatch
-    def reply(self, message: list[NodeMessage]):
+    def reply(self, message: list[NodeMessage]) -> MESSAGE:
         return PrivateMessage(
             message,
             self.sender
         ).send()
 
     @dispatch
-    def reply(self, message: RecordMessage):
+    def reply(self, message: RecordMessage) -> MESSAGE | None:
         try:
             return PrivateMessage(
                 message,
@@ -284,7 +284,7 @@ class PrivateMessage(BaseMessage):
             return None
 
     @dispatch
-    def reply(self, messages: list | MESSAGE_PART):
+    def reply(self, messages: list | MESSAGE_PART) -> MESSAGE:
         if not isinstance(messages, Iterable):
             messages = [messages]
         return PrivateMessage(
@@ -296,8 +296,8 @@ class PrivateMessage(BaseMessage):
             self.sender
         ).send()
 
-    def reply_text(self, text: str):
-        super().reply_text(text.removeprefix('\n'))
+    def reply_text(self, text: str) -> MESSAGE:
+        return super().reply_text(text.removeprefix('\n'))
 
 
 class GroupMessage(BaseMessage):
@@ -323,14 +323,14 @@ class GroupMessage(BaseMessage):
         self.sender = User(CONFIG['bot_config']['id'])
 
     @dispatch
-    def reply(self, message: list[NodeMessage]):
+    def reply(self, message: list[NodeMessage]) -> MESSAGE:
         return GroupMessage(
             message,
             self.target
         ).send()
 
     @dispatch
-    def reply(self, message: RecordMessage):
+    def reply(self, message: RecordMessage) -> MESSAGE | None:
         try:
             return GroupMessage(
                 message,
@@ -340,7 +340,7 @@ class GroupMessage(BaseMessage):
             return None
 
     @dispatch
-    def reply(self, messages: list | MESSAGE_PART):
+    def reply(self, messages: list | MESSAGE_PART) -> MESSAGE:
         if not type(messages) is list:
             messages = [messages]
         return GroupMessage(

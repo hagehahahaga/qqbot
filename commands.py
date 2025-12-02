@@ -1,12 +1,12 @@
-from abstract.bases.importer import datetime, functools, threading, copy
+from abstract.bases.importer import datetime, functools, copy
 from abstract.bases.importer import getopt, io, random, time
 from abstract.bases.importer import filetype, numpy, pymysql
 from abstract.bases.importer import json, PIL
 
-import PIL.Image
-from third.PicImageSearch.sync import *
+from PicImageSearch.sync import *
 
 import abstract.message
+from abstract.bases.custom_thread import CustomThread
 from abstract.message import *
 from abstract.bot import BOT
 from abstract.session import Session
@@ -14,7 +14,6 @@ from extra.chat_ai import LLM, CHAT_AIs
 from abstract.bases.exceptions import *
 from abstract.apis.table import GROUP_OPTION_TABLE, STOCK_TABLE, NOTICE_SCHEDULE_TABLE
 from abstract.apis.table import NULL
-from abstract.bases.interruptible_tasks.interruptible_request import InterruptibleRequest
 from extra.vits_speaker import SPEAKER_MANAGER
 from extra.weather_city import WEATHER_CITY_MANAGER
 from abstract.bases.one_time_var import OneTimeVar
@@ -84,8 +83,8 @@ def authorize(min_level: str):
 @cost(2)
 @ask_for_wait
 def pic_searching(message: MESSAGE, session: Session, image: list[ImageMessage]):
-    @BOT.error_handler
-    def pic_search(input_image: bytes, api, index: int, api_name: str, message: MESSAGE):
+    def pic_search(api, index: int):
+        name = api.__class__.__name__
         try:
             result = api.search(file=input_image)
             if result.raw[index].thumbnail:
@@ -93,93 +92,85 @@ def pic_searching(message: MESSAGE, session: Session, image: list[ImageMessage])
             else:
                 result = result.raw[index+1]
         except IndexError:
-            message.reply_text(f'{api_name}搜索结果: ない')
+            message.reply_text(f'{name}搜索结果: ない')
         except TypeError as error:
-            message.reply_text(f'{api_name}搜索错误: {error}')
+            message.reply_text(f'{name}搜索错误: {error}')
         except Exception as error:
-            message.reply_text(f'{api_name}未知错误: {error}')
+            message.reply_text(f'{name}未知错误: {error}')
         else:
-            message.reply(
-                [
-                    TextMessage(
-                        f'{api_name} 搜索结果:\n'
-                        f'作者: {result.author if "author" in dir(result) else "ない"}\n'
-                        f'出处: {result.url}\n'
-                        f'预览图: {result.thumbnail.removeprefix("http://reverse-proxies.hagehaga.space/")}\n'
-                    ),
-                    ImageMessage(
-                        data=requests.get(
-                            result.thumbnail,
-                            headers=json.loads(pathlib.Path('./abstract/apis/headers.json').read_text())
-                        ).content
-                    )
-                ]
-            )
+            try:
+                thumbnail = requests.get(
+                    result.thumbnail,
+                    headers=json.loads(pathlib.Path('./abstract/apis/headers.json').read_text())
+                )
+            except requests.RequestException:
+                message.reply_text(
+                    f'{name} 搜索结果:\n'
+                    f'作者: {result.author if "author" in dir(result) else "ない"}\n'
+                    f'出处: {result.url}\n'
+                    f'预览图: {result.thumbnail.removeprefix("http://reverse-proxies.hagehaga.space/")}\n'
+                )
+            else:
+                message.reply(
+                    [
+                        TextMessage(
+                            f'{name} 搜索结果:\n'
+                            f'作者: {result.author if "author" in dir(result) else "ない"}\n'
+                            f'出处: {result.url}\n'
+                            f'预览图: {result.thumbnail.removeprefix("http://reverse-proxies.hagehaga.space/")}\n'
+                        ),
+                        ImageMessage(
+                            data=thumbnail.content
+                        )
+                    ]
+                )
 
     input_image = image[0].image
     if not input_image:
         raise CommandCancel('获取图片失败!')
-
-    apis = {
-        'ascii2d': [
-            Ascii2D(
-                bovw=True,
-                base_url='http://reverse-proxies.hagehaga.space/https%3A%2F%2Fascii2d.net%2F'
-            ),
-            1
-        ],
-        'saucenao': [
-            SauceNAO(api_key='bd4378a4695ff0145d32d950bdbe890a46387082'),
-            0
-        ],
-        'baidu': [
-            BaiDu(),
-            0
-        ],
-        'yandex': [
-            Yandex(),
-            0
-        ],
-        'Iqdb': [
-            Iqdb(),
-            0
-        ],
-        'Iqdb_3d': [
-            Iqdb(True),
-            0
-        ]
-    }
-
-    threads = [
-        threading.Thread(
-            target=pic_search,
-            args=(
-                input_image,
-                apis[key][0],
-                apis[key][1],
-                key,
-                message
-            )
-        ) for key in apis.keys()
+    ascii2d_proxy = 'http://reverse-proxies.hagehaga.space/https%3A%2F%2Fascii2d.net%2F'
+    apis = [
+        (Ascii2D(bovw=True, base_url=ascii2d_proxy), 1),
+        (SauceNAO(api_key='bd4378a4695ff0145d32d950bdbe890a46387082'), 0),
+        (BaiDu(), 0),
+        (Yandex(), 0),
+        (Iqdb(), 0),
+        (Iqdb(True), 0)
     ]
 
-    for thread in threads:
-        thread.start()
+    threads = list(map(lambda a: CustomThread(target=pic_search, args=(a[0], a[1])), apis))
+    try:
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    except CommandCancel as e:
+        for thread in threads:
+            if thread.is_alive():
+                thread.stop()
+        for thread in threads:
+            thread.join()
+        completed = len(list(filter(lambda a: a.status == 'COMPLETED', threads)))
+        cost = int(completed / len(threads) * 100) / 100 * 2
+        if completed and cost < 1:
+            cost = 1
+        if cost:
+            message.sender.add_points(
+                cost
+            )
+            message.reply_text(f'部分搜索已完成, 消耗了 {cost} 个韭菜盒子.')
+        raise e
 
-    for thread in threads:
-        thread.join()
-
-
-@BOT.register_command(('random', '随机', '随机图', '随机涩图', '涩图', '多来点'), 1, '随机pixiv图', cancelable=True)
+@BOT.register_command(('random', '随机', '随机图', '随机涩图', '涩图', '多来点'), 1, '随机pixiv图')
 @ask_for_wait
 @cost(2)
-def random_pic(message: MESSAGE, session: Session, args):
+def random(message: MESSAGE, session: Session, args):
     def worker():
         nonlocal message, session, args, r18, retry_times
         if retry_times >= 3:
             raise CommandCancel('失败次数过多, 放弃.')
         retry_times += 1
-        output = InterruptibleRequest(session).run(
+        output = requests.get(
             url='https://api.lolicon.app/setu/v2?' +
                 (
                     args[0] if args else
@@ -197,7 +188,7 @@ def random_pic(message: MESSAGE, session: Session, args):
             output = output['data'][0]
             image = PIL.Image.open(
                 io.BytesIO(
-                    InterruptibleRequest(session).run(output["urls"].get("regular", output["urls"]['original'])).content
+                    requests.get(output["urls"].get("regular", output["urls"]['original'])).content
                 )
             )
         except IndexError:
@@ -587,7 +578,7 @@ def say(message: MESSAGE, session: Session):
     )
 
 
-@BOT.register_command(('chat', ), info='与ai对话', cancelable=True)
+@BOT.register_command(('chat', ), info='与ai对话')
 @group_only
 @cost(3)
 @ask_for_wait
@@ -783,7 +774,7 @@ def service(message: MESSAGE, session: Session, args):
         message.reply_text(f'服务 {service} 不存在.')
 
 
-@BOT.register_command(('tts', 'ai语音'), 1, 'ai语音', cancelable=True)
+@BOT.register_command(('tts', 'ai语音'), 1, 'ai语音')
 @cost(2)
 @ask_for_wait
 def TTS(message: MESSAGE, session: Session, args):
@@ -795,15 +786,14 @@ def TTS(message: MESSAGE, session: Session, args):
             return
 
     message.reply(
-        RecordMessage(SPEAKER_MANAGER[speaker].TTS(session, text))
+        RecordMessage(SPEAKER_MANAGER[speaker].TTS(text))
     )
 
 
 @BOT.register_command(
     ('svc', 'ai变音', '变音', '变声'),
     {'needed_type': RecordMessage, 'needed_num': 1},
-    'ai变音',
-    cancelable=True
+    'ai变音'
 )
 @cost(2)
 @ask_for_wait
@@ -820,7 +810,7 @@ def SVC(message: MESSAGE, session: Session, args: list[RecordMessage]):
 
     message.reply(
         RecordMessage(
-            SPEAKER_MANAGER[speaker].SVC(session, args[0].record, pitch)
+            SPEAKER_MANAGER[speaker].SVC(args[0].record, pitch)
         )
     )
 

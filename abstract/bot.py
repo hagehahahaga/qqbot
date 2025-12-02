@@ -28,7 +28,7 @@ class Bot:
         self.commands = CommandGroup()
         self.services: dict[str, Service] = {}
 
-    def register_command(self, command_name: str | Iterable, type: int | dict[str, MESSAGE_PART | int] = 0, info='', cancelable=False):
+    def register_command(self, command_name: str | Iterable, type: int | dict[str, MESSAGE_PART | int] = 0, info=''):
         """
         Register commands that runs them handling messages
 
@@ -44,7 +44,7 @@ class Bot:
         :return: decorated method
         """
         def decorator(func):
-            self.commands.add(Command(func, command_name, type, info, cancelable))
+            self.commands.add(Command(func, command_name, type, info))
 
             return func
 
@@ -54,8 +54,10 @@ class Bot:
         """
         Register and run services
 
-        :param service_name:
-        :return: method
+        :param service_name: Name of the service
+        :param auto_restart: Whether to auto restart the service when it stops unexpectedly
+
+        :return: decorated method
         """
         def decorator(func):
             service = Service(func, service_name, auto_restart)
@@ -133,11 +135,11 @@ class Bot:
         except KeyError:
             message.reply_text(f'{command_name}不是一个可识别的指令, 检查输入.')
             return
-        session.command = command
-
-        LOG.INF(f'{message.sender} used {command_name}')
 
         with session:
+            LOG.INF(f'{message.sender} used {command_name}')
+            session.command = command
+
             match command.type:
                 case 0:
                     command(message, session)

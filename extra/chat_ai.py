@@ -6,7 +6,6 @@ from abstract.apis.table import NULL
 from config import CONFIG
 from abstract.bases.log import LOG
 from abstract.session import Session
-from abstract.bases.interruptible_tasks.interruptible_request import InterruptibleRequest
 
 
 class LLM:
@@ -97,11 +96,10 @@ class LLM:
 
     def hear(self, session: Session) -> str:
         while True:
-            response = InterruptibleRequest(session).run(
+            response = requests.post(
                 str(self.client.base_url.join('/v1/tokenizers/estimate-token-count')),
                 json={"model": "moonshot-v1-8k-vision-preview", 'messages': self.messages},
-                headers={'Authorization': f"Bearer {self.client.api_key}"},
-                method='POST'
+                headers={'Authorization': f"Bearer {self.client.api_key}"}
             )
             try:
                 total_tokens = response.json()['data']['total_tokens']

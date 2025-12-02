@@ -1,28 +1,28 @@
+import abstract
 from abstract.bases.importer import queue, threading, dispatch, time
+from typing import Optional
 
 from abstract.bases.exceptions import *
-from abstract.bases.interruptible_tasks.interruptible_task import InterruptibleTask
 from abstract.bases.log import LOG
-from abstract.command import Command
 from abstract.target import User
 from abstract.message import MESSAGE, TextMessage, text_to_args
 
 
 class Session:
-    def __init__(self, pool):
+    def __init__(self, manager):
         """
 
-        :param pool:
-        :type pool: SessionManager
+        :param manager:
+        :type manager: SessionManager
         """
+        self.manager = manager
+
         self.lock = threading.Lock()
-        self.pool = pool
         self.pipe = queue.Queue()
         self.getting = False
-        self.break_point_set = threading.Event()  # 用于标记是否设置了断点
-        self.command: Command = None
-        self.break_point: InterruptibleTask = None
-        threading.Thread(target=self.auto_free).start()
+        self.running_command: Optional[abstract.command.Command] = None
+        self.running_thread: Optional[abstract.bases.custom_thread.CustomThread] = None
+        threading.Thread(target=self.auto_free, daemon=True).start()
 
     def __enter__(self):
         self.lock.acquire()
@@ -33,10 +33,6 @@ class Session:
     def pipe_put(self, message: MESSAGE):
         self.pipe.put(message)
 
-    def set_breakpoint(self, task: InterruptibleTask):
-        self.break_point = task
-        self.break_point_set.set()
-
     def pipe_get(self, message: MESSAGE):
         message.reply_text('正在等待输入...发送"cancel"以取消.')
         timeout = 30
@@ -44,7 +40,7 @@ class Session:
             self.getting = True
             result: MESSAGE = self.pipe.get(timeout=timeout)
         except queue.Empty:
-            raise AssertionError(f'{timeout}秒内未继续输入, 指令已取消')
+            raise CommandCancel(f'{timeout}秒内未继续输入.')
         finally:
             self.getting = False
         try:
@@ -56,19 +52,23 @@ class Session:
         return result
 
     def handle(self, message: MESSAGE, command_name, is_command: bool):
-        if command_name == 'cancel':
-            if not self.command.cancelable:
-                message.reply_text('该指令还未实现取消.')
+        if command_name != 'cancel':
+            if not (is_command and command_name):
                 return
+            message.reply_text('你现在还有进行中的命令.')
+            return
 
-            message.reply_text('尝试取消中...')
-            if self.break_point_set.wait():
-                self.break_point.stop()
-            LOG.INF(f'{message.sender} canceled {next(iter(self.command.command_names))}')
+        if not self.running_thread.is_alive():
+            message.reply_text('当前没有进行中的命令.')
             return
-        if not (is_command and command_name):
-            return
-        message.reply_text('你现在还有进行中的任务.')
+
+        wait_message = message.reply_text('正在取消当前命令...')
+        try:
+            self.running_thread.stop(timeout=None)
+        finally:
+            wait_message.delete()
+        if self.running_thread.status != 'CANCELLED':
+            message.reply_text('命令执行完成, 取消失败.')
 
     def auto_free(self):
         while True:
@@ -77,25 +77,26 @@ class Session:
                 if self.lock.locked():
                     break
             else:
-                for key, value in list(self.pool.pool.items()):
-                    if value == self:
-                        del self.pool.pool[key]
-                        break
+                for key, value in list(self.manager.items()):
+                    if value is self:
+                        self.manager.pop(key)
+                        LOG.DEB(f'Session of {key} auto freed.')
+                        return
 
 
-class SessionManager:
+class SessionManager(dict):
     def __init__(self):
-        self.pool = {}
+        super().__init__()
 
     def new_session(self, id: int):
-        assert not self.pool.get(id), 'The session has already existed!'
+        assert not self.get(id), 'The session has already existed!'
         session = Session(self)
-        self.pool[id] = session
+        self[id] = session
         return session
 
     @dispatch
     def get_session(self, id: int) -> Session:
-        if session := self.pool.get(id):
+        if session := self.get(id):
             return session
         return self.new_session(id)
 

@@ -1,6 +1,5 @@
 from abstract.bases.exceptions import CommandCancel
 from abstract.bases.importer import threading, requests, functools
-from abstract.bases.interruptible_tasks.interruptible_request import InterruptibleRequest
 
 from abstract.bases.log import LOG
 from abstract.session import Session
@@ -64,23 +63,22 @@ class Speaker:
     @error_handler
     @check_support('tts')
     @post_process
-    def TTS(self, session: Session, text: str) -> bytes:
+    def TTS(self, text: str):
         with self.TTS_LOCK:
-            return InterruptibleRequest(session).run(
+            return requests.post(
                 self.TTS_URL + '/voiceChangeModel',
                 data={
                     'speaker': self.name,
                     'text': text
-                },
-                method='POST'
+                }
             )
 
     @error_handler
     @check_support('svc')
     @post_process
-    def SVC(self, session: Session, audio: bytes, pitch: float = None) -> bytes:
+    def SVC(self, audio: bytes, pitch: float = None):
         with self.SVC_LOCK:
-            return InterruptibleRequest(session).run(
+            return requests.post(
                 self.SVC_URL + '/voiceChangeModel',
                 files={
                     'audio': audio
@@ -88,13 +86,12 @@ class Speaker:
                 data={
                     'speaker': self.name,
                     'pitch': pitch
-                },
-                method='POST'
+                }
             )
 
 
 class SpeakerManager(dict):
-    def __init__(self, speakers: dict[str: str]):
+    def __init__(self, speakers: dict[str, str]):
         super().__init__(
             {
                 key: Speaker(key, value) for key, value in speakers.items()

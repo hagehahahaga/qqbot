@@ -27,9 +27,10 @@ class WeatherCity:
     """
     def __init__(self, city: str | int, api: WeatherAPI = WEATHER_API):
         self.api = api
-        self.city_id = api.search_city(city)['location'][0]['id'] if isinstance(city, str) else city
+        search_result = api.search_city(city)
+        self.city_id = search_result['location'][0]['id'] if isinstance(city, str) else city
 
-        self.city_name = api.search_city(self.city_id)['location'][0]['name']
+        self.city_name = search_result['location'][0]['name']
 
     def get_weather_day(self, delay = 0) -> dict[str, tuple[int, int] | tuple[str, str, bool] | tuple[int, str]]:
         """

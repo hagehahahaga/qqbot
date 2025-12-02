@@ -1,4 +1,4 @@
-from abstract.bases.importer import time, dispatch
+from abstract.bases.importer import time, dispatch, decimal
 
 from config import CONFIG
 from abstract.apis.frame_server import FRAME_SERVER
@@ -36,7 +36,7 @@ class User:
             'id',
             self.id,
             'points',
-            USER_TABLE.get(f'where id = {self.id}', attr='points')[0] + d
+            USER_TABLE.get(f'where id = {self.id}', attr='points')[0] + decimal.Decimal(d)
         )
 
     def get_sign_date(self):  # 最后一次签到日期操作

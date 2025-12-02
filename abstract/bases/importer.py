@@ -12,7 +12,6 @@ from collections.abc import Iterable
 import fractions
 import openai
 import base64
-import asyncio
 import datetime
 import getopt
 import io
@@ -34,9 +33,10 @@ import cairosvg
 import matplotlib
 import matplotlib.patheffects
 import pandas
-import PIL
+import PIL.Image
 import warnings
 import copy
 import socket
 import platform
+import decimal
 last_commit = git.Repo(pathlib.Path(__file__).parents[2]).head.commit
