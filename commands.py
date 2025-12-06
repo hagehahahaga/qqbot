@@ -1,5 +1,5 @@
 from abstract.bases.importer import datetime, functools, copy
-from abstract.bases.importer import getopt, io, random, time
+from abstract.bases.importer import getopt, io, time
 from abstract.bases.importer import filetype, numpy, pymysql
 from abstract.bases.importer import json, PIL
 
@@ -326,6 +326,7 @@ def transfer(message: MESSAGE, session: Session, args):
 
 @BOT.register_command(('sign', '签到'), info='签到获取韭菜盒子')
 def sign(message: MESSAGE, session: Session):
+    from abstract.bases.importer import random
     if message.sender.get_sign_date().strftime('%Y%m%d') == time.strftime('%Y%m%d'):
         message.reply_text('今日已签到过了!')
         return
