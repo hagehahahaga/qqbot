@@ -347,6 +347,7 @@ def sign(message: MESSAGE, session: Session):
 @BOT.register_command(('lottery', '彩票', '抽奖'), info='5个韭菜盒子购买一个韭菜盒子彩票')
 @cost(5)
 def lottery(message: MESSAGE, session: Session):
+    from abstract.bases.importer import random
     if CONFIG["next_lottery_time"] > time.strftime('%Y%m%d%H%M%S'):
         raise CommandCancel('接盘侠还未赶来...')
 
@@ -570,6 +571,7 @@ def notice(message: MESSAGE, session: Session, args):
 @ask_for_wait
 @cost(2)
 def say(message: MESSAGE, session: Session):
+    from abstract.bases.importer import random
     message.reply(
         RecordMessage(
             random.choice(
