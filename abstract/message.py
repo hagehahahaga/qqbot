@@ -27,7 +27,7 @@ class RecordMessage(BaseMessagePart):
         return {
             'type': 'record',
             'data': {
-                'file': f'base64://{base64.encodebytes(self.record).decode()}'
+                'file': f'base64://{base64.urlsafe_b64encode(self.record).decode()}'
             }
         }
 
@@ -105,7 +105,7 @@ class ImageMessage(BaseMessagePart):
             return {
                 'type': 'image',
                 'data': {
-                    'file': f'base64://{base64.b64encode(self.image).decode()}'
+                    'file': f'base64://{base64.urlsafe_b64encode(self.image).decode()}'
                 }
             }
         else:
