@@ -575,7 +575,7 @@ def say(message: MESSAGE, session: Session):
     message.reply(
         RecordMessage(
             random.choice(
-                list(pathlib.Path('./say').iterdir())
+                list(pathlib.Path('extra/say').iterdir())
             )
         )
     )

@@ -88,17 +88,17 @@ class SessionManager(dict):
     def __init__(self):
         super().__init__()
 
-    def new_session(self, id: int):
+    def _new_session(self, id: int | str):
         assert not self.get(id), 'The session has already existed!'
         session = Session(self)
         self[id] = session
         return session
 
     @dispatch
-    def get_session(self, id: int) -> Session:
+    def get_session(self, id: int | str) -> Session:
         if session := self.get(id):
             return session
-        return self.new_session(id)
+        return self._new_session(id)
 
     @dispatch
     def get_session(self, user: User) -> Session:

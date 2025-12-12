@@ -19,7 +19,7 @@ class User:
             STOCK_TABLE.add(f'{self.id}' + ', DEFAULT' * (STOCK_TABLE.get_len() - 1))
 
     @dispatch
-    def __init__(self, id: int):
+    def __init__(self, id: int | str):
         self.__init__(FRAME_SERVER.get_stranger_info(id))
 
     def __str__(self):

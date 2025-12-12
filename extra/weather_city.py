@@ -255,9 +255,8 @@ class WeatherCity:
         ax1.xaxis.set_major_formatter(matplotlib.dates.DateFormatter('%d日'))
 
         # 4. 绘制主轴：温度范围（最高温/最低温）
-        x_positions = range(len(data))
-        dates = data['date']
-        width = 0.35  # 柱状图宽度
+        dates = data['date']  # 真实日期数据
+        width = 0.35  # 柱状图宽度（天数）
 
         # 计算全局温度极值（含所有最高温和最低温）
         all_temps = pandas.concat([data['temp_max'], data['temp_min']])
@@ -273,7 +272,7 @@ class WeatherCity:
 
         # 最高温（红色柱状）：从y轴下限向上延伸到最高温
         ax1.bar(
-            [x + width / 2 for x in x_positions],  # 右偏位置
+            dates + pandas.Timedelta(days=width/2),  # 右偏位置
             height=data['temp_max'] - (global_min - buffer),  # 高度=最高温 - y轴下限（确保为正）
             bottom=global_min - buffer,  # 底部从y轴下限开始
             width=width,
@@ -284,7 +283,7 @@ class WeatherCity:
 
         # 最低温（蓝色柱状）：从y轴下限向上延伸到最低温
         ax1.bar(
-            [x - width / 2 for x in x_positions],  # 左偏位置
+            dates - pandas.Timedelta(days=width/2),  # 左偏位置
             height=data['temp_min'] - (global_min - buffer),  # 高度=最低温 - y轴下限（即使最低温为负，此处也为正）
             bottom=global_min - buffer,  # 底部从y轴下限开始
             width=width,
@@ -295,12 +294,12 @@ class WeatherCity:
 
         # 温度数值标注
         for i, (max_t, min_t) in enumerate(zip(data['temp_max'], data['temp_min'])):
-            ax1.text(i + width / 2, max_t + 0.3, f'{max_t:.0f}°C', ha='center', fontsize=9, color='tab:red')
-            ax1.text(i - width / 2, min_t + 0.3, f'{min_t:.0f}°C', ha='center', fontsize=9, color='tab:blue')
+            ax1.text(dates[i] + pandas.Timedelta(days=width/2), max_t + 0.3, f'{max_t:.0f}°C', ha='center', fontsize=9, color='tab:red')
+            ax1.text(dates[i] - pandas.Timedelta(days=width/2), min_t + 0.3, f'{min_t:.0f}°C', ha='center', fontsize=9, color='tab:blue')
 
         # 5. 创建副轴1：湿度（折线图）
         ax2 = ax1.twinx()
-        ax2.plot(x_positions, data['humidity'], color='tab:green', marker='s',
+        ax2.plot(dates, data['humidity'], color='tab:green', marker='s',
                  linestyle='-', linewidth=2, label='湿度', alpha=0.8)
         ax2.set_ylabel('湿度 (%) / 降水量 (mm)', fontsize=12, labelpad=10)
         ax2.tick_params(axis='y', labelcolor='tab:green')
@@ -308,12 +307,12 @@ class WeatherCity:
 
         # 湿度数值标注
         for i, hum in enumerate(data['humidity']):
-            ax2.text(i, hum + 3, f'{hum:.0f}%', ha='center', fontsize=9, color='tab:green')
+            ax2.text(dates[i], hum + 3, f'{hum:.0f}%', ha='center', fontsize=9, color='tab:green')
 
         # 6. 创建副轴2：降水量（柱状图）
         ax3 = ax1.twinx()
         ax3.spines['right'].set_position(('outward', 60))  # 偏移避免与ax2重叠
-        ax3.bar(x_positions, data['precip'], width=0.2, color='tab:cyan', alpha=0.6, label='降水量')
+        ax3.bar(dates, data['precip'], width=0.2, color='tab:cyan', alpha=0.6, label='降水量')
         ax3.tick_params(axis='y', labelcolor='tab:cyan')
         ax3.set_ylim(0, max(data['precip'].max() * 1.5, 5))  # 适配无降水场景
 
@@ -321,7 +320,7 @@ class WeatherCity:
         for i, prec in enumerate(data['precip']):
             text = f'{prec:.1f}mm' if prec > 0 else '无'
             ax3.text(
-                i,
+                dates[i],
                 prec + 0.1,
                 text,
                 ha='center',
@@ -351,12 +350,12 @@ class WeatherCity:
 
             # 强度文字（如“中等”“强”）
             ax1.text(
-                i, uv_value_y, uv_text,
+                dates[i], uv_value_y, uv_text,
                 ha='center', fontsize=13, color=color, fontweight='bold'
             )
             # “紫外线”标签文字
             ax1.text(
-                i, uv_label_y, f'紫外线',
+                dates[i], uv_label_y, f'紫外线',
                 ha='center', fontsize=13, color=color, fontweight='bold'
             )
 
@@ -365,13 +364,13 @@ class WeatherCity:
         xlim = ax1.get_xlim()  # x轴范围 (x_min, x_max)
         icon_y_pos = 0.80  # 图标y轴位置（可根据图表调整）
 
-        # 遍历数据时，直接使用循环索引 i 作为 raw_x_pos
+        # 使用真实日期作为x轴位置
         for i, (date, icon_code) in enumerate(zip(data['date'], data['icon_day'])):
-            raw_x_pos = i  # 替换为索引 0~6
+            raw_x_pos = dates[i]  # 使用真实日期
             self._add_weather_icon(
                 fig=fig,
                 ax=ax1,
-                raw_x_pos=raw_x_pos,  # 直接用索引 i
+                raw_x_pos=raw_x_pos,
                 xlim=xlim,
                 icon_y_pos=icon_y_pos,
                 icon_code=icon_code,

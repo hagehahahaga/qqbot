@@ -39,4 +39,5 @@ import copy
 import socket
 import platform
 import decimal
+import typing
 last_commit = git.Repo(pathlib.Path(__file__).parents[2]).head.commit

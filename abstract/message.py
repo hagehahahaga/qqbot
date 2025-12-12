@@ -1,7 +1,4 @@
-import typing
-from abc import ABC
-
-from abstract.bases.importer import abc, base64, pathlib, requests, dispatch, Iterable
+from abstract.bases.importer import abc, base64, pathlib, requests, dispatch, Iterable, typing
 
 from config import CONFIG
 from abstract.target import User, Group
@@ -154,7 +151,7 @@ class NodeMessage(BaseMessagePart):
 MESSAGE_PART = RecordMessage | ReplyMessage | AtMessage | TextMessage | ImageMessage | NodeMessage
 
 
-class BaseMessage(ABC):
+class BaseMessage(abc.ABC):
     send_api: classmethod
     target: User | Group
 
