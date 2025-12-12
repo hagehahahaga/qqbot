@@ -9,6 +9,7 @@ from abstract.target import User, Group
 from abstract.apis.frame_server import FRAME_SERVER
 from abstract.apis.table import GROUP_OPTION_TABLE
 from abstract.bases.log import LOG
+from abstract.bases.exceptions import CommandCancel
 
 
 class Bot:
@@ -164,8 +165,12 @@ class Bot:
                         input_type.extend(message.messages[0].get_reply_message().get_parts_by_type(needed_type))
 
                     while (input_len := len(input_type)) < needed_num:
-                        message.reply_text(f'此指令需要{needed_num}个{needed_type}, 你输入了{input_len}个, 继续输入.')
-                        message_got = session.pipe_get(message)
+                        message.reply_text(f'此指令需要{needed_num}个{needed_type.NAME}, 你输入了{input_len}个, 继续输入.')
+                        try:
+                            message_got = session.pipe_get(message)
+                        except CommandCancel as error:
+                            message.reply_text(error.__str__())
+                            return
                         if message_got.messages:
                             if isinstance(message_got.messages[0], ReplyMessage):
                                 message_got = message_got.messages[0].get_reply_message()

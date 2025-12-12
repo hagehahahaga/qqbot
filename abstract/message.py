@@ -7,11 +7,13 @@ from abstract.bases.log import LOG
 
 
 class BaseMessagePart(abc.ABC):
+    NAME: str
     @abc.abstractmethod
     def get_json(self): ...
 
 
 class RecordMessage(BaseMessagePart):
+    NAME = '语音消息'
     @dispatch
     def __init__(self, file: pathlib.Path):
         self.record = file.read_bytes()
@@ -30,6 +32,7 @@ class RecordMessage(BaseMessagePart):
 
 
 class ReplyMessage(BaseMessagePart):
+    NAME = '回复消息'
     def __init__(self, id: int):
         self.id = id
 
@@ -50,6 +53,7 @@ class ReplyMessage(BaseMessagePart):
 
 
 class AtMessage(BaseMessagePart):
+    NAME = '@消息'
     def __init__(self, target: User):
         assert type(target) is User
         self.target = target
@@ -67,6 +71,7 @@ class AtMessage(BaseMessagePart):
 
 
 class TextMessage(BaseMessagePart):
+    NAME = '文本消息'
     def __init__(self, text: str):
         self.text: str = text
 
@@ -83,6 +88,7 @@ class TextMessage(BaseMessagePart):
 
 
 class ImageMessage(BaseMessagePart):
+    NAME = '图片消息'
     def __init__(self, data: bytes = None, url: str = None):
         self.data = data
         self.url = url
@@ -115,6 +121,7 @@ class ImageMessage(BaseMessagePart):
 
 
 class FaceMessage(BaseMessagePart):
+    NAME = '表情消息'
     def __init__(self, id: str):
         self.id = id
 
@@ -128,6 +135,7 @@ class FaceMessage(BaseMessagePart):
 
 
 class NodeMessage(BaseMessagePart):
+    NAME = '节点消息'
     def __init__(self, sender: User, content: list['MESSAGE_PART']):
         self.sender = sender
         self.content = content
@@ -293,6 +301,12 @@ class PrivateMessage(BaseMessage):
             self.sender
         ).send()
 
+    @dispatch
+    def reply(self, *messages: MESSAGE_PART):
+        return self.reply(
+            list(messages)
+        )
+
     def reply_text(self, text: str) -> MESSAGE:
         return super().reply_text(text.removeprefix('\n'))
 
@@ -354,6 +368,12 @@ class GroupMessage(BaseMessage):
             ] + messages,
             self.target
         ).send()
+
+    @dispatch
+    def reply(self, *messages: MESSAGE_PART):
+        return self.reply(
+            list(messages)
+        )
 
 
 class Message:
