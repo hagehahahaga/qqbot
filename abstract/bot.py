@@ -2,14 +2,14 @@ from abstract.bases.importer import operator, last_commit, psutil, platform
 
 import abstract
 from abstract.command import CommandGroup, Command
+from abstract.game import GAME_MANAGER
 from abstract.message import *
 from abstract.service import Service
-from abstract.session import SESSIONMANAGER, Session
+from abstract.session import SESSION_MANAGER, Session
 from abstract.target import User, Group
 from abstract.apis.frame_server import FRAME_SERVER
 from abstract.apis.table import GROUP_OPTION_TABLE
 from abstract.bases.log import LOG
-from abstract.bases.exceptions import CommandCancel
 
 
 class Bot:
@@ -81,14 +81,14 @@ class Bot:
 
     def message_handler(self, data: dict):
         message = Message(data)
-        LOG.INF(f'{message.sender} said to {message.target}: {message.json["raw_message"]}')
+        LOG.INF(f'{message.sender} said to {message.target}: {message.data["raw_message"]}')
 
         # 获取session
-        session = self.session_manager.get_session(message.sender.id)
+        session = self.session_manager.get_session(message.sender)
 
         # 获取指令名
         try:
-            args = text_to_args(message.get_parts_by_type(TextMessage)[0].text)
+            args = message.get_parts_by_type(TextMessage)[0].to_args()
             command_name, args = args[0], args[1:]
         except IndexError:
             command_name, args = '', []
@@ -158,26 +158,10 @@ class Bot:
                     command(message, session, part_args)
 
                 case {'needed_type': needed_type}:
-                    needed_num = command.type.get('needed_num', 1)
-                    input_type = message.get_parts_by_type(needed_type)
-
-                    if isinstance(message.messages[0], ReplyMessage):
-                        input_type.extend(message.messages[0].get_reply_message().get_parts_by_type(needed_type))
-
-                    while (input_len := len(input_type)) < needed_num:
-                        message.reply_text(f'此指令需要{needed_num}个{needed_type.NAME}, 你输入了{input_len}个, 继续输入.')
-                        try:
-                            message_got = session.pipe_get(message)
-                        except CommandCancel as error:
-                            message.reply_text(error.__str__())
-                            return
-                        if message_got.messages:
-                            if isinstance(message_got.messages[0], ReplyMessage):
-                                message_got = message_got.messages[0].get_reply_message()
-                        input_type.extend(message_got.get_parts_by_type(needed_type))
-
-                    input_type = input_type[:needed_num]
-                    command(message, session, input_type)
+                    command(
+                        message, session,
+                        session.pipe_get_by_type(message, needed_type, command.type.get('needed_num', 1))
+                    )
 
     def notice_handler(self, data: dict):
         match data['notice_type']:
@@ -229,7 +213,7 @@ class Bot:
 
 
 LOG.INF('Initializing bot...')
-BOT = Bot(FRAME_SERVER, SESSIONMANAGER, **CONFIG['bot_config'])
+BOT = Bot(FRAME_SERVER, SESSION_MANAGER, **CONFIG['bot_config'])
 LOG.INF('Bot initialized successfully.')
 
 
@@ -321,3 +305,68 @@ def status(message: MESSAGE, session: Session):
         f'  ({psutil.sensors_temperatures()["coretemp"][0].current if system == "Linux" else "当前平台不支持温度传感"}℃)\n'
         f'  dram:{psutil.virtual_memory().available / (1024 ** 3)}GiB可用'
     )
+
+
+@BOT.register_command(('game', '游戏'), 0 ,'游戏菜单')
+def game_menu(message: MESSAGE, session: Session):
+    text_args = message.get_parts_by_type(TextMessage)[0].to_args()[1:]
+    match text_args:
+        case ['list']:
+            message.reply_text(
+                '\n可用游戏列表:\n' +
+                '\n'.join(
+                    map(
+                        lambda a: f'{a.NAME}: 需要{a.NEEDED_MEMBER_NUM}名玩家.',
+                        GAME_MANAGER.values()
+                    )
+                )
+            )
+        case ['info', game_name]:
+            assert game_name in GAME_MANAGER, f'游戏 {game_name} 不存在, 使用 "game list" 查看可用游戏.'
+            target = message.get_parts_by_type(AtMessage)[:1]
+            if not target:
+                target = [AtMessage(message.sender)]
+            target = target[0].target
+            data = target.get_game_info(game_name)
+            message.reply_text(
+                f'玩家 {target} 的 {game_name} 信息:\n'
+                f'   总游戏数: {data["count"]}\n'
+                f'   胜利数: {data["win"]}\n'
+                f'   胜率: {data["rate"]}'
+            )
+        case ['start', game_name]:
+            assert game_name in GAME_MANAGER, f'游戏 {game_name} 不存在, 使用 "game list" 查看可用游戏.'
+            game_type = GAME_MANAGER[game_name]
+            targets = [
+                part.target for part in session.pipe_get_by_type(message, AtMessage, game_type.NEEDED_MEMBER_NUM - 1)
+            ]
+
+            game = GAME_MANAGER.get_game(message.sender, game_type)
+            game.invite_member(message, targets)
+            game.start(message)
+        case ['blacklist', 'add']:
+            target = message.get_parts_by_type(AtMessage)[:1]
+            assert target, '请@需要拉黑的用户.'
+            message.sender.add_game_blacklist(message.sender)
+            message.reply_text(f'已将用户 {target} 加入游戏黑名单.')
+        case ['blacklist', 'remove']:
+            target = message.get_parts_by_type(AtMessage)[:1]
+            assert target, '请@需要移除拉黑的用户.'
+            message.sender.remove_game_blacklist(message.sender)
+            message.reply_text(f'已将用户 {target} 从游戏黑名单移除.')
+        case ['blacklist']:
+            blacklists = message.sender.get_game_blacklist()
+            if not blacklists:
+                message.reply_text('你的游戏黑名单为空.')
+                return
+            message.reply_text(
+                '你的游戏黑名单:\n' +
+                '\n'.join(
+                    map(
+                        lambda a: f'   {a}',
+                        blacklists
+                    )
+                )
+            )
+        case final:
+            message.reply_text(f'匹配{final}失败, 检查输入.')

@@ -1,5 +1,5 @@
-from abstract.bases.importer import threading, sys
-from typing import Optional, Any, Callable, Literal
+from abstract.bases.importer import threading, sys, dispatch, itertools
+from typing import Optional, Any, Callable, Literal, Iterable
 
 from abstract.bases.exceptions import CommandCancel
 
@@ -51,7 +51,8 @@ class CustomThread(threading.Thread):
     def stop(self, timeout: Optional[int | float] = 0) -> None:
         assert self.status == 'RUNNING', 'Cannot stop a thread that is not running.'
         self.status = 'CANCELLING'
-        self.join(timeout=timeout)
+        if threading.current_thread() is not self:
+            self.join(timeout=timeout)
 
     def run(self) -> None:
         self.status = 'RUNNING'
@@ -66,6 +67,7 @@ class CustomThread(threading.Thread):
         except Exception as e:
             self._exception = e
             self.status = 'ERROR'
+            raise e
         finally:
             sys.settrace(original_trace)
             for func in self.callback:
@@ -73,3 +75,82 @@ class CustomThread(threading.Thread):
                     func(self._result, self._exception)
                 except:
                     pass
+
+
+class CustomThreadGroup:
+    @dispatch
+    def __init__(self, threads: Iterable[CustomThread]):
+        self._threads = list(threads)
+        self._result = []
+        self.incomplete_thread_count = len(self._threads)
+        self.completed_thread_count = 0
+        self.status: Literal['IDLE', 'RUNNING', 'COMPLETED', 'CANCELLING', 'CANCELLED', 'ERROR'] = 'IDLE'
+        self.complete_event = threading.Event()
+
+    @dispatch
+    def __init__(self, target: Callable, args: Optional[Iterable[tuple]] = (), kwargs: Optional[Iterable[dict]] = None):
+        if kwargs is None:
+            kwargs = {}
+        self.__init__(
+            [
+                CustomThread(
+                    target=target, args=arg, kwargs=kwarg
+                ) for arg, kwarg in itertools.zip_longest(args, kwargs, fillvalue=None)
+            ]
+        )
+    
+    def start(self) -> None:
+        """
+        Start all threads in the group.
+        
+        :return: None
+        :rtype: None
+        """
+        assert self.status == 'IDLE', 'The Group has already been started.'
+        assert self._threads, 'The Group has no threads to start.'
+        self.status = 'RUNNING'
+        for thread in self._threads:
+            thread.register_callback(self._add_result)
+            thread.start()
+
+    def stop(self, timeout: Optional[int] = None) -> None:
+        """
+        Stop all running threads in the group.
+
+        :return: None
+        :rtype: None
+        """
+        self.status = 'CANCELLING'
+        for thread in self._threads:
+            if thread.status == 'RUNNING':
+                thread.stop(None)
+        self.status = 'CANCELLED'
+
+    def _add_result(self, result: Optional[Any], exception: Optional[Exception]) -> None:
+        self._result.append(result if result is not None else exception)
+        self.incomplete_thread_count -= 1
+        if result:
+            self.completed_thread_count +=1
+        if self.incomplete_thread_count != 0:
+            return
+        self.complete_event.set()
+        if any(isinstance(r, Exception) for r in self._result):
+            self.status = 'ERROR'
+        else:
+            self.status = 'COMPLETED'
+
+    def get_results(self) -> list[Any | Exception]:
+        """
+        Get results from all threads in the group.
+
+        :return: A list of results from each thread.
+        :rtype: list[Any]
+        """
+        for thread in self._threads:
+            if thread.status == 'RUNNING':
+                thread.join()
+
+        return self._result
+
+    def join(self):
+        self.complete_event.wait()

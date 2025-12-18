@@ -1,8 +1,8 @@
-from abstract.bases.importer import time, dispatch, decimal
+from abstract.bases.importer import time, dispatch, decimal, json
 
 from config import CONFIG
 from abstract.apis.frame_server import FRAME_SERVER
-from abstract.apis.table import STOCK_TABLE, USER_TABLE, GROUP_OPTION_TABLE
+from abstract.apis.table import STOCK_TABLE, USER_TABLE, GROUP_OPTION_TABLE, GAME_DATA_TABLE
 
 
 class User:
@@ -13,10 +13,10 @@ class User:
         self.role = data.get('role', 'member')
         if self.id in CONFIG.get('operators', []):
             self.role = 'operator'
-        if not USER_TABLE.find_exists('id', self.id):
-            USER_TABLE.add(f'{self.id}' + ', DEFAULT' * (USER_TABLE.get_len() - 1))
-        if not STOCK_TABLE.find_exists('id', self.id):
-            STOCK_TABLE.add(f'{self.id}' + ', DEFAULT' * (STOCK_TABLE.get_len() - 1))
+        init_tables = {USER_TABLE, STOCK_TABLE, GAME_DATA_TABLE}
+        for table in init_tables:
+            if not table.find_exists('id', self.id):
+                table.add(f'{self.id}' + ', DEFAULT' * (table.get_len() - 1))
 
     @dispatch
     def __init__(self, id: int | str):
@@ -27,6 +27,9 @@ class User:
 
     def __repr__(self):
         return f'<{self.__class__.__name__} {self.name}(user_id: {self.id})> at {hex(id(self))}'
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.id == other.id
 
     def get_points(self) -> int:  # 韭菜盒子数操作
         return USER_TABLE.get(f'where id = {self.id}', attr='points')[0]
@@ -184,6 +187,113 @@ class User:
             f"'{time.strftime('%Y-%m-%d %H:%M:%S')}'"
         )
 
+    def game_data_exist(self, game: str) -> bool:
+        return bool(
+            GAME_DATA_TABLE.get(
+                f'where id = {self.id}', attr=f'json_contains(json_keys(game_data), \'"{game}"\')'
+            )[0]
+        )
+
+    def game_data_init(self, game: str):
+        with GAME_DATA_TABLE:
+            GAME_DATA_TABLE.cursor.execute(
+                f'update {GAME_DATA_TABLE.name} '
+                f'set game_data = json_set(game_data, "$.{game}", json_object("count", 0, "win", 0, "draw", 0))'
+                f'where id = {self.id}'
+            )
+
+    @staticmethod
+    def check_game_data(func):
+        def decorated(self: User, game: str, *args, **kwargs):
+            if not self.game_data_exist(game):
+                self.game_data_init(game)
+            return func(self, game, *args, **kwargs)
+
+        return decorated
+
+    @check_game_data
+    def get_game_data(self, game: str) -> dict:
+        return json.loads(
+            GAME_DATA_TABLE.get(
+                f'where id = {self.id}', attr=f'json_extract(game_data, "$.{game}")'
+            )[0]
+        )
+
+    def get_game_info(self, game: str) -> dict:
+        data = self.get_game_data(game)
+        return {
+            'count': data['count'],
+            'win': data['win'],
+            'rate': f"{(data['win'] / data['count'] * 100):.2f}%" if data['count'] > 0 else '0.00%'
+        }
+
+    @check_game_data
+    def win_game(self, game: str):
+        with GAME_DATA_TABLE:
+            GAME_DATA_TABLE.cursor.execute(
+                f'update {GAME_DATA_TABLE.name} '
+                f'set game_data = json_set(game_data, '
+                f'"$.{game}.count", json_extract(game_data, "$.{game}.count") + 1, '
+                f'"$.{game}.win", json_extract(game_data, "$.{game}.win") + 1) '
+                f'where id = {self.id}'
+            )
+
+    @check_game_data
+    def draw_game(self, game: str):
+        with GAME_DATA_TABLE:
+            GAME_DATA_TABLE.cursor.execute(
+                f'update {GAME_DATA_TABLE.name} '
+                'set game_data = json_set(game_data, '
+                f'"$.{game}.count", json_extract(game_data, "$.{game}.count") + 1, '
+                f'"$.{game}.draw", json_extract(game_data, "$.{game}.draw") + 1) '
+                f'where id = {self.id}'
+            )
+
+    @check_game_data
+    def lose_game(self, game: str):
+        with GAME_DATA_TABLE:
+            GAME_DATA_TABLE.cursor.execute(
+                f'update {GAME_DATA_TABLE.name} '
+                'set game_data = json_set(game_data, '
+                f'"$.{game}.count", json_extract(game_data, "$.{game}.count") + 1) '
+                f'where id = {self.id}'
+            )
+
+    def add_game_blacklist(self, target: User):
+        assert target != self, "不能拉黑你自己."
+        with GAME_DATA_TABLE:
+            GAME_DATA_TABLE.cursor.execute(
+                f'update {GAME_DATA_TABLE.name} '
+                f'set black_list = json_array_append(black_list, "$", {target.id}) '
+                f'where id = {self.id}'
+            )
+
+    def remove_game_blacklist(self, target: User):
+        assert target.in_game_blacklist(self), "你未将对方拉黑."
+        with GAME_DATA_TABLE:
+            GAME_DATA_TABLE.cursor.execute(
+                f'update {GAME_DATA_TABLE.name} '
+                f'set black_list = json_remove(black_list, json_search(black_list, "one", {target.id}))) '
+                f'where id = {self.id}'
+            )
+
+    def get_game_blacklist(self) -> list[User]:
+        return json.loads(
+            GAME_DATA_TABLE.get(
+                f'where id = {self.id}', attr='black_list'
+            )[0]
+        )
+
+    def in_game_blacklist(self, target: User) -> bool:
+        return bool(
+            GAME_DATA_TABLE.get(
+                f'where id = {target.id}', attr=f'json_contains(black_list, {self.id})'
+            )[0]
+        )
+
+    def in_game_blacklists(self, targets: list[User]) -> bool:
+        return any(self.in_game_blacklist(target) for target in targets)
+
 
 class Group:
     def __init__(self, id):
@@ -197,3 +307,6 @@ class Group:
 
     def __repr__(self):
         return f'<{self.__class__.__name__} {self.name}(group_id: {self.id})> at {hex(id(self))}'
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.id == other.id

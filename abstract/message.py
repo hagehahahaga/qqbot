@@ -83,6 +83,14 @@ class TextMessage(BaseMessagePart):
             }
         }
 
+    def to_args(self) -> list[str]:
+        return list(
+            filter(
+                lambda a: a,
+                self.text.split(' ')
+            )
+        )
+
     def __repr__(self):
         return f'<{self.__class__.__name__} {self.text}>'
 
@@ -164,7 +172,7 @@ class BaseMessage(abc.ABC):
     target: User | Group
 
     def __init__(self, data):
-        self.json = data
+        self.data = data
         self.sender = User(
             data['sender']
         )
@@ -219,7 +227,7 @@ class BaseMessage(abc.ABC):
 
     def send(self):
         message = get_message(self.send_api(message=self))
-        LOG.INF(f'Sent to {message.target}:  {message.json["raw_message"]}')
+        LOG.INF(f'Sent to {message.target}:  {message.data["raw_message"]}')
         return message
 
     @abc.abstractmethod
@@ -401,15 +409,6 @@ def get_message(message_id):
     return Message(
         FRAME_SERVER.get_msg(
             message_id
-        )
-    )
-
-
-def text_to_args(text: str) -> list[str]:
-    return list(
-        filter(
-            lambda a: a,
-            text.split(' ')
         )
     )
 

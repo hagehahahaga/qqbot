@@ -6,7 +6,7 @@ from abstract.bases.importer import json, PIL
 from PicImageSearch.sync import *
 
 import abstract.message
-from abstract.bases.custom_thread import CustomThread
+from abstract.bases.custom_thread import CustomThreadGroup, CustomThread
 from abstract.message import *
 from abstract.bot import BOT
 from abstract.session import Session
@@ -138,20 +138,14 @@ def pic_searching(message: MESSAGE, session: Session, image: list[ImageMessage])
         (Iqdb(True), 0)
     ]
 
-    threads = list(map(lambda a: CustomThread(target=pic_search, args=(a[0], a[1])), apis))
+    thread_group = CustomThreadGroup(pic_search, apis)
     try:
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
+        thread_group.start()
+        thread_group.join()
     except CommandCancel as e:
-        for thread in threads:
-            if thread.is_alive():
-                thread.stop()
-        for thread in threads:
-            thread.join()
-        completed = len(list(filter(lambda a: a.status == 'COMPLETED', threads)))
-        cost = int(completed / len(threads) * 100) / 100 * 2
+        thread_group.stop()
+        completed = thread_group.completed_thread_count
+        cost = int(completed / len(apis) * 100) / 100 * 2
         if completed and cost < 1:
             cost = 1
         if cost:
@@ -164,7 +158,7 @@ def pic_searching(message: MESSAGE, session: Session, image: list[ImageMessage])
 @BOT.register_command(('random', '随机', '随机图', '随机涩图', '涩图', '多来点'), 1, '随机pixiv图')
 @ask_for_wait
 @cost(2)
-def random(message: MESSAGE, session: Session, args):
+def random_pic(message: MESSAGE, session: Session, args):
     def worker():
         nonlocal message, session, args, r18, retry_times
         if retry_times >= 3:
@@ -415,7 +409,7 @@ def stock(message: MESSAGE, session: Session, args):
                         f'  最后一次交易数量: {trade["num"]}'
                     )
                 case ['stock']:
-                    trade = User(id=STOCK_TABLE.get('ORDER BY trade_time desc', attr='id')[0]).get_trade()
+                    trade = User(STOCK_TABLE.get('ORDER BY trade_time desc', attr='id')[0]).get_trade()
                     message.reply_text(
                         '\n当前股市状态:\n'
                         f'  最后一次交易价格: {trade["price"]}\n'
@@ -474,7 +468,7 @@ def stock(message: MESSAGE, session: Session, args):
             f"order by commission_price {'asc' if action == 'buy' else 'desc'}, commission_time asc",
             attr='id'
     )[0]:
-        target = User(id=target_id)
+        target = User(target_id)
         target_commission = target.get_commission()
         if num < target_commission['num']:
             deal_num = num
@@ -599,7 +593,7 @@ def chat(message: GroupMessage, session: Session):
                                     continue
                                 text += message_part.target.__str__()
                             case abstract.message.TextMessage:
-                                parts: list = text_to_args(message_part.text)
+                                parts: list = message_part.to_args()
                                 for prefix in BOT.command_prefixes:
                                     if parts[0].startswith(prefix) and parts[0][1:] == 'ai':
                                         parts = parts[2:]
@@ -647,7 +641,7 @@ def chat(message: GroupMessage, session: Session):
 
         return output
 
-    character: LLM = CHAT_AIs[text_to_args(message.get_parts_by_type(TextMessage)[0].text)[1]]
+    character: LLM = CHAT_AIs[message.get_parts_by_type(TextMessage)[0].to_args()[1]]
     assert not character.r18 or GROUP_OPTION_TABLE.get(f'where id = {message.target.id}', attr='r18')[0] > 0, \
         '你所在的群聊的r18设置为0'
     message.reply_text(
@@ -802,7 +796,7 @@ def TTS(message: MESSAGE, session: Session, args):
 @ask_for_wait
 def SVC(message: MESSAGE, session: Session, args: list[RecordMessage]):
     try:
-        command_args = text_to_args(message.get_parts_by_type(TextMessage)[0].text)
+        command_args = message.get_parts_by_type(TextMessage)[0].to_args()
         speaker = command_args[1]
         try:
             pitch = float(command_args[2])

@@ -56,7 +56,7 @@ class Table:
         return bool(self.cursor.execute(f"select * from information_schema.tables where table_name = '{self.name}'"))
 
     @_with_lock
-    def  get(self, *args, attr: str = '*'):
+    def get(self, *args, attr: str = '*'):
         self.cursor.execute(f"SELECT {attr} FROM {self.name} " + ' '.join(args))
         result = self.cursor.fetchone()
         return result
@@ -68,7 +68,7 @@ class Table:
 
     @_with_lock
     def set(self, key, value, attr, target):
-        self.cursor.execute(f"UPDATE {self.name} SET {attr} = %s WHERE {key} = %s", (target, value))
+        self.cursor.execute(f"UPDATE {self.name} SET `{attr}` = %s WHERE {key} = %s", (target, value))
         return self
 
     @dispatch
@@ -112,14 +112,15 @@ DEFAULT = Default()
 NULL = Null()
 
 LOG.INF('Connecting to MySQL database...')
-sqldb = pymysql.connect(**CONFIG['sql_config'])
-LOG.INF(f'Connected to MySQL database: {sqldb.get_server_info()} at {sqldb.host}:{sqldb.port}')
+sql_db = pymysql.connect(**CONFIG['sql_config'])
+LOG.INF(f'Connected to MySQL database: {sql_db.get_server_info()} at {sql_db.host}:{sql_db.port}')
 LOG.INF('Loading database tables...')
-USER_TABLE = Table(sqldb, 'qq_users')
-STOCK_TABLE = Table(sqldb, 'stocks')
-GROUP_OPTION_TABLE = Table(sqldb, 'group_options')
-NOTICE_SCHEDULE_TABLE = Table(sqldb, 'notice_schedule')
-AI_MESSAGES_TABLE = Table(sqldb, 'ai_messages')
+USER_TABLE = Table(sql_db, 'qq_users')
+STOCK_TABLE = Table(sql_db, 'stocks')
+GROUP_OPTION_TABLE = Table(sql_db, 'group_options')
+NOTICE_SCHEDULE_TABLE = Table(sql_db, 'notice_schedule')
+AI_MESSAGES_TABLE = Table(sql_db, 'ai_messages')
+GAME_DATA_TABLE = Table(sql_db, 'game_data')
 LOG.INF(
     'Loaded database tables:\n' +
     ',\n'.join(

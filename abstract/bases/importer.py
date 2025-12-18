@@ -34,6 +34,8 @@ import matplotlib
 import matplotlib.patheffects
 import pandas
 import PIL.Image
+import PIL.ImageDraw
+import PIL.ImageFont
 import warnings
 import copy
 import socket

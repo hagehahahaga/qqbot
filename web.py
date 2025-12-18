@@ -12,7 +12,8 @@ class OneBotHttpClient:
             data = json.loads(self.request.body)
             threading.Thread(
                 target=BOT.router,
-                args=(data,)
+                args=(data,),
+                daemon=True
             ).start()
             self.write(json.dumps({}))
 
