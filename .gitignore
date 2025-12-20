@@ -2646,3 +2646,5 @@ __pycache__/
 *$py.class
 *.log
 *.err
+/.idea/sqldialects.xml
+/.idea/data_source_mapping.xml
