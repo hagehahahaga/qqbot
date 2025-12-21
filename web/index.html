@@ -35,7 +35,31 @@
         </div>
         <div id="logs-page" class="page">
             <h1>日志</h1>
-            <div id="logs-content" class="scrollable">
+            <div id="logs-content" class="scrollable" style="position: relative;">
+                <!-- 日志顶栏 - 直接作为scrollable的子元素 -->
+                <div id="logs-header" class="logs-header">
+                    <button id="toggle-logs-header" class="toggle-logs-header-btn" title="展开/收起日志选项">
+                        <span class="arrow-down"></span>
+                    </button>
+                    <div id="logs-options" class="logs-options">
+                        <label>
+                            <input type="checkbox" id="show-debug" checked> Debug
+                        </label>
+                        <label>
+                            <input type="checkbox" id="show-info" checked> Info
+                        </label>
+                        <label>
+                            <input type="checkbox" id="show-warn" checked> Warn
+                        </label>
+                        <label>
+                            <input type="checkbox" id="show-error" checked> Error
+                        </label>
+                    </div>
+                </div>
+                <div id="actual-logs" class="actual-logs"></div>
+                <button id="scroll-to-bottom" class="scroll-to-bottom-btn" title="滚动到底部">
+                    <span class="arrow-down"></span>
+                </button>
             </div>
         </div>
     </div>

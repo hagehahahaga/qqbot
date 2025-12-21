@@ -60,6 +60,7 @@ body.dark-mode .scrollable {
 
 .page {
     display: none;
+    position: relative;
 }
 
 .page.active {
@@ -79,6 +80,7 @@ body.dark-mode .scrollable {
     padding: 10px;
     margin-top: 10px;
     scroll-behavior: smooth;
+    position: relative;
 }
 
 .loading {
@@ -212,4 +214,266 @@ body.dark-mode .log-entry.deb {
 
 body.dark-mode .log-entry.inf {
     color: white; /* 白色 */
+}
+
+/* 日志内容容器样式 */
+.scrollable {
+    height: 300px;
+    overflow-y: auto;
+    border: 1px solid #5a5a5a;
+    padding: 10px;
+    margin-top: 10px;
+    scroll-behavior: smooth;
+    position: relative;
+    box-sizing: border-box;
+}
+
+/* 日志容器样式 */
+#logs-content {
+    position: relative;
+    background-color: #fff;
+    margin: 0;
+    padding: 0;
+}
+
+body.dark-mode #logs-content {
+    background-color: #333;
+}
+
+/* 日志内容容器样式 */
+.scrollable {
+    height: 300px;
+    overflow-y: auto;
+    border: 1px solid #5a5a5a;
+    padding: 10px;
+    margin-top: 10px;
+    scroll-behavior: smooth;
+    position: relative;
+    box-sizing: border-box;
+}
+
+/* 日志容器样式 */
+#logs-content {
+    position: relative;
+    background-color: #fff;
+    margin: 0;
+    padding: 0;
+}
+
+body.dark-mode #logs-content {
+    background-color: #333;
+}
+
+/* 日志顶栏样式 - 修复强制展开问题 */
+.logs-header {
+    background-color: #f0f0f0;
+    padding: 3px 5px;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    margin: 5px -10px 5px -10px;
+    width: calc(100% + 10px);
+    box-sizing: border-box;
+}
+
+body.dark-mode .logs-header {
+    background-color: #333;
+}
+
+/* 日志选项样式 - 默认隐藏 */
+.logs-options {
+    flex-direction: column;
+    padding: 5px 10px;
+    margin: 5px 0 0 0;
+    background-color: transparent;
+    width: 100%;
+    box-sizing: border-box;
+    gap: 3px;
+    visibility: hidden;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: visibility 0.3s ease, max-height 0.3s ease, opacity 0.3s ease;
+}
+
+/* 展开状态下显示日志选项 */
+.logs-header.expanded .logs-options {
+    visibility: visible;
+    max-height: 100px;
+    opacity: 1;
+}
+
+/* 实际日志内容容器 */
+.actual-logs {
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* 展开/收起日志选项按钮样式 */
+.toggle-logs-header-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    opacity: 0.7;
+    transition: opacity 0.3s;
+    z-index: 1001;
+    outline: none;
+    width: 25px;
+    height: 25px;
+    box-sizing: border-box;
+}
+
+.toggle-logs-header-btn:hover {
+    opacity: 1;
+}
+
+body.dark-mode .toggle-logs-header-btn:hover {
+    opacity: 1;
+}
+
+/* 展开/收起日志选项按钮样式 */
+.toggle-logs-header-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    opacity: 0.7;
+    transition: opacity 0.3s;
+    z-index: 1001;
+    outline: none;
+    width: 25px;
+    height: 25px;
+    box-sizing: border-box;
+}
+
+.toggle-logs-header-btn:hover {
+    opacity: 1;
+}
+
+body.dark-mode .toggle-logs-header-btn:hover {
+    opacity: 1;
+}
+
+/* 移除按钮焦点样式 */
+.toggle-logs-header-btn:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+/* 日志选项样式 */
+.logs-options {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 5px 10px 5px 15px;
+    align-items: flex-start;
+    background-color: transparent;
+    margin: 0;
+    z-index: 1000;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* 日志条目样式 */
+.log-entry {
+    margin-bottom: 5px;
+    margin-top: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* 统一箭头样式 - 与滚动到底部按钮箭头一致 */
+.logs-header .arrow-down {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-right: 2px solid #2196F3;
+    border-bottom: 2px solid #2196F3;
+    transform: rotate(-45deg);
+    transition: transform 0.3s ease;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* 黑夜模式下的箭头颜色 */
+body.dark-mode .logs-header .arrow-down {
+    border-right-color: white;
+    border-bottom-color: white;
+}
+
+/* 展开后箭头向下 - 旋转45度 */
+.logs-header.expanded .arrow-down {
+    transform: rotate(45deg);
+}
+
+
+
+/* 黑夜模式下的日志顶栏样式 */
+body.dark-mode .logs-header {
+    background-color: #333;
+    color: #fff;
+}
+
+body.dark-mode .logs-options label {
+    color: #fff;
+}
+
+/* 滚动到底部按钮样式 */
+.scroll-to-bottom-btn {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    opacity: 0.7;
+    transition: opacity 0.3s, transform 0.3s;
+}
+
+.scroll-to-bottom-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+/* 向下箭头样式 */
+.arrow-down {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    border-right: 3px solid white;
+    border-bottom: 3px solid white;
+    transform: rotate(45deg);
+    margin-bottom: 5px;
+}
+
+/* 黑夜模式下的滚动按钮样式 */
+body.dark-mode .scroll-to-bottom-btn {
+    background-color: #1976D2;
+    box-shadow: 0 2px 10px rgba(255, 255, 255, 0.1);
 }
