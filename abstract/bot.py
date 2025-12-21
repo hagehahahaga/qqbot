@@ -253,7 +253,7 @@ def help(message: MESSAGE, session: Session, args):
                     )
                 case 'notice':
                     message.reply_text(
-                        '\n支持功能:\n'
+                        '\nsupport功能:\n'
                         '   status:\n'
                         '       查询当前进行中的定时提醒\n'
                         '   add [--time=now[\n'
@@ -265,6 +265,63 @@ def help(message: MESSAGE, session: Session, args):
                         '   remove time:\n'
                         '       time格式%Y-%m-%d %H:%M:%S, 根据time删除定时提醒'
                     )
+                case 'compress':
+                    message.reply_text('一键电子包浆, 降低图片质量')
+                case 'points':
+                    message.reply_text('查询你的韭菜盒子数量')
+                case 'transfer':
+                    message.reply_text('转账韭菜盒子, 使用格式: transfer @用户 <数量>')
+                case 'lottery':
+                    message.reply_text('5个韭菜盒子购买一个韭菜盒子彩票')
+                case 'say':
+                    message.reply_text('随机播放电棍语录')
+                case 'chat':
+                    message.reply_text('\n与AI对话\n'
+                        '使用格式: chat <character> <message>\n'
+                        '   <character>: 要使用的AI角色名称\n'
+                        '   <message>: 要发送给AI的消息内容\n'
+                        '\n示例: chat 小助理 你好吗\n'
+                        '\n注意事项: 仅在群聊中可用, 消耗3个韭菜盒子')
+                case 'phantom':
+                    message.reply_text('生成幻影坦克图片')
+                case 'service':
+                    message.reply_text('\n支持功能:\n'
+                        '   status [service]: 查询服务状态\n'
+                        '   start <service>: 启动服务\n'
+                        '   stop <service>: 停止服务\n'
+                        '   restart <service>: 重启服务\n'
+                        '   option <service> <attribute> <value>: 设置服务属性')
+                case 'tts':
+                    message.reply_text('AI语音合成, 使用格式: tts <speaker> <text>')
+                case 'svc':
+                    message.reply_text('AI变音, 使用格式: svc <speaker> [pitch] 并附带语音消息')
+                case 'forge':
+                    message.reply_text('\n伪造聊天记录\n'
+                        '使用步骤:\n'
+                        '1. 发送: forge\n'
+                        '2. 按提示发送AtMessage或qqid指定发送人\n'
+                        '3. 发送消息内容\n'
+                        '4. 重复步骤2-3添加多条消息\n'
+                        '5. 发送"complete"结束并生成伪造的聊天记录\n'
+                        '\n注意事项: 交互式命令, 需按提示逐步操作')
+                case 'weather':
+                    message.reply_text('\n支持功能:\n'
+                        '   weather <city> [now/hourly/daily/today/tomorrow]: 查询天气\n'
+                        '   now: 当前天气\n'
+                        '   hourly: 逐小时天气预报\n'
+                        '   daily: 每日天气预报\n'
+                        '   today: 今日天气\n'
+                        '   tomorrow: 明日天气')
+                case 'version':
+                    message.reply_text('查看机器人开发信息')
+                case 'status':
+                    message.reply_text('查看机器人系统状态')
+                case 'game':
+                    message.reply_text('\n支持功能:\n'
+                        '   list: 查看可用游戏\n'
+                        '   info <game>: 查看游戏信息\n'
+                        '   start <game> @玩家...: 开始游戏\n'
+                        '   blacklist [add/remove] @玩家: 管理游戏黑名单')
                 case _:
                     message.reply_text('该项还没有文档.')
         case []:
