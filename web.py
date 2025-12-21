@@ -1,13 +1,16 @@
 import tornado.websocket
 import tornado.web
-from abstract.bases.importer import json, threading
+from abstract.bases.importer import json, threading, pathlib
 
 from abstract.bases.log import *
 from abstract.bot import BOT
 
 
 class OneBotHttpClient:
-    class PostHandler(tornado.web.RequestHandler):
+    class RootHandler(tornado.web.RequestHandler):
+        def get(self):
+            self.redirect('/status')
+        
         def post(self):
             data = json.loads(self.request.body)
             threading.Thread(
@@ -51,7 +54,7 @@ class OneBotHttpClient:
     def __init__(self):
         self.app = tornado.web.Application(
             [
-                ('/', self.PostHandler),
+                ('/', self.RootHandler),
                 ('/status', self.WebHandler),
                 ('/websocket', self.WebSocketHandler),
                 ('/api/services_status', self.ServiceStatusHandler)
