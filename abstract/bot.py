@@ -233,6 +233,11 @@ def help(message: MESSAGE, session: Session, args):
                         '       0 - 无r18, 1 - 仅r18, 2 - 混合\n'
                         '   recall_catch = 0:\n'
                         '       防撤回\n'
+                        '       0 - 关, 1 - 开\n'
+                        '   city = <城市名>:\n'
+                        '       设置群聊默认城市, 用于天气查询\n'
+                        '   weather_notice = 0:\n'
+                        '       天气提醒开关\n'
                         '       0 - 关, 1 - 开'
                     )
                 case 'sign':
