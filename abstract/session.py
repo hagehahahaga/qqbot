@@ -38,7 +38,7 @@ class Session:
 
     def pipe_get(self, message: MESSAGE, inform=True, timeout: Optional[int] = 30):
         if inform:
-            message.reply_text(f'正在等待输入{timeout}秒...发送"cancel"以取消.')
+            notice_message = message.reply_text(f'正在等待输入{timeout}秒...发送"cancel"以取消.')
         try:
             self.getting = True
             result: MESSAGE = self.pipe.get(timeout=timeout)
@@ -49,6 +49,8 @@ class Session:
             raise CommandCancel('未继续输入.')
         finally:
             self.getting = False
+            if inform:
+                notice_message.delete()
         try:
             args = result.get_parts_by_type(TextMessage)
             if args and args[0].to_args()[0] == 'cancel':
@@ -62,15 +64,23 @@ class Session:
         if isinstance(message.messages[0], ReplyMessage):
             output.extend(message.messages[0].get_reply_message().get_parts_by_type(needed_type))
 
-        while len(output) < num:
-            message.reply_text(
-                f'需要{num}个{needed_type.NAME}, 提供了{len(output)}个, 继续输入.')
+        notice_messages: set[MESSAGE] = set()
+        try:
+            while len(output) < num:
+                notice_messages.add(
+                    message.reply_text(
+                        f'需要{num}个{needed_type.NAME}, 提供了{len(output)}个, 继续输入.'
+                    )
+                )
 
-            message_got = self.pipe_get(message)
-            if message_got and isinstance(message_got.messages[0], ReplyMessage):
-                output.extend(message_got.messages[0].get_reply_message().get_parts_by_type(needed_type))
+                message_got = self.pipe_get(message)
+                if message_got and isinstance(message_got.messages[0], ReplyMessage):
+                    output.extend(message_got.messages[0].get_reply_message().get_parts_by_type(needed_type))
 
-            output.extend(message_got.get_parts_by_type(needed_type))
+                output.extend(message_got.get_parts_by_type(needed_type))
+        finally:
+            for notice_message in notice_messages:
+                notice_message.delete()
 
         return output[:num]
 
