@@ -47,10 +47,10 @@
     "tts": "",
     "svc": "",
     "speakers": {
-      "": [
-        "tts",
-        "svc"
-      ]
+      "": {
+        "tts": "",
+        "svc": ""
+      }
     }
   },
   "weather_api": {

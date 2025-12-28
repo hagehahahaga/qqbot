@@ -2,7 +2,6 @@ from abstract.bases.exceptions import CommandCancel
 from abstract.bases.importer import threading, requests, functools
 
 from abstract.bases.log import LOG
-from abstract.session import Session
 from config import CONFIG
 
 
@@ -12,70 +11,55 @@ class Speaker:
     TTS_LOCK = threading.Lock()
     SVC_LOCK = threading.Lock()
 
-    def __init__(self, name: str, supports: list[str]):
+    def __init__(self, name: str, supports: dict[str, str]):
         self.name = name
         self.supports = supports
 
     @staticmethod
-    def error_handler(func):
-        @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
-            try:
-                return func(self, *args, **kwargs)
-            except requests.ConnectionError as error:
-                LOG.WAR('无法连接VITS服务端.')
-                raise CommandCancel('无法连接VITS服务端. 多半是没开机.')
-            except requests.JSONDecodeError as error:
-                LOG.WAR(f'{self.name}: vits主机信息无法解析.')
-                raise CommandCancel('vits主机信息无法解析.')
-
-        return wrapper
-
-    @staticmethod
-    def check_support(type: str):
+    def error_handler(type: str):
         def decorator(func):
             @functools.wraps(func)
-            def wrapper(self, *args, **kwargs):
+            def wrapper(self, *args, **kwargs) -> bytes:
+                # 检查支持的功能类型
                 assert type in self.supports, f'此Speaker不支持{type}功能.'
-                return func(self, *args, **kwargs)
+                
+                try:
+                    # 调用原始函数
+                    response = func(self, *args, **kwargs)
+                    
+                    # 处理响应
+                    assert response.status_code == 200, f'{self.name}服务端出错, 可能是参数问题.'
+                    try:
+                        json = response.json()
+                        assert json['status'] == 0, f'{self.name}推理出错: {json["detail"]}'
+                    except requests.JSONDecodeError:
+                        pass
+                    
+                    assert response, f'{self.name}推理结果为空'
+                    return response.content
+                    
+                except requests.ConnectionError as error:
+                    LOG.WAR('无法连接VITS服务端.')
+                    raise CommandCancel('无法连接VITS服务端. 多半是没开机.')
+                except requests.JSONDecodeError as error:
+                    LOG.WAR(f'{self.name}: vits主机信息无法解析.')
+                    raise CommandCancel('vits主机信息无法解析.')
 
             return wrapper
-
         return decorator
 
-    @staticmethod
-    def post_process(func):
-        @functools.wraps(func)
-        def wrapper(self, *args, **kwargs) -> bytes:
-            response = func(self, *args, **kwargs)
-            assert response.status_code == 200, f'{self.name}服务端出错, 可能是参数问题.'
-            try:
-                json = response.json()
-                assert json['status'] == 0, f'{self.name}推理出错: {json["detail"]}'
-            except requests.JSONDecodeError:
-                ...
-
-            assert response, f'{self.name}推理结果为空'
-            return response.content
-
-        return wrapper
-
-    @error_handler
-    @check_support('tts')
-    @post_process
+    @error_handler('tts')
     def TTS(self, text: str):
         with self.TTS_LOCK:
             return requests.post(
                 self.TTS_URL + '/voiceChangeModel',
                 data={
-                    'speaker': self.name,
+                    'speaker': self.supports['tts'],
                     'text': text
                 }
             )
 
-    @error_handler
-    @check_support('svc')
-    @post_process
+    @error_handler('svc')
     def SVC(self, audio: bytes, pitch: float = None):
         with self.SVC_LOCK:
             return requests.post(
@@ -84,14 +68,14 @@ class Speaker:
                     'audio': audio
                 },
                 data={
-                    'speaker': self.name,
+                    'speaker': self.supports['svc'],
                     'pitch': pitch
                 }
             )
 
 
 class SpeakerManager(dict):
-    def __init__(self, speakers: dict[str, str]):
+    def __init__(self, speakers: dict[str, dict[str, str]]):
         super().__init__(
             {
                 key: Speaker(key, value) for key, value in speakers.items()
@@ -106,7 +90,7 @@ class SpeakerManager(dict):
 
 
 LOG.INF('Loading VITS speaker modules...')
-SPEAKER_MANAGER: SpeakerManager[Speaker] = SpeakerManager(
+SPEAKER_MANAGER: SpeakerManager[str, Speaker] = SpeakerManager(
     CONFIG.get("vits", {}).get("speakers", [])
 )
 LOG.INF(

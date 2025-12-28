@@ -31,11 +31,18 @@ class TicTacToe(BaseGame):
         for i in range(1, 3):
             draw.line((0, i * 100, 300, i * 100), fill='black', width=2)
             draw.line((i * 100, 0, i * 100, 300), fill='black', width=2)
-        # 画棋子
+        # 画棋子 - 使用调整大小后的默认字体
+        default_font = PIL.ImageFont.load_default()
+        # 创建更大的字体变体
+        font = default_font.font_variant(size=40)
         for i, cell in enumerate(self.board):
-            x = (i % 3) * 100 + 50
-            y = (i // 3) * 100 + 50
-            draw.text((x, y), cell, fill='black', font=PIL.ImageFont.truetype("arial.ttf", 40))
+            # 计算文字居中位置
+            bbox = draw.textbbox((0, 0), cell, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            x = (i % 3) * 100 + 50 - text_width // 2
+            y = (i // 3) * 100 + 50 - text_height // 2
+            draw.text((x, y), cell, fill='black', font=font)
         # 保存图片到字节流
         byte_io = io.BytesIO()
         try:
@@ -66,10 +73,10 @@ class TicTacToe(BaseGame):
         return all(cell in ['X', 'O'] for cell in self.board)
 
     def start(self, message: GroupMessage):
-        super().start(message)
         self.chess_symbols = {self.members[0].id: 'X', self.members[1].id: 'O'}
         self.current_player = next(self.round_loop)
         message.reply(ImageMessage(self._render_board()))
+        super().start(message)
 
     def handle(self, message: GroupMessage):
         text = message.get_parts_by_type(TextMessage)
@@ -143,8 +150,10 @@ class Gomoku(BaseGame):
         image = PIL.Image.new('RGB', (total_size_px, total_size_px), color='#F5DEB3')  # 米黄色背景
         draw = PIL.ImageDraw.Draw(image)
         
-        # 设置字体
-        font = PIL.ImageFont.truetype("arial.ttf", 20)
+        # 设置字体 - 使用调整大小后的默认字体
+        default_font = PIL.ImageFont.load_default()
+        # 创建更大的字体变体
+        font = default_font.font_variant(size=24)
         
         # 绘制数字标记（左侧和顶部）
         for i in range(self.board_size):
@@ -244,11 +253,11 @@ class Gomoku(BaseGame):
         return all(itertools.chain(*self.board))
 
     def start(self, message: GroupMessage):
-        super().start(message)
         # 黑棋先行（X），白棋后行（O）
         self.chess_symbols = {self.members[0].id: 'X', self.members[1].id: 'O'}
         self.current_player = next(self.round_loop)
         message.reply(ImageMessage(self._render_board()))
+        super().start(message)
 
     def handle(self, message: GroupMessage):
         text = message.get_parts_by_type(TextMessage)
