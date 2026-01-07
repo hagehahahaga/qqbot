@@ -90,7 +90,7 @@ class SpeakerManager(dict):
 
 
 LOG.INF('Loading VITS speaker modules...')
-SPEAKER_MANAGER: SpeakerManager[str, Speaker] = SpeakerManager(
+SPEAKER_MANAGER = SpeakerManager(
     CONFIG.get("vits", {}).get("speakers", [])
 )
 LOG.INF(

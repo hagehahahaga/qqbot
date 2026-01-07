@@ -311,12 +311,13 @@ def help(message: MESSAGE, session: Session, args):
                         '\n注意事项: 交互式命令, 需按提示逐步操作')
                 case 'weather':
                     message.reply_text('\n支持功能:\n'
-                        '   weather <city> [now/hourly/daily/today/tomorrow]: 查询天气\n'
+                        '   weather <city> [now/hourly/daily/today/tomorrow/minutely]: 查询天气\n'
                         '   now: 当前天气\n'
                         '   hourly: 逐小时天气预报\n'
                         '   daily: 每日天气预报\n'
                         '   today: 今日天气\n'
-                        '   tomorrow: 明日天气')
+                        '   tomorrow: 明日天气\n'
+                        '   minutely: 未来30分钟降水变化预报')
                 case 'version':
                     message.reply_text('查看机器人开发信息')
                 case 'status':

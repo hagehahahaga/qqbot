@@ -865,6 +865,10 @@ def weather(message: MESSAGE, session: Session, args):
         if 'tomorrow' in args_temp:
             option.value = 'tomorrow'
             args_temp.remove('tomorrow')
+        if 'minutely' in args_temp:
+            option.value = 'minutely'
+            args_temp.remove('minutely')
+
     except RuntimeError:
         raise CommandCancel(f'参数{args}错误, 检查输入.')
 
@@ -883,6 +887,8 @@ def weather(message: MESSAGE, session: Session, args):
         weather_city = WEATHER_CITY_MANAGER[city]
     except CityNotFound:
         raise CommandCancel(f'未能找到城市 {city}. 如为默认城市则让管理员更正, 或手动输入.')
+
+    weather_city.flush_cache()
 
     match option.value:
         case None | 'now':
@@ -904,3 +910,9 @@ def weather(message: MESSAGE, session: Session, args):
                 '\n' +
                 weather_city.get_weather_tomorow_text()
             )
+        case 'minutely':
+            rain_change = weather_city.get_minutely_rain_change()
+            if rain_change:
+                message.reply_text('\n' + rain_change)
+            else:
+                message.reply_text('\n未来30分钟内降水情况无变化或暂无数据.')

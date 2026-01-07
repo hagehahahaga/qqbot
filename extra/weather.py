@@ -58,6 +58,16 @@ class WeatherAPI(abc.ABC):
         :return: The binary content of the icon image(SVG).
         """
 
+    @abc.abstractmethod
+    def get_weather_prediction_minutely(self, coo: tuple[float, float] | str) -> dict:
+
+        """
+        Fetches the 5-minute interval weather predictions for a specific coordinates.
+
+        :param coo: The coordinates (latitude, longitude) or string of coordinates.
+        :return: A dictionary containing the 5-minute interval weather predictions.
+        """
+
 
 class QWeatherAPI(WeatherAPI):
     """
@@ -91,6 +101,19 @@ class QWeatherAPI(WeatherAPI):
         params = {
             'key': self.api_key,
             'location': location
+        }
+
+        return requests.get(url, params=params).json()
+
+    def get_weather_prediction_minutely(self, coo: tuple[float, float] | str) -> dict:
+        # 处理坐标，确保小数位数不超过两位
+        if not isinstance(coo, str):
+            coo = f"{coo[0]:.2f},{coo[1]:.2f}"
+        
+        url = f"{self.api_host}/v7/minutely/5m"
+        params = {
+            'key': self.api_key,
+            'location': coo
         }
 
         return requests.get(url, params=params).json()

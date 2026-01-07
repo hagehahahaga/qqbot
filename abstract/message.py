@@ -254,7 +254,7 @@ class BaseMessage(abc.ABC):
 
     def delete(self):
         FRAME_SERVER.delete_message(self.message_id)
-        LOG.INF(f'Deleted message {self.message_id}')
+        LOG.DEB(f'Deleted message {self}')
 
 
 class PrivateMessage(BaseMessage):

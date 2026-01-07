@@ -1,4 +1,5 @@
 from abstract.bases.importer import time, datetime
+from typing import Callable, Type
 
 from abstract.apis.table import *
 from abstract.bases.exceptions import *
@@ -59,8 +60,8 @@ def _get_wait_seconds(target_times: list[datetime.datetime]) -> float:
 
 
 def _execute_weather_task(
-        weather_getter: typing.Callable,  # 获取天气数据的方法（差异化逻辑）
-        message_cls: typing.Type,  # 消息类型（ImageMessage/TextMessage，差异化逻辑）
+        weather_getter: Callable,  # 获取天气数据的方法（差异化逻辑）
+        message_cls: Type,  # 消息类型（ImageMessage/TextMessage，差异化逻辑）
 ):
     """执行天气提醒任务的通用逻辑（处理群组、城市验证、消息发送）"""
     for id, city in GROUP_OPTION_TABLE.get_all('where weather_notice = 1', attr="id, city"):
@@ -95,8 +96,11 @@ def _execute_weather_task(
                 continue
 
             # 发送对应类型的天气消息（差异化逻辑通过参数传入）
+            result = weather_getter(city_obj)
+            if result is None:
+                continue
             GroupMessage(
-                message_cls(weather_getter(city_obj)),
+                message_cls(result),
                 Group(group_id)
             ).send()
 
@@ -119,9 +123,9 @@ def weather_predictor_hourly():
     wait_seconds = _get_wait_seconds(target_times)
     time.sleep(wait_seconds)
 
-    # 执行任务（传入 hourly 特有的逻辑）
+    # 执行任务（传入 hourly 特有的逻辑，先清除缓存）
     _execute_weather_task(
-        weather_getter=lambda city: city.get_weather_hourly(),
+        weather_getter=lambda city: city.flush_cache(city.get_weather_hourly)(),
         message_cls=ImageMessage
     )
 
@@ -131,16 +135,16 @@ def weather_predictor_daily():
     # 每日任务的差异化参数：目标时间、天气获取方法、消息类型
     now = datetime.datetime.now()
     target_times = [
-        now.replace(hour=23, minute=00, second=0, microsecond=0)
+        now.replace(hour=23, minute=0, second=0, microsecond=0)
     ]
 
     # 等待到目标时间
     wait_seconds = _get_wait_seconds(target_times)
     time.sleep(wait_seconds)
 
-    # 执行任务（传入 daily 特有的逻辑）
+    # 执行任务（传入 daily 特有的逻辑，先清除缓存）
     _execute_weather_task(
-        weather_getter=lambda city: city.get_weather_day_text(delay=1),
+        weather_getter=lambda city: city.flush_cache(city.get_weather_day_text)(delay=1),
         message_cls=TextMessage
     )
 
@@ -157,9 +161,9 @@ def weather_today():
     wait_seconds = _get_wait_seconds(target_times)
     time.sleep(wait_seconds)
 
-    # 执行任务（传入 daily 特有的逻辑）
+    # 执行任务（传入 daily 特有的逻辑，先清除缓存）
     _execute_weather_task(
-        weather_getter=lambda city: city.get_weather_day_text(delay=0),
+        weather_getter=lambda city: city.flush_cache(city.get_weather_day_text)(delay=0),
         message_cls=TextMessage
     )
 
@@ -182,8 +186,37 @@ def weather_predictor_weekly():
     wait_seconds = (target_time - now).total_seconds()
     time.sleep(wait_seconds)
 
-    # 执行任务（复用现有逻辑）
+    # 执行任务（复用现有逻辑，先清除缓存）
     _execute_weather_task(
-        weather_getter=lambda city: city.get_weather_daily(),
+        weather_getter=lambda city: city.flush_cache(city.get_weather_daily)(),
         message_cls=ImageMessage
+    )
+
+
+@BOT.register_service('weather_predictor_minutely', auto_restart=True)
+def weather_predictor_minutely():
+    """每五分钟执行一次，发送分钟级降水变化预报"""
+    now = datetime.datetime.now()
+    
+    # 计算当前时间的总分钟数
+    total_minutes = now.hour * 60 + now.minute
+    
+    # 计算下一个5分钟的总分钟数
+    next_total_minutes = ((total_minutes // 5) + 1) * 5
+    
+    # 计算需要等待的分钟数
+    wait_minutes = next_total_minutes - total_minutes
+    
+    # 计算目标时间，使用timedelta自动处理跨天情况
+    target_time = now + datetime.timedelta(minutes=wait_minutes)
+    target_time = target_time.replace(second=0, microsecond=0)
+    
+    # 等待到目标时间
+    wait_seconds = (target_time - now).total_seconds()
+    time.sleep(wait_seconds)
+    
+    # 执行任务（获取分钟级降水变化预报）
+    _execute_weather_task(
+        weather_getter=lambda city: city.flush_cache(city.get_minutely_rain_change)(),
+        message_cls=TextMessage
     )
