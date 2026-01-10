@@ -7,7 +7,7 @@ from abstract.message import *
 from abstract.bases.log import LOG
 from abstract.bot import BOT
 from abstract.target import Group, User
-from extra.weather_city import WEATHER_CITY_MANAGER
+from extra.weather_city import WEATHER_CITY_MANAGER, WeatherCity
 
 
 @BOT.register_service('noticer', auto_restart=True)
@@ -62,8 +62,12 @@ def _get_wait_seconds(target_times: list[datetime.datetime]) -> float:
 def _execute_weather_task(
         weather_getter: Callable,  # 获取天气数据的方法（差异化逻辑）
         message_cls: Type,  # 消息类型（ImageMessage/TextMessage，差异化逻辑）
+        *args, **kwargs
 ):
     """执行天气提醒任务的通用逻辑（处理群组、城市验证、消息发送）"""
+    for city in WEATHER_CITY_MANAGER:
+        city.flush_cache(weather_getter)
+    
     for id, city in GROUP_OPTION_TABLE.get_all('where weather_notice = 1', attr="id, city"):
         group_id = int(id)
         try:
@@ -96,7 +100,7 @@ def _execute_weather_task(
                 continue
 
             # 发送对应类型的天气消息（差异化逻辑通过参数传入）
-            result = weather_getter(city_obj)
+            result = weather_getter(city_obj, *args, **kwargs)
             if result is None:
                 continue
             GroupMessage(
@@ -125,7 +129,7 @@ def weather_predictor_hourly():
 
     # 执行任务（传入 hourly 特有的逻辑，先清除缓存）
     _execute_weather_task(
-        weather_getter=lambda city: city.flush_cache(city.get_weather_hourly)(),
+        weather_getter=WeatherCity.get_weather_hourly,
         message_cls=ImageMessage
     )
 
@@ -144,8 +148,9 @@ def weather_predictor_daily():
 
     # 执行任务（传入 daily 特有的逻辑，先清除缓存）
     _execute_weather_task(
-        weather_getter=lambda city: city.flush_cache(city.get_weather_day_text)(delay=1),
-        message_cls=TextMessage
+        weather_getter=WeatherCity.get_weather_day_text,
+        message_cls=TextMessage,
+        delay=1
     )
 
 
@@ -163,7 +168,7 @@ def weather_today():
 
     # 执行任务（传入 daily 特有的逻辑，先清除缓存）
     _execute_weather_task(
-        weather_getter=lambda city: city.flush_cache(city.get_weather_day_text)(delay=0),
+        weather_getter=WeatherCity.get_weather_day_text,
         message_cls=TextMessage
     )
 
@@ -188,7 +193,7 @@ def weather_predictor_weekly():
 
     # 执行任务（复用现有逻辑，先清除缓存）
     _execute_weather_task(
-        weather_getter=lambda city: city.flush_cache(city.get_weather_daily)(),
+        weather_getter=WeatherCity.get_weather_daily,
         message_cls=ImageMessage
     )
 
@@ -217,6 +222,6 @@ def weather_predictor_minutely():
     
     # 执行任务（获取分钟级降水变化预报）
     _execute_weather_task(
-        weather_getter=lambda city: city.flush_cache(city.get_minutely_rain_change)(),
+        weather_getter=WeatherCity.get_minutely_rain_change,
         message_cls=TextMessage
     )
