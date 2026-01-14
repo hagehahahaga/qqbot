@@ -1,5 +1,3 @@
-from abstract.target import Group
-
 class SendFailure(Exception):
     """
     The frame_server available but the message send failed
@@ -23,9 +21,9 @@ class GroupNotJoined(SendFailure):
     """
     Exception raised when the specified group is not joined.
     """
-    def __init__(self, group: Group):
+    def __init__(self, group):
         """
-        :type group: Group
+        :type group: abstract.target.Group
         """
         self.group = group
 
