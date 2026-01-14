@@ -1,7 +1,7 @@
 from abstract.bases.importer import operator, last_commit, psutil, platform
 
 import abstract
-from abstract.command import CommandGroup, Command
+from abstract.command import COMMAND_GROUP
 from abstract.game import GAME_MANAGER
 from abstract.message import *
 from abstract.service import Service
@@ -17,39 +17,17 @@ class Bot:
             self,
             frame_server: abstract.apis.frame_server.FrameServer,
             session_manager: abstract.session.SessionManager,
+            command_group: abstract.command.CommandGroup,
             id: int,
             must_at=True,
             command_prefixes=('', )
     ):
         self.frame_server = frame_server
         self.session_manager = session_manager
+        self.command_group = command_group.set_prefixes(command_prefixes)
         self.id = id
         self.must_at = must_at
-        self.command_prefixes = command_prefixes
-        self.commands = CommandGroup()
         self.services: dict[str, Service] = {}
-
-    def register_command(self, command_name: str | Iterable, type: int | dict[str, MESSAGE_PART | int] = 0, info=''):
-        """
-        Register commands that runs them handling messages
-
-        :param command_name:
-        :param type:
-        0 - no arg needed;
-        1 - string arg needed;
-        2 - message part arg needed;
-        {
-            'needed_type': MESSAGE_PART,
-            'needed_num': int = 1
-        } - assigned message parts arg needed:
-        :return: decorated method
-        """
-        def decorator(func):
-            self.commands.add(Command(func, command_name, type, info))
-
-            return func
-
-        return decorator
 
     def register_service(self, service_name: str, auto_restart=False):
         """
@@ -93,17 +71,8 @@ class Bot:
         except IndexError:
             command_name, args = '', []
 
-        # 当消息为Private时始终为True, 否则只有匹配prefix时为True
-        if not self.command_prefixes:
-            is_command = True
-        else:
-            for command_prefix in self.command_prefixes:
-                if command_name.startswith(command_prefix):
-                    is_command = True
-                    command_name = command_name.removeprefix(command_prefix)
-                    break
-            else:
-                is_command = isinstance(message, PrivateMessage)
+        command = self.command_group.match(command_name, isinstance(message, GroupMessage))
+
         if session.getting:
             session.pipe_put(message)
             return
@@ -122,19 +91,18 @@ class Bot:
                 return
 
         if session.lock.locked():
-            session.handle(message, command_name, is_command)
+            session.handle(message, command)
             return
 
-        if not is_command:
+        if command is None:
             return
 
-        if not command_name:
+        if not command:
             message.reply_text('我白银我最萌, s8我上我能夺冠, 职业选手都是帅逼.')
             return
-        try:
-            command = self.commands[command_name]
-        except KeyError:
-            message.reply_text(f'{command_name}不是一个可识别的指令, 检查输入.')
+
+        if isinstance(command, str):
+            message.reply_text(f'{command}不是一个可识别的指令, 检查输入.')
             return
 
         with session:
@@ -213,11 +181,11 @@ class Bot:
 
 
 LOG.INF('Initializing bot...')
-BOT = Bot(FRAME_SERVER, SESSION_MANAGER, **CONFIG['bot_config'])
+BOT = Bot(FRAME_SERVER, SESSION_MANAGER, COMMAND_GROUP, **CONFIG['bot_config'])
 LOG.INF('Bot initialized successfully.')
 
 
-@BOT.register_command(('help', '帮助'), 1, '列出指令列表')
+@COMMAND_GROUP.register_command(('help', '帮助'), 1, '列出指令列表')
 def help(message: MESSAGE, session: Session, args):
     match args:
         case [command]:
@@ -336,13 +304,13 @@ def help(message: MESSAGE, session: Session, args):
                 '\n'.join(
                     map(
                         lambda a:f'{a.command_names}: {a.info}',
-                        BOT.commands
+                        BOT.command_group
                     )
                 )
             )
 
 
-@BOT.register_command(('version', '版本', '版本信息'), info='查看机器人开发信息')
+@COMMAND_GROUP.register_command(('version', '版本', '版本信息'), info='查看机器人开发信息')
 def version(message: MESSAGE, session: Session):
     message.reply_text(
         '\n开发信息:\n'
@@ -359,7 +327,7 @@ def version(message: MESSAGE, session: Session):
     )
 
 
-@BOT.register_command(('status', '状态', '状态信息'))
+@COMMAND_GROUP.register_command(('status', '状态', '状态信息'))
 def status(message: MESSAGE, session: Session):
     system = platform.system()
     message.reply_text(
@@ -370,7 +338,7 @@ def status(message: MESSAGE, session: Session):
     )
 
 
-@BOT.register_command(('game', '游戏'), 0 ,'游戏菜单')
+@COMMAND_GROUP.register_command(('game', '游戏'), 0 ,'游戏菜单')
 def game_menu(message: MESSAGE, session: Session):
     text_args = message.get_parts_by_type(TextMessage)[0].to_args()[1:]
     match text_args:

@@ -84,11 +84,13 @@ class Session:
 
         return output[:num]
 
-    def handle(self, message: MESSAGE, command_name, is_command: bool):
-        if command_name != 'cancel':
-            if not (is_command and command_name):
-                return
+    def handle(self, message: MESSAGE, command):
+        from abstract.command import Command
+        if isinstance(command, Command):
             message.reply_text('你现在还有进行中的命令.')
+            return
+
+        if command != 'cancel':
             return
 
         if not self.running_thread.is_alive():

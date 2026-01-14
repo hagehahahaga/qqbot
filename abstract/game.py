@@ -1,6 +1,4 @@
-import threading
-
-from abstract.bases.importer import abc, itertools
+from abstract.bases.importer import abc, itertools, threading
 from typing import Optional, Literal
 
 from abstract.bases.exceptions import CommandCancel

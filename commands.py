@@ -6,9 +6,10 @@ from abstract.bases.importer import json, PIL
 from PicImageSearch.sync import *
 
 import abstract.message
-from abstract.bases.custom_thread import CustomThreadGroup, CustomThread
+from abstract.bases.custom_thread import CustomThreadGroup
 from abstract.message import *
 from abstract.bot import BOT
+from abstract.command import COMMAND_GROUP
 from abstract.session import Session
 from extra.chat_ai import LLM, CHAT_AIs
 from abstract.bases.exceptions import *
@@ -79,7 +80,7 @@ def authorize(min_level: str):
     return decorator
 
 
-@BOT.register_command(('search', '搜图', '以图搜图'), {'needed_type': ImageMessage}, '多API同时搜索')
+@COMMAND_GROUP.register_command(('search', '搜图', '以图搜图'), {'needed_type': ImageMessage}, '多API同时搜索')
 @cost(2)
 @ask_for_wait
 def pic_searching(message: MESSAGE, session: Session, image: list[ImageMessage]):
@@ -155,7 +156,7 @@ def pic_searching(message: MESSAGE, session: Session, image: list[ImageMessage])
             message.reply_text(f'部分搜索已完成, 消耗了 {cost} 个韭菜盒子.')
         raise e
 
-@BOT.register_command(('random', '随机', '随机图', '随机涩图', '涩图', '多来点'), 1, '随机pixiv图')
+@COMMAND_GROUP.register_command(('random', '随机', '随机图', '随机涩图', '涩图', '多来点'), 1, '随机pixiv图')
 @ask_for_wait
 @cost(2)
 def random_pic(message: MESSAGE, session: Session, args):
@@ -225,7 +226,7 @@ def random_pic(message: MESSAGE, session: Session, args):
     worker()
 
 
-@BOT.register_command(('compress', '压缩', '压缩图'), {'needed_type': ImageMessage}, '一键电子包浆')
+@COMMAND_GROUP.register_command(('compress', '压缩', '压缩图'), {'needed_type': ImageMessage}, '一键电子包浆')
 @ask_for_wait
 def compress(message: MESSAGE, session: Session, args: list[ImageMessage]):
     input_image = args[0].image
@@ -240,7 +241,7 @@ def compress(message: MESSAGE, session: Session, args: list[ImageMessage]):
     message.reply(ImageMessage(data=output.getvalue()))
 
 
-@BOT.register_command(('option', '设置', '群设置', '群聊设置'), 1, '更改/查询机器人在此群聊的设置')
+@COMMAND_GROUP.register_command(('option', '设置', '群设置', '群聊设置'), 1, '更改/查询机器人在此群聊的设置')
 @authorize('admin')
 @group_only
 def option(message: MESSAGE, session: Session, args):
@@ -277,14 +278,14 @@ def option(message: MESSAGE, session: Session, args):
             raise CommandCancel(f'参数 {final} 有误!')
 
 
-@BOT.register_command(('points', '点数', '韭菜盒子'), info='查询韭菜盒子数')
+@COMMAND_GROUP.register_command(('points', '点数', '韭菜盒子'), info='查询韭菜盒子数')
 def points(message: MESSAGE, session: Session):
     message.reply_text(
         f'你当前的韭菜盒子数为: {message.sender.get_points()}.'
     )
 
 
-@BOT.register_command(('transfer', '转账'), 2, '转账')
+@COMMAND_GROUP.register_command(('transfer', '转账'), 2, '转账')
 @authorize('operator')
 def transfer(message: MESSAGE, session: Session, args):
     match args:
@@ -318,7 +319,7 @@ def transfer(message: MESSAGE, session: Session, args):
             return
 
 
-@BOT.register_command(('sign', '签到'), info='签到获取韭菜盒子')
+@COMMAND_GROUP.register_command(('sign', '签到'), info='签到获取韭菜盒子')
 def sign(message: MESSAGE, session: Session):
     from abstract.bases.importer import random
     if message.sender.get_sign_date().strftime('%Y%m%d') == time.strftime('%Y%m%d'):
@@ -338,7 +339,7 @@ def sign(message: MESSAGE, session: Session):
     message.reply_text(f'今日签到获得韭菜盒子: {points}个.')
 
 
-@BOT.register_command(('lottery', '彩票', '抽奖'), info='5个韭菜盒子购买一个韭菜盒子彩票')
+@COMMAND_GROUP.register_command(('lottery', '彩票', '抽奖'), info='5个韭菜盒子购买一个韭菜盒子彩票')
 @cost(5)
 def lottery(message: MESSAGE, session: Session):
     from abstract.bases.importer import random
@@ -374,7 +375,7 @@ def lottery(message: MESSAGE, session: Session):
     message.reply_text(f'当前奖池: {CONFIG["lottery_pool"]}个.')
 
 
-@BOT.register_command(('stock', '股票'), 1, '股票系统')
+@COMMAND_GROUP.register_command(('stock', '股票'), 1, '股票系统')
 def stock(message: MESSAGE, session: Session, args):
     date = time.strftime('%Y-%m-%d')
     commission = message.sender.get_commission()
@@ -485,7 +486,7 @@ def stock(message: MESSAGE, session: Session, args):
         message.reply_text(f'交易还剩 {num}股 未完成, 交易委托中...')
 
 
-@BOT.register_command(('notice', '提醒'), 1, '提醒系统')
+@COMMAND_GROUP.register_command(('notice', '提醒'), 1, '提醒系统')
 def notice(message: MESSAGE, session: Session, args):
     match type(message):
         case abstract.message.GroupMessage:
@@ -561,7 +562,7 @@ def notice(message: MESSAGE, session: Session, args):
     notice(message, session, ['status'])
 
 
-@BOT.register_command(('say', '说', '语录'), info='随机电棍语录')
+@COMMAND_GROUP.register_command(('say', '说', '语录'), info='随机电棍语录')
 @ask_for_wait
 @cost(2)
 def say(message: MESSAGE, session: Session):
@@ -575,7 +576,7 @@ def say(message: MESSAGE, session: Session):
     )
 
 
-@BOT.register_command(('chat', ), info='与ai对话')
+@COMMAND_GROUP.register_command(('chat', ), info='与ai对话')
 @group_only
 @cost(3)
 @ask_for_wait
@@ -594,7 +595,7 @@ def chat(message: GroupMessage, session: Session):
                                 text += message_part.target.__str__()
                             case abstract.message.TextMessage:
                                 parts: list = message_part.to_args()
-                                for prefix in BOT.command_prefixes:
+                                for prefix in COMMAND_GROUP.command_prefixes:
                                     if parts[0].startswith(prefix) and parts[0][1:] == 'ai':
                                         parts = parts[2:]
                                 text += ' '.join(parts)
@@ -650,7 +651,7 @@ def chat(message: GroupMessage, session: Session):
     message.reply_text(f'本次请求消耗bot主约{character.cost: .2f}元')
 
 
-@BOT.register_command(('phantom', '幻影坦克'), {'needed_type': ImageMessage, 'needed_num': 2}, '幻影坦克图片生成')
+@COMMAND_GROUP.register_command(('phantom', '幻影坦克'), {'needed_type': ImageMessage, 'needed_num': 2}, '幻影坦克图片生成')
 @cost(2)
 @ask_for_wait
 def phantom_tank(message: MESSAGE, session: Session, args: list[ImageMessage]):
@@ -729,7 +730,7 @@ def phantom_tank(message: MESSAGE, session: Session, args: list[ImageMessage]):
     )
 
 
-@BOT.register_command(('service', '服务'), 1, '服务系统')
+@COMMAND_GROUP.register_command(('service', '服务'), 1, '服务系统')
 @authorize('operator')
 def service(message: MESSAGE, session: Session, args):
     try:
@@ -771,7 +772,7 @@ def service(message: MESSAGE, session: Session, args):
         message.reply_text(f'服务 {service} 不存在.')
 
 
-@BOT.register_command(('tts', 'ai语音'), 1, 'ai语音')
+@COMMAND_GROUP.register_command(('tts', 'ai语音'), 1, 'ai语音')
 @cost(2)
 @ask_for_wait
 def TTS(message: MESSAGE, session: Session, args):
@@ -787,7 +788,7 @@ def TTS(message: MESSAGE, session: Session, args):
     )
 
 
-@BOT.register_command(
+@COMMAND_GROUP.register_command(
     ('svc', 'ai变音', '变音', '变声'),
     {'needed_type': RecordMessage, 'needed_num': 1},
     'ai变音'
@@ -812,7 +813,7 @@ def SVC(message: MESSAGE, session: Session, args: list[RecordMessage]):
     )
 
 
-@BOT.register_command(('forge', '伪造'), 0, '伪造聊天记录')
+@COMMAND_GROUP.register_command(('forge', '伪造'), 0, '伪造聊天记录')
 def forge_chat(message: MESSAGE, session: Session):
     content: list[NodeMessage] = []
 
@@ -842,7 +843,7 @@ def forge_chat(message: MESSAGE, session: Session):
     )
 
 
-@BOT.register_command(('weather', '天气', '现在天气'), 1, '获取实时天气')
+@COMMAND_GROUP.register_command(('weather', '天气', '现在天气'), 1, '获取实时天气')
 @cost(2)
 @group_only
 @ask_for_wait

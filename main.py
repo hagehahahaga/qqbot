@@ -11,6 +11,7 @@ from abstract.message import GroupMessage
 from abstract.target import Group
 from web import FRAME_CLIENT
 
+
 import commands
 LOG.INF('Commands registered successfully.')
 import services
