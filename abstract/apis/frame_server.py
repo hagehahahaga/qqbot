@@ -227,7 +227,10 @@ class OneBotHttpServer(FrameServer):
                 'message': message.get_json()
             }
         ).json()
-        if not data['data']:
+        if data['status'] == 'failed':
+            error_message = data['message']
+            if "\"result\": 110" in error_message:
+                raise GroupNotJoined(message.target)
             raise SendFailure(data['message'], message)
         return data['data']['message_id']
 

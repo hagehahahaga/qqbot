@@ -1,3 +1,5 @@
+from abstract.target import Group
+
 class SendFailure(Exception):
     """
     The frame_server available but the message send failed
@@ -15,6 +17,23 @@ class SendFailure(Exception):
 
     def __repr__(self):
         return f'<{self.__class__.__name__} {self.text}> at {hex(id(self))}\nmessage: {self.message_data}'
+
+
+class GroupNotJoined(SendFailure):
+    """
+    Exception raised when the specified group is not joined.
+    """
+    def __init__(self, group: Group):
+        """
+        :type group: Group
+        """
+        self.group = group
+
+    def __str__(self):
+        return f'发送失败: 不在群聊{self.group}中.'
+
+    def __repr__(self):
+        return f'<{self.__class__.__name__} {self.group}> at {hex(id(self))}'
 
 
 class CommandCancel(BaseException):

@@ -108,6 +108,10 @@ def _execute_weather_task(
                 Group(group_id)
             ).send()
 
+        except GroupNotJoined:
+            GROUP_OPTION_TABLE.set('id', group_id, 'weather_notice', 0)
+            LOG.WAR(f'Group {group_id} not joined, reset from group options.')
+
         except SendFailure as e:
             LOG.WAR(e)
         except Exception as e:
