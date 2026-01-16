@@ -3,7 +3,7 @@ from abstract.bases.importer import dispatch, itertools, operator
 
 import abstract.apis.table
 from abstract.apis.table import NULL
-from config import CONFIG
+from abstract.bases.config import CONFIG
 from abstract.bases.log import LOG
 from abstract.session import Session
 

@@ -18,6 +18,8 @@ import services
 LOG.INF('Services registered successfully.')
 import games
 LOG.INF('Games registered successfully.')
+import triggers
+LOG.INF('Triggers registered successfully.')
 
 
 def main():

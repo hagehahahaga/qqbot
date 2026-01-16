@@ -1,7 +1,7 @@
 from abstract.bases.importer import abc, requests, dispatch, base64
 
 from abstract.bases.exceptions import *
-from config import CONFIG
+from abstract.bases.config import CONFIG
 from abstract.bases.log import LOG
 
 

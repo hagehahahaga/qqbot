@@ -1,7 +1,7 @@
 from abstract.bases.importer import abc, pathlib, cairosvg, io, requests
 from PIL import Image
 
-from config import CONFIG
+from abstract.bases.config import CONFIG
 from abstract.bases.log import LOG
 from abstract.bases.exceptions import *
 

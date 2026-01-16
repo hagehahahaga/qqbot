@@ -1,6 +1,6 @@
 from abstract.bases.importer import abc, base64, pathlib, requests, dispatch, Iterable, typing
 
-from config import CONFIG
+from abstract.bases.config import CONFIG
 from abstract.target import User, Group
 from abstract.apis.frame_server import FRAME_SERVER
 from abstract.bases.log import LOG
@@ -240,7 +240,7 @@ class BaseMessage(abc.ABC):
             )
         )
 
-    def get_parts_by_type(self, part_type: type) -> list[MESSAGE_PART]:
+    def get_parts_by_type(self, part_type: type[MESSAGE_PART]) -> list[MESSAGE_PART]:
         return list(
             filter(
                 lambda a: isinstance(a, part_type),

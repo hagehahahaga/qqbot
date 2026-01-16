@@ -2,7 +2,7 @@ from abstract.bases.exceptions import CommandCancel
 from abstract.bases.importer import threading, requests, functools
 
 from abstract.bases.log import LOG
-from config import CONFIG
+from abstract.bases.config import CONFIG
 
 
 class Speaker:

@@ -1,6 +1,6 @@
 from abstract.bases.importer import pathlib, queue, time, traceback
 
-from config import CONFIG
+from abstract.bases.config import CONFIG
 
 
 class _LogManager:

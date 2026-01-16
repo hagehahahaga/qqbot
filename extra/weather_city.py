@@ -3,13 +3,13 @@ from abstract.bases.importer import matplotlib
 from PIL import Image
 import matplotlib.pyplot
 import matplotlib.dates
-from typing import Optional, Callable
+from typing import Optional, Callable, Dict, TypeVar, MutableMapping, Iterator, KeysView, ValuesView, ItemsView
 
 from extra.weather import WEATHER_API, WeatherAPI
 from abstract.apis.table import *
 from abstract.bases.exceptions import *
 from abstract.message import *
-from config import CONFIG
+from abstract.bases.config import CONFIG
 
 matplotlib.pyplot.rcParams["font.family"] = CONFIG['zh_font']
 
@@ -592,17 +592,58 @@ class WeatherCity:
             self.cache[self.get_minutely_rain_change.__name__] = output + '.'
         return self.cache[self.get_minutely_rain_change.__name__]
 
-class WeatherCityManager(dict):
+class WeatherCityManager(MutableMapping[str, 'WeatherCity']):
     """
+    城市天气管理器，键为城市名，值为WeatherCity对象
+    
     A manager class for handling multiple WeatherCity instances.
     It allows easy access to weather data for different cities.
     """
-
-    def __getitem__(self, item) -> WeatherCity:
+    
+    def __init__(self):
+        self._data: dict[str, 'WeatherCity'] = {}
+    
+    def __setitem__(self, key: str, value: 'WeatherCity') -> None:
+        """Set a WeatherCity instance for a city."""
+        self._data[key] = value
+    
+    def __getitem__(self, item: str) -> 'WeatherCity':
         """Get the WeatherCity instance for the specified city."""
-        if item not in self.keys():
-            self[item] = WeatherCity(item)
-        return super().__getitem__(item)
+        if item not in self._data:
+            self._data[item] = WeatherCity(item)
+        return self._data[item]
+    
+    def __delitem__(self, key: str) -> None:
+        """Delete a WeatherCity instance for a city."""
+        del self._data[key]
+    
+    def __iter__(self) -> Iterator[str]:
+        """Iterate over city names."""
+        return iter(self._data)
+    
+    def __len__(self) -> int:
+        """Get the number of cities."""
+        return len(self._data)
+    
+    def keys(self) -> KeysView[str]:
+        """Get all city names."""
+        return self._data.keys()
+    
+    def values(self) -> ValuesView[WeatherCity]:
+        """Get all WeatherCity instances."""
+        return self._data.values()
+    
+    def items(self) -> ItemsView[str, WeatherCity]:
+        """Get all (city, WeatherCity) pairs."""
+        return self._data.items()
+    
+    def get(self, key: str, default: WeatherCity = None) -> WeatherCity:
+        """Get the WeatherCity instance for the specified city, or default if not found."""
+        if key not in self._data:
+            if default is not None:
+                return default
+            self._data[key] = WeatherCity(key)
+        return self._data[key]
 
 
 LOG.INF('Loading weather modules...')

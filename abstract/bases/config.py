@@ -2,10 +2,10 @@ from abstract.bases.importer import json, pathlib
 
 
 class Config:
-    def __init__(self, file: pathlib.Path = pathlib.Path('config.json')):
+    def __init__(self, file: pathlib.Path = pathlib.Path('./config.json')):
         self.file = file
         if not self.file.exists():
-            self.file.write_bytes(pathlib.Path('config_default.json').read_bytes())
+            self.file.write_bytes(pathlib.Path('./config_default.json').read_bytes())
         self.data = self.read()
 
     def __getitem__(self, item):
@@ -29,8 +29,8 @@ class Config:
         return self.data
 
     def write(self):
-        self.file.write_text(json.dumps(self.data, indent=2), encoding='utf-8')
+        self.file.write_text(json.dumps(self.data, indent=2, ensure_ascii=False), encoding='utf-8')
         return self
 
 
-CONFIG: Config = Config()
+CONFIG = Config()

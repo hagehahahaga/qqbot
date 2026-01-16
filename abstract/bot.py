@@ -1,4 +1,5 @@
-from abstract.bases.importer import operator, last_commit, psutil, platform
+from abstract.bases.importer import operator, last_commit, psutil, platform, json, pathlib
+from typing import Callable
 
 import abstract
 from abstract.command import COMMAND_GROUP
@@ -10,6 +11,9 @@ from abstract.target import User, Group
 from abstract.apis.frame_server import FRAME_SERVER
 from abstract.apis.table import GROUP_OPTION_TABLE
 from abstract.bases.log import LOG
+
+# 加载帮助配置
+HELP_TEXT = json.loads(pathlib.Path('help_text.json').read_text(encoding='utf-8'))
 
 
 class Bot:
@@ -28,6 +32,7 @@ class Bot:
         self.id = id
         self.must_at = must_at
         self.services: dict[str, Service] = {}
+        self.triggers: list[tuple[Callable[[MESSAGE], bool], Callable]] = []
 
     def register_service(self, service_name: str, auto_restart=False):
         """
@@ -45,6 +50,20 @@ class Bot:
 
             return func
 
+        return decorator
+
+    def register_trigger(self, condition: Callable[[MESSAGE], bool]):
+        """
+        注册条件触发器
+        
+        :param condition: 条件函数，接收MESSAGE对象，返回bool值
+        :type condition: Callable[[MESSAGE], bool]
+        
+        :return: 装饰器
+        """
+        def decorator(func):
+            self.triggers.append((condition, func))
+            return func
         return decorator
 
     def router(self, data: dict):
@@ -95,6 +114,13 @@ class Bot:
             return
 
         if command is None:
+            for condition, func in self.triggers:
+                if condition(message):
+                    try:
+                        func(message, session)
+                    except Exception as e:
+                        LOG.ERR(e)
+                        raise e
             return
 
         if not command:
@@ -189,115 +215,15 @@ LOG.INF('Bot initialized successfully.')
 def help(message: MESSAGE, session: Session, args):
     match args:
         case [command]:
-            match command:
-                case 'search':
-                    message.reply_text('支持api: Ascii2d, SauceNAO, Baidu, Yandex')
-                case 'option':
-                    message.reply_text(
-                        '\noption <key> 查询, option <key> <value>设置'
-                        '支持参数:\n'
-                        '   r18 = 0:\n'
-                        '       random取得的图片\n'
-                        '       0 - 无r18, 1 - 仅r18, 2 - 混合\n'
-                        '   recall_catch = 0:\n'
-                        '       防撤回\n'
-                        '       0 - 关, 1 - 开\n'
-                        '   city = <城市名>:\n'
-                        '       设置群聊默认城市, 用于天气查询\n'
-                        '   weather_notice = 0:\n'
-                        '       天气提醒开关\n'
-                        '       0 - 关, 1 - 开'
-                    )
-                case 'sign':
-                    message.reply_text('randint(1,9) + %9: 3/ %1: 10')
-                case 'stock':
-                    message.reply_text(
-                        '\n支持功能:\n'
-                        '   status[ stock/commission]:\n'
-                        '       查询个人状态以及股市状态\n'
-                        '   sell/buy <price> <num>:\n'
-                        '       发起交易\n'
-                        '   cancel:\n'
-                        '       取消委托中的交易'
-                    )
-                case 'random':
-                    message.reply_text(
-                        'tag格式参照: https://api.lolicon.app/#/setu?id=tag, 如: tag=萝莉|少女&tag=白丝|黑丝.'
-                    )
-                case 'notice':
-                    message.reply_text(
-                        '\nsupport功能:\n'
-                        '   status:\n'
-                        '       查询当前进行中的定时提醒\n'
-                        '   add [--time=now[\n'
-                        '           %Y-%m-%d,%H:%M:%S |\n'
-                        '           [--weeks=],[--days=],[--hours=],[--minutes=],[--seconds=]后\n'
-                        '       ]\n'
-                        '   ] [--text=] [--every=enum("day", "week"]:\n'
-                        '       添加定时提醒, every决定是否每天/周提醒\n'
-                        '   remove time:\n'
-                        '       time格式%Y-%m-%d %H:%M:%S, 根据time删除定时提醒'
-                    )
-                case 'compress':
-                    message.reply_text('一键电子包浆, 降低图片质量')
-                case 'points':
-                    message.reply_text('查询你的韭菜盒子数量')
-                case 'transfer':
-                    message.reply_text('转账韭菜盒子, 使用格式: transfer @用户 <数量>')
-                case 'lottery':
-                    message.reply_text('5个韭菜盒子购买一个韭菜盒子彩票')
-                case 'say':
-                    message.reply_text('随机播放电棍语录')
-                case 'chat':
-                    message.reply_text('\n与AI对话\n'
-                        '使用格式: chat <character> <message>\n'
-                        '   <character>: 要使用的AI角色名称\n'
-                        '   <message>: 要发送给AI的消息内容\n'
-                        '\n示例: chat 小助理 你好吗\n'
-                        '\n注意事项: 仅在群聊中可用, 消耗3个韭菜盒子')
-                case 'phantom':
-                    message.reply_text('生成幻影坦克图片')
-                case 'service':
-                    message.reply_text('\n支持功能:\n'
-                        '   status [service]: 查询服务状态\n'
-                        '   start <service>: 启动服务\n'
-                        '   stop <service>: 停止服务\n'
-                        '   restart <service>: 重启服务\n'
-                        '   option <service> <attribute> <value>: 设置服务属性')
-                case 'tts':
-                    message.reply_text('AI语音合成, 使用格式: tts <speaker> <text>')
-                case 'svc':
-                    message.reply_text('AI变音, 使用格式: svc <speaker> [pitch] 并附带语音消息')
-                case 'forge':
-                    message.reply_text('\n伪造聊天记录\n'
-                        '使用步骤:\n'
-                        '1. 发送: forge\n'
-                        '2. 按提示发送AtMessage或qqid指定发送人\n'
-                        '3. 发送消息内容\n'
-                        '4. 重复步骤2-3添加多条消息\n'
-                        '5. 发送"complete"结束并生成伪造的聊天记录\n'
-                        '\n注意事项: 交互式命令, 需按提示逐步操作')
-                case 'weather':
-                    message.reply_text('\n支持功能:\n'
-                        '   weather <city> [now/hourly/daily/today/tomorrow/minutely]: 查询天气\n'
-                        '   now: 当前天气\n'
-                        '   hourly: 逐小时天气预报\n'
-                        '   daily: 每日天气预报\n'
-                        '   today: 今日天气\n'
-                        '   tomorrow: 明日天气\n'
-                        '   minutely: 未来30分钟降水变化预报')
-                case 'version':
-                    message.reply_text('查看机器人开发信息')
-                case 'status':
-                    message.reply_text('查看机器人系统状态')
-                case 'game':
-                    message.reply_text('\n支持功能:\n'
-                        '   list: 查看可用游戏\n'
-                        '   info <game>: 查看游戏信息\n'
-                        '   start <game> @玩家...: 开始游戏\n'
-                        '   blacklist [add/remove] @玩家: 管理游戏黑名单')
-                case _:
-                    message.reply_text('该项还没有文档.')
+            if command in HELP_TEXT['commands']:
+                help_content = HELP_TEXT['commands'][command]
+                if isinstance(help_content, list):
+                    help_text = '\n' + '\n'.join(help_content)
+                else:
+                    help_text = help_content
+                message.reply_text(help_text)
+            else:
+                message.reply_text('该项还没有文档.')
         case []:
             message.reply_text(
                 '\n指令列表:\n' +
@@ -342,6 +268,8 @@ def status(message: MESSAGE, session: Session):
 def game_menu(message: MESSAGE, session: Session):
     text_args = message.get_parts_by_type(TextMessage)[0].to_args()[1:]
     match text_args:
+        case []:
+            return abstract.bot.help(message, session, ['game'])
         case ['list']:
             message.reply_text(
                 '\n可用游戏列表:\n' +

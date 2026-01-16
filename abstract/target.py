@@ -1,11 +1,22 @@
-from abstract.bases.importer import time, dispatch, decimal, json
+import itertools
 
-from config import CONFIG
+from abstract.bases.importer import time, dispatch, decimal, json, datetime, operator
+
+from abstract.bases.config import CONFIG
 from abstract.apis.frame_server import FRAME_SERVER
-from abstract.apis.table import STOCK_TABLE, USER_TABLE, GROUP_OPTION_TABLE, GAME_DATA_TABLE
+from abstract.apis.table import STOCK_TABLE, USER_TABLE, GROUP_OPTION_TABLE, GAME_DATA_TABLE, ARCADES_TABLE
 
 
 class User:
+    role: str  # 'member' | 'admin' | 'owner' | 'operator'
+    """
+    用户角色:
+    - member: 普通成员
+    - admin: 群管理员
+    - owner: 群主
+    - operator: Bot操作员（最高权限）
+    """
+    
     @dispatch
     def __init__(self, data: dict):
         self.id = data['user_id']
@@ -310,3 +321,99 @@ class Group:
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.id == other.id
+
+    def get_arcades(self) -> dict[str, dict[str, list | int | datetime.datetime]]:
+        """
+        获取群组的机厅信息
+        
+        :return: 机厅信息字典，键为机厅名称，值为包含以下字段的字典：
+            - sub_names: 机厅别名列表（对应数据库subnames字段，JSON解析后）
+            - num: 机厅数量（对应数据库num字段）
+            - update_time: 更新时间（对应数据库update_time字段）
+        """
+        result = ARCADES_TABLE.get_all(f'where group_id = {self.id}', attr='name, subnames, num, update_time')
+        return {
+            arcade[0]: {
+                'sub_names': json.loads(arcade[1]),
+                'num': arcade[2],
+                'update_time': arcade[3]
+            } for arcade in result
+        }
+
+    def add_arcade(self, name: str):
+        assert json.dumps(name, ensure_ascii=False) == f'"{name}"', '机厅名不符合要求.'
+        assert name not in self.get_arcade_names(), '有重复命名'
+        with ARCADES_TABLE:
+            ARCADES_TABLE.cursor.execute(
+                f'insert into {ARCADES_TABLE.name} (group_id, name)'
+                f'values (%s, %s)',
+                (self.id, name)
+            )
+
+    def remove_arcade(self, name: str):
+        arcades = self.get_arcades()
+        assert name not in itertools.chain(*map(operator.itemgetter('sub_names'), arcades.values())), '安全起见移除不能使用机厅别名.'
+        assert name in arcades, f'{name} 未在此群设置.'
+        assert not arcades[name]['sub_names'], '安全起见移除机厅需要先移除机厅所有别名.'
+        ARCADES_TABLE.delete('(group_id, name)', (self.id, name))
+
+    def add_arcade_subname(self, name: str, subname: str):
+        assert json.dumps(subname, ensure_ascii=False) == f'"{subname}"', '别名不符合要求.'
+        assert subname not in self.get_arcade_names(), '有重复命名'
+        with ARCADES_TABLE:
+            ARCADES_TABLE.cursor.execute(
+                f'update {ARCADES_TABLE.name} '
+                f'set subnames = json_array_append(subnames, "$", %s) '
+                f'where group_id = %s and name = %s',
+                (subname, self.id, name)
+            )
+
+    def remove_arcade_subname(self, name: str, subname: str):
+        with ARCADES_TABLE:
+            ARCADES_TABLE.cursor.execute(
+                f'update {ARCADES_TABLE.name} '
+                f'set subnames = json_remove(subnames, json_unquote(json_search(subnames, "one", %s))) '
+                f'where group_id = %s and name = %s',
+                (subname, self.id, name)
+            )
+
+    def get_arcade_names(self):
+        return list(
+            itertools.chain(
+                *map(
+                    json.loads,
+                    itertools.chain(
+                        *ARCADES_TABLE.get_all(f'where group_id = {self.id}', attr='names')
+                    )
+                )
+            )
+        )
+
+    def update_arcade_num(self, name: str, num: int):
+        with ARCADES_TABLE:
+            ARCADES_TABLE.cursor.execute(
+                f'update {ARCADES_TABLE.name} '
+                f'set num = %s, update_time = %s '
+                f'where group_id = %s and json_contains(names, json_quote(%s))',
+                (num, datetime.datetime.now(), self.id, name)
+            )
+
+    def get_arcade_num(self, name: str) -> tuple[int, datetime.datetime]:
+        """
+        获取指定机厅的数量和更新时间
+        
+        :param name: 机厅名称
+        :type name: str
+        
+        :return: 包含机厅数量和更新时间的元组
+        :example:
+            (10, datetime.datetime(2024, 1, 1, 12, 0, 0))
+        """
+        with ARCADES_TABLE:
+            ARCADES_TABLE.cursor.execute(
+                f'select num, update_time '
+                f'from {ARCADES_TABLE.name} '
+                f'where group_id = %s and json_contains(names, JSON_QUOTE(%s))',
+                (self.id, name)
+            )
+            return ARCADES_TABLE.cursor.fetchone()

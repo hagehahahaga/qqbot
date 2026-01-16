@@ -7,7 +7,7 @@ from abstract.target import User
 from abstract.bases.custom_thread import CustomThreadGroup
 from abstract.session import SESSION_MANAGER
 from abstract.message import GroupMessage, AtMessage, TextMessage
-from config import CONFIG
+from abstract.bases.config import CONFIG
 
 
 class GameOver(BaseException):

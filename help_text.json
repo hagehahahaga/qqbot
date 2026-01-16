@@ -1,0 +1,127 @@
+{
+  "commands": {
+    "search": "支持api: Ascii2d, SauceNAO, Baidu, Yandex",
+    "option": [
+      "option <key> 查询, option <key> <value>设置",
+      "支持参数:",
+      "   r18 = 0:",
+      "       random取得的图片",
+      "       0 - 无r18, 1 - 仅r18, 2 - 混合",
+      "   recall_catch = 0:",
+      "       防撤回",
+      "       0 - 关, 1 - 开",
+      "   city = <城市名>:",
+      "       设置群聊默认城市, 用于天气查询",
+      "   weather_notice = 0:",
+      "       天气提醒开关",
+      "       0 - 关, 1 - 开"
+    ],
+    "sign": "randint(1,9) + %9: 3/ %1: 10",
+    "stock": [
+      "支持功能:",
+      "   status[ stock/commission]:",
+      "       查询个人状态以及股市状态",
+      "   sell/buy <price> <num>:",
+      "       发起交易",
+      "   cancel:",
+      "       取消委托中的交易"
+    ],
+    "random": "tag格式参照: https://api.lolicon.app/#/setu?id=tag, 如: tag=萝莉|少女&tag=白丝|黑丝.",
+    "notice": [
+      "支持功能:",
+      "   status:",
+      "       查询当前进行中的定时提醒",
+      "   add [--time=now[",
+      "           %Y-%m-%d,%H:%M:%S |",
+      "           [--weeks=],[--days=],[--hours=],[--minutes=],[--seconds=]后",
+      "       ]",
+      "   ] [--text=] [--every=enum(\"day\", \"week\"]:",
+      "       添加定时提醒, every决定是否每天/周提醒",
+      "   remove time:",
+      "       time格式%Y-%m-%d %H:%M:%S, 根据time删除定时提醒"
+    ],
+    "compress": "一键电子包浆, 降低图片质量",
+    "points": "查询你的韭菜盒子数量",
+    "transfer": [
+      "转账韭菜盒子",
+      "使用格式:",
+      "   1. transfer @转账人 @收款人 <数量> - 从指定用户转账给收款人 (需要操作员权限)",
+      "   2. transfer @收款人 <数量> - 从自己账户转账给收款人 (普通用户/群管理员/群主), 直接增加收款人余额 (操作员)",
+      "注意事项:",
+      "   - 普通用户/群管理员/群主使用时会从自己账户扣款",
+      "   - 只有操作员可以从其他用户账户转账或直接增加余额"
+    ],
+    "lottery": "5个韭菜盒子购买一个韭菜盒子彩票",
+    "say": "随机播放电棍语录",
+    "chat": [
+      "与AI对话",
+      "使用格式: chat <character> <message>",
+      "   <character>: 要使用的AI角色名称",
+      "   <message>: 要发送给AI的消息内容",
+      "",
+      "示例: chat 小助理 你好吗",
+      "",
+      "注意事项: 仅在群聊中可用, 消耗3个韭菜盒子"
+    ],
+    "phantom": "生成幻影坦克图片",
+    "service": [
+      "支持功能:",
+      "   status [service]: 查询服务状态",
+      "   start <service>: 启动服务",
+      "   stop <service>: 停止服务",
+      "   restart <service>: 重启服务",
+      "   option <service> <attribute> <value>: 设置服务属性"
+    ],
+    "tts": "AI语音合成, 使用格式: tts <speaker> <text>",
+    "svc": "AI变音, 使用格式: svc <speaker> [pitch] 并附带语音消息",
+    "forge": [
+      "伪造聊天记录",
+      "使用步骤:",
+      "1. 发送: forge",
+      "2. 按提示发送AtMessage或qqid指定发送人",
+      "3. 发送消息内容",
+      "4. 重复步骤2-3添加多条消息",
+      "5. 发送\"complete\"结束并生成伪造的聊天记录",
+      "",
+      "注意事项: 交互式命令, 需按提示逐步操作"
+    ],
+    "weather": [
+      "获取实时天气",
+      "使用格式:",
+      "   weather [城市名] [now/hourly/daily/today/tomorrow/minutely]",
+      "功能说明:",
+      "   now: 当前天气 (文本)",
+      "   hourly: 逐小时天气预报 (图片)",
+      "   daily: 每日天气预报 (图片)",
+      "   today: 今日天气 (文本)",
+      "   tomorrow: 明日天气 (文本)",
+      "   minutely: 未来30分钟降水变化预报 (文本)",
+      "注意事项:",
+      "   - 未指定城市时使用群默认城市",
+      "   - 未指定查询类型时默认为now",
+      "   - 每次查询消耗2个韭菜盒子"
+    ],
+    "version": "查看机器人开发信息",
+    "status": "查看机器人系统状态",
+    "game": [
+      "支持功能:",
+      "   list: 查看可用游戏",
+      "   info <game>: 查看游戏信息",
+      "   start <game> @玩家...: 开始游戏",
+      "   blacklist [add/remove] @玩家: 管理游戏黑名单"
+    ],
+    "arcade": [
+      "管理机厅",
+      "使用格式:",
+      "   arcade list - 列出所有机厅",
+      "   arcade add <name> - 添加机厅",
+      "   arcade remove <name> - 删除机厅",
+      "   arcade option <name> add <subname> - 添加机厅别名",
+      "   arcade option <name> remove <subname> - 删除机厅别名",
+      "注意事项:",
+      "   - 仅在群聊中可用",
+      "   - 删除机厅需要先删除所有别名",
+      "   - 不能使用别名删除机厅"
+    ]
+  }
+}

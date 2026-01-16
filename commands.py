@@ -246,6 +246,8 @@ def compress(message: MESSAGE, session: Session, args: list[ImageMessage]):
 @group_only
 def option(message: MESSAGE, session: Session, args):
     match args:
+        case []:
+            return abstract.bot.help(message, session, ['option'])
         case [key, value]:
             assert key != 'trusted' or message.sender.role == 'operator', '本项仅operator可修改. 你在装你妈呢我就不明白了.'
             try:
@@ -286,9 +288,10 @@ def points(message: MESSAGE, session: Session):
 
 
 @COMMAND_GROUP.register_command(('transfer', '转账'), 2, '转账')
-@authorize('operator')
 def transfer(message: MESSAGE, session: Session, args):
     match args:
+        case []:
+            return abstract.bot.help(message, session, ['transfer'])
         case [*args, TextMessage(text=num)]:
             try:
                 num = int(num)
@@ -296,12 +299,18 @@ def transfer(message: MESSAGE, session: Session, args):
                 raise CommandCancel('输入的额度无法转换为数字!')
             match args:
                 case [AtMessage(target=recipients), TextMessage(), AtMessage(target=target)]:
+                    if message.sender.role != 'operator':
+                        raise CommandCancel('只有操作员可以从其他用户账户转账!')
                     if recipients.get_points() < num:
                         raise CommandCancel('转账人余额不足!')
                     recipients.add_points(-num)
                     target.add_points(num)
 
                 case [AtMessage(target=target)]:
+                    if message.sender.role != 'operator':
+                        if message.sender.get_points() < num:
+                            raise CommandCancel('您的余额不足!')
+                        message.sender.add_points(-num)
                     target.add_points(num)
 
                 case final:
@@ -397,6 +406,8 @@ def stock(message: MESSAGE, session: Session, args):
         message.sender.update_trade(0, 0)
 
     match args:
+        case []:
+            return abstract.bot.help(message, session, ['stock'])
         case ['status', *args]:
             match args:
                 case []:
@@ -500,6 +511,8 @@ def notice(message: MESSAGE, session: Session, args):
             notice_type = 'private'
 
     match args:
+        case []:
+            return abstract.bot.help(message, session, ['notice'])
         case ['add', *args]:
             args = dict(
                 getopt.getopt(
@@ -735,7 +748,9 @@ def phantom_tank(message: MESSAGE, session: Session, args: list[ImageMessage]):
 def service(message: MESSAGE, session: Session, args):
     try:
         match args:
-            case ['status'] | []:
+            case []:
+                return abstract.bot.help(message, session, ['service'])
+            case ['status']:
                 message.reply_text(
                     '\n' +
                     '\n'.join(
@@ -848,51 +863,32 @@ def forge_chat(message: MESSAGE, session: Session):
 @group_only
 @ask_for_wait
 def weather(message: MESSAGE, session: Session, args):
-    option = OneTimeVar(None)
-    args_temp = copy.copy(args)
-    try:
-        if 'hourly' in args_temp:
-            option.value = 'hourly'
-            args_temp.remove('hourly')
-        if 'daily' in args_temp:
-            option.value = 'daily'
-            args_temp.remove('daily')
-        if 'today' in args_temp:
-            option.value = 'today'
-            args_temp.remove('today')
-        if 'now' in args_temp:
-            option.value = 'now'
-            args_temp.remove('now')
-        if 'tomorrow' in args_temp:
-            option.value = 'tomorrow'
-            args_temp.remove('tomorrow')
-        if 'minutely' in args_temp:
-            option.value = 'minutely'
-            args_temp.remove('minutely')
+    match args:
+        case []:
+            city_name = ''
+            method = 'now'
+        case [*city_name, method]:
+            if city_name:
+                city_name = city_name[0]
+            else:
+                city_name = ''
+        case _:
+            message.reply_text(f'匹配 {args} 失败, 检查输入.')
+            return
 
-    except RuntimeError:
-        raise CommandCancel(f'参数{args}错误, 检查输入.')
-
-    if len(args_temp) > 1:
-        raise CommandCancel(f'参数{args}错误, 检查输入.')
-
-    if args_temp:
-        city = args_temp[0]
-    else:
-        city = GROUP_OPTION_TABLE.get(f'where id = {message.target.id}', attr='city')[0]
-        if not city:
+    if not city_name:
+        city_name = GROUP_OPTION_TABLE.get(f'where id = {message.target.id}', attr='city')[0]
+        if not city_name:
             raise CommandCancel('未设置默认城市, 在命令后添加城市名, 或让管理员设置默认城市.')
-        message.reply_text(f'未指定城市, 将使用群默认城市 {city}.')
+        message.reply_text(f'未指定城市, 将使用群默认城市 {city_name}.')
 
     try:
-        weather_city = WEATHER_CITY_MANAGER[city]
+        weather_city = WEATHER_CITY_MANAGER[city_name]
     except CityNotFound:
-        raise CommandCancel(f'未能找到城市 {city}. 如为默认城市则让管理员更正, 或手动输入.')
+        raise CommandCancel(f'未能找到城市 {city_name}. 如为默认城市则让管理员更正, 或手动输入.')
 
-    weather_city.flush_cache()
-
-    match option.value:
-        case None | 'now':
+    match method:
+        case 'now':
             message.reply_text(
                 '\n' +
                 weather_city.get_weather_now_text()
@@ -917,3 +913,42 @@ def weather(message: MESSAGE, session: Session, args):
                 message.reply_text('\n' + rain_change)
             else:
                 message.reply_text('\n未来30分钟内降水情况无变化或暂无数据.')
+        case _:
+            message.reply_text(f'匹配 {args} 失败, 检查输入.')
+
+@COMMAND_GROUP.register_command(('arcade', '机厅管理'), 1, '管理机厅')
+@group_only
+def arcade(message: MESSAGE, session: Session, args):
+    match args:
+        case []:
+            return abstract.bot.help(message, session, ['arcade'])
+        case ['list']:
+            result = message.target.get_arcades()
+            if not result:
+                message.reply_text('此群还没有设置机厅.')
+                return None
+            message.reply_text(
+                '\n' +
+                '\n'.join(
+                    f'{name}, '
+                    f'别名{data["sub_names"]}, '
+                    f'{"未记录" if not data["num"] else data["num"]}人'
+                    f'({"未记录" if not data["update_time"] else data["update_time"].strftime("%m月%d日 %H点%M分")}数据)' for name, data in
+                    result.items()
+                )
+            )
+            return None
+        case ['add', name]:
+            message.target.add_arcade(name)
+        case ['remove', name]:
+            message.target.remove_arcade(name)
+        case ['option', name, 'add', subname]:
+            message.target.add_arcade_subname(name, subname)
+        case ['option', name, 'remove', subname]:
+            message.target.remove_arcade_subname(name, subname)
+        case _:
+            message.reply_text(f'匹配 {args} 失败, 检查输入.')
+            return None
+    message.reply_text('操作成功.')
+    arcade(message, session, ['list'])
+    return None

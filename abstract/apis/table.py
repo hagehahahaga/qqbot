@@ -1,6 +1,6 @@
 from abstract.bases.importer import functools, threading, pymysql, dispatch
 
-from config import CONFIG
+from abstract.bases.config import CONFIG
 from abstract.bases.log import LOG
 
 
@@ -90,7 +90,7 @@ class Table:
 
     @_with_lock
     def delete(self, key, value):
-        self.cursor.execute(f"DELETE FROM {self.name} WHERE {key} = {value}")
+        self.cursor.execute(f"DELETE FROM {self.name} WHERE {key} = %s", (value, ))
         return self
 
     @_with_lock
@@ -121,15 +121,13 @@ GROUP_OPTION_TABLE = Table(sql_db, 'group_options')
 NOTICE_SCHEDULE_TABLE = Table(sql_db, 'notice_schedule')
 AI_MESSAGES_TABLE = Table(sql_db, 'ai_messages')
 GAME_DATA_TABLE = Table(sql_db, 'game_data')
+ARCADES_TABLE = Table(sql_db, 'arcades')
 LOG.INF(
     'Loaded database tables:\n' +
     ',\n'.join(
-        table.name for table in (
-            USER_TABLE,
-            STOCK_TABLE,
-            GROUP_OPTION_TABLE,
-            NOTICE_SCHEDULE_TABLE,
-            AI_MESSAGES_TABLE
+        table.name for table in filter(
+            lambda a: isinstance(a, Table),
+            locals().values()
         )
     )
 )
