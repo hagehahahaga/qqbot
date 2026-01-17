@@ -48,15 +48,14 @@ def get_arcade_num(message: MESSAGE, session: Session):
 
 def update_arcade_num_condition(message: MESSAGE) -> bool:
     text = get_group_message_text(message)
-    if not text:
-        return False
-    
     digits = ''
     for letter in text[::-1]:
         if letter.isdigit():
             digits += letter
         else:
             break
+    if not text:
+        return False
     return bool(digits)
 
 @BOT.register_trigger(update_arcade_num_condition)
@@ -73,7 +72,6 @@ def update_arcade_num(message: MESSAGE, session: Session):
     num = int(digits[::-1])
 
     if not message.target.get_arcade_num(text):
-        message.reply_text(f'此群未设置此机厅或别名 {text}.')
         return
 
     message.target.update_arcade_num(text, num)

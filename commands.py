@@ -17,7 +17,6 @@ from abstract.apis.table import GROUP_OPTION_TABLE, STOCK_TABLE, NOTICE_SCHEDULE
 from abstract.apis.table import NULL
 from extra.vits_speaker import SPEAKER_MANAGER
 from extra.weather_city import WEATHER_CITY_MANAGER
-from abstract.bases.one_time_var import OneTimeVar
 
 
 def ask_for_wait(func):
@@ -932,8 +931,8 @@ def arcade(message: MESSAGE, session: Session, args):
                 '\n'.join(
                     f'{name}, '
                     f'别名{data["sub_names"]}, '
-                    f'{"未记录" if not data["num"] else data["num"]}人'
-                    f'({"未记录" if not data["update_time"] else data["update_time"].strftime("%m月%d日 %H点%M分")}数据)' for name, data in
+                    f'{"未记录" if data["num"] is None else data["num"]}人'
+                    f'({"未记录" if data["update_time"] is None else data["update_time"].strftime("%m月%d日 %H点%M分")}数据)' for name, data in
                     result.items()
                 )
             )
