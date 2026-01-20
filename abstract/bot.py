@@ -18,6 +18,19 @@ HELP_TEXT = json.loads(pathlib.Path('help_text.json').read_text(encoding='utf-8'
 
 
 class Bot:
+    VERSION = (
+        '\n开发信息:\n'
+        '   机器人代码: Python, 哈嗝哈哈哈嘎开发\n'
+        '   QQ机器人框架: 无头NapCatQQ\n'
+        '   机器人协议: Onebot, http\n'
+        '   数据库使用: MariaDB\n'
+        '最近一次提交:\n'
+        f'   哈希: {last_commit.hexsha}\n'
+        f'   作者: {last_commit.author.name}\n'
+        f'   时间: {last_commit.committed_datetime}\n'
+        '   信息: \n'
+        f'{last_commit.message.strip()}'
+    )
     def __init__(
             self,
             frame_server: abstract.apis.frame_server.FrameServer,
@@ -244,18 +257,12 @@ def help(message: MESSAGE, session: Session, args):
 
 @COMMAND_GROUP.register_command(('version', '版本', '版本信息'), info='查看机器人开发信息')
 def version(message: MESSAGE, session: Session):
-    message.reply_text(
-        '\n开发信息:\n'
-        '   机器人代码: Python, 哈嗝哈哈哈嘎开发\n'
-        '   QQ机器人框架: 无头NapCatQQ\n'
-        '   机器人协议: Onebot, http\n'
-        '   数据库使用: MySQL\n'
-        '最近一次提交:\n'
-        f'   哈希: {last_commit.hexsha}\n'
-        f'   作者: {last_commit.author.name}\n'
-        f'   时间: {last_commit.committed_datetime}\n'
-        '   信息: \n'
-        f'{last_commit.message.strip()}'
+    message.reply(
+        ImageMessage(
+            text2img(
+                BOT.VERSION
+            )
+        )
     )
 
 

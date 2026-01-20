@@ -4,10 +4,11 @@ import time
 from abstract.bases.importer import getopt, sys, last_commit, requests
 
 from abstract.apis.frame_server import FRAME_SERVER
+from abstract.bases.text2img import text2img
 from abstract.bot import BOT
 from abstract.bases.exceptions import *
 from abstract.bases.log import LOG
-from abstract.message import GroupMessage
+from abstract.message import GroupMessage, ImageMessage
 from abstract.target import Group
 from web import FRAME_CLIENT
 
@@ -40,12 +41,11 @@ def main():
         ):
             try:
                 GroupMessage(
-                    '最近一次提交:\n'
-                    f'   哈希: {last_commit.hexsha}\n'
-                    f'   作者: {last_commit.author.name}\n'
-                    f'   时间: {last_commit.committed_datetime}\n'
-                    '   信息: \n'
-                    f'{last_commit.message.strip()}',
+                    ImageMessage(
+                        text2img(
+                            BOT.VERSION
+                        )
+                    ),
                     Group(group_id)
                 ).send()
             except SendFailure as error:
