@@ -32,6 +32,9 @@ import enum
 import cairosvg
 import matplotlib
 import matplotlib.patheffects
+import matplotlib.pyplot
+import matplotlib.dates
+import matplotlib.font_manager
 import pandas
 import PIL.Image
 import PIL.ImageDraw

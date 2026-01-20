@@ -1,9 +1,6 @@
 from abstract.bases.importer import datetime, time, itertools, io, pandas
-from abstract.bases.importer import matplotlib
-from PIL import Image
-import matplotlib.pyplot
-import matplotlib.dates
-from typing import Optional, Callable, Dict, TypeVar, MutableMapping, Iterator, KeysView, ValuesView, ItemsView
+from abstract.bases.importer import matplotlib, PIL
+from typing import Optional, Callable, MutableMapping, Iterator, KeysView, ValuesView, ItemsView
 
 from extra.weather import WEATHER_API, WeatherAPI
 from abstract.apis.table import *
@@ -11,7 +8,14 @@ from abstract.bases.exceptions import *
 from abstract.message import *
 from abstract.bases.config import CONFIG
 
-matplotlib.pyplot.rcParams["font.family"] = CONFIG['zh_font']
+# 系统自带字体路径
+sys_font_path = CONFIG["zh_font_path"]
+
+# 1. 注册系统字体（matplotlib 会识别该文件）
+matplotlib.font_manager.FontManager().addfont(sys_font_path)
+
+# 2. 全局设置（后续所有图表无需再指定字体）
+matplotlib.pyplot.rcParams["font.family"] = matplotlib.font_manager.FontProperties(fname=sys_font_path).get_name()
 
 
 class WeatherCity:
@@ -62,6 +66,8 @@ class WeatherCity:
         :return: A dictionary containing today's weather details.
         """
         if self.cache.get(self.get_weather_day.__name__) is None:
+            self.cache[self.get_weather_day.__name__] = {}
+        if self.cache[self.get_weather_day.__name__].get(delay) is None:
             response = self.api.get_weather_prediction(3, self.city_id)
             max_temp = int(response['daily'][delay]['tempMax'])
             min_temp = int(response['daily'][delay]['tempMin'])
@@ -81,16 +87,19 @@ class WeatherCity:
                 case _:
                     uv_text = '极强'
 
-            self.cache[self.get_weather_day.__name__] = {
+            self.cache[self.get_weather_day.__name__][delay] = {
                 'temp': (min_temp, max_temp),
                 'weather': (weather_day, weather_night, '雨' in itertools.chain(*weather_day, *weather_night)),
                 'uv': (uv, uv_text, uv >= 7)
             }
 
-        return self.cache[self.get_weather_day.__name__]
+        return self.cache[self.get_weather_day.__name__][delay]
 
     def get_weather_day_text(self, delay = 0):
         if self.cache.get(self.get_weather_day_text.__name__) is None:
+            self.cache[self.get_weather_day_text.__name__] = {}
+        if self.cache[self.get_weather_day_text.__name__].get(delay) is None:
+            self.flush_cache(self.get_weather_day_text)
             weather = self.get_weather_day(delay)
             match delay:
                 case 0:
@@ -102,7 +111,7 @@ class WeatherCity:
                 case _:
                     delay_text = f'{delay}天后'
 
-            self.cache[self.get_weather_day_text.__name__] = (
+            self.cache[self.get_weather_day_text.__name__][delay] = (
                     delay_text +
                     '天气:'
                     f'\n  城市: {self.city_name}'
@@ -113,7 +122,7 @@ class WeatherCity:
                     ('\n紫外线较强, 出门注意防晒' if weather['uv'][2] else '')
             )
 
-        return self.cache[self.get_weather_day_text.__name__]
+        return self.cache[self.get_weather_day_text.__name__][delay]
 
     def get_weather_now(self) -> dict[str, tuple[time.struct_time] | tuple[int, int] | tuple[int] | tuple[str, bool]]:
         """
@@ -147,6 +156,7 @@ class WeatherCity:
 
     def get_weather_now_text(self):
         if self.cache.get(self.get_weather_now_text.__name__) is None:
+            self.flush_cache(self.get_weather_now)
             weather = self.get_weather_now()
             self.cache[self.get_weather_now_text.__name__] = (
                     '现在天气'
@@ -228,7 +238,7 @@ class WeatherCity:
         """
         try:
             icon_bytes = api.get_icon(icon_code)
-            icon_img = Image.open(io.BytesIO(icon_bytes))
+            icon_img = PIL.Image.open(io.BytesIO(icon_bytes))
 
             # 计算图标x轴的相对位置（核心公式，使用传入的xlim）
             adjusted_x_pos = (raw_x_pos - xlim[0]) / (xlim[1] - xlim[0]) * 0.91 + 0.023
@@ -566,7 +576,7 @@ class WeatherCity:
                 if now <= fx_time <= future_time:
                     predicts.append({
                         'fxTime': fx_time,
-                        'status': translation[predict['type']] if predict['precip'] else None
+                        'status': translation[predict['type']] if float(predict['precip']) else None
                     })
 
             if not predicts:
@@ -579,7 +589,7 @@ class WeatherCity:
                     predicted_data = predict
                     break
             else:
-                return
+                return None
 
             output = '根据天气预报, '
             if predicted_data['status'] != self.predicted:

@@ -210,11 +210,10 @@ def random_pic(message: MESSAGE, session: Session, args):
                 ]
             )
         except SendFailure:
+            image_file.close()
             message.reply_text('发送失败, 重试中...')
             LOG.WAR('Pic send failed. ')
             worker()
-        finally:
-            image_file.close()
 
     if isinstance(message, GroupMessage):
         r18 = GROUP_OPTION_TABLE.get(f'where id = {message.target.id}', attr='r18')[0]
@@ -885,6 +884,8 @@ def weather(message: MESSAGE, session: Session, args):
         weather_city = WEATHER_CITY_MANAGER[city_name]
     except CityNotFound:
         raise CommandCancel(f'未能找到城市 {city_name}. 如为默认城市则让管理员更正, 或手动输入.')
+
+    weather_city.flush_cache()
 
     match method:
         case 'now':

@@ -36,7 +36,7 @@ class Service:
 
     def start(self, *args, **kwargs):
         assert self.func
-        assert not self.thread.is_alive()
+        assert not self.is_alive()
         self.args = args
         self.kwargs = kwargs
         self.thread = threading.Thread(target=self.func, args=self.args, kwargs=self.kwargs)

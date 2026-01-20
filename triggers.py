@@ -73,6 +73,8 @@ def update_arcade_num(message: MESSAGE, session: Session):
 
     if not message.target.get_arcade_num(text):
         return
+    if num > 255:
+        message.reply_text('开玩笑呢? 怎么可能这么多人?')
 
     message.target.update_arcade_num(text, num)
     message.reply_text(f'{text}人数已记录为{num}.')

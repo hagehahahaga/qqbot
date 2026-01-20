@@ -110,7 +110,7 @@ def _execute_weather_task(
 
         except GroupNotJoined:
             GROUP_OPTION_TABLE.set('id', group_id, 'weather_notice', 0)
-            LOG.WAR(f'Group {group_id} not joined, reset from group options.')
+            LOG.WAR(f'Group {group_id} not joined, option weather_notice set to 0.')
 
         except SendFailure as e:
             LOG.WAR(e)
@@ -222,7 +222,8 @@ def weather_predictor_minutely():
     
     # 等待到目标时间
     wait_seconds = (target_time - now).total_seconds()
-    time.sleep(wait_seconds)
+    if wait_seconds > 0:
+        time.sleep(wait_seconds)
     
     # 执行任务（获取分钟级降水变化预报）
     _execute_weather_task(

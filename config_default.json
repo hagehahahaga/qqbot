@@ -57,7 +57,5 @@
     "api_host": "",
     "api_key": ""
   },
-  "zh_font": [
-    "Arial Unicode MS"
-  ]
+  "zh_font_path": "C:/Windows/Fonts/msyh.ttc"
 }

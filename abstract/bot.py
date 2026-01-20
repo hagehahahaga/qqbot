@@ -11,6 +11,7 @@ from abstract.target import User, Group
 from abstract.apis.frame_server import FRAME_SERVER
 from abstract.apis.table import GROUP_OPTION_TABLE
 from abstract.bases.log import LOG
+from abstract.bases.text2img import text2img
 
 # 加载帮助配置
 HELP_TEXT = json.loads(pathlib.Path('help_text.json').read_text(encoding='utf-8'))
@@ -213,6 +214,9 @@ LOG.INF('Bot initialized successfully.')
 
 @COMMAND_GROUP.register_command(('help', '帮助'), 1, '列出指令列表')
 def help(message: MESSAGE, session: Session, args):
+    detail = '-detail' in args
+    args = [arg for arg in args if arg != '-detail']
+
     match args:
         case [command]:
             if command in HELP_TEXT['commands']:
@@ -221,19 +225,21 @@ def help(message: MESSAGE, session: Session, args):
                     help_text = '\n' + '\n'.join(help_content)
                 else:
                     help_text = help_content
-                message.reply_text(help_text)
             else:
                 message.reply_text('该项还没有文档.')
+                return
         case []:
-            message.reply_text(
-                '\n指令列表:\n' +
-                '\n'.join(
-                    map(
-                        lambda a:f'{a.command_names}: {a.info}',
-                        BOT.command_group
-                    )
+            help_text = '\n指令列表:\n' + '\n'.join(
+                map(
+                    lambda a:f'{a.command_names}: {a.info}',
+                    BOT.command_group
                 )
             )
+
+    if detail:
+        message.reply_text(help_text)
+    else:
+        message.reply(ImageMessage(text2img(help_text)))
 
 
 @COMMAND_GROUP.register_command(('version', '版本', '版本信息'), info='查看机器人开发信息')

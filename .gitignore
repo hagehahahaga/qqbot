@@ -2648,3 +2648,4 @@ __pycache__/
 *.err
 /.idea/sqldialects.xml
 /.idea/data_source_mapping.xml
+/.idea/encodings.xml
