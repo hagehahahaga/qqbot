@@ -1,7 +1,7 @@
 import threading
 import time
 
-from abstract.bases.importer import getopt, sys, last_commit, requests
+from abstract.bases.importer import getopt, sys, requests
 
 from abstract.apis.frame_server import FRAME_SERVER
 from abstract.bases.text2img import text2img
