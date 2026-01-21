@@ -933,7 +933,7 @@ def arcade(message: MESSAGE, session: Session, args):
                     f'{name}, '
                     f'别名{data["sub_names"]}, '
                     f'{"未记录" if data["num"] is None else data["num"]}人'
-                    f'({"未记录" if data["update_time"] is None else data["update_time"].strftime("%m月%d日 %H点%M分")}数据)' for name, data in
+                    f'({"未记录" if data["update_time"] is None else data["update_time"].strftime("%H点%M分 UTC%z")}数据)' for name, data in
                     result.items()
                 )
             )

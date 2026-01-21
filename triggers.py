@@ -44,7 +44,7 @@ def get_arcade_num(message: MESSAGE, session: Session):
         message.reply_text(f'{text} 还没有记录过人数.')
         return
 
-    message.reply_text(f'{text}{result[0]}({result[1].strftime("%m月%d日 %H点%M分")}数据)')
+    message.reply_text(f'\n{text}{result[0]}\n{result[1].strftime("%H点%M分 UTC%z")}数据')
 
 def update_arcade_num_condition(message: MESSAGE) -> bool:
     text = get_group_message_text(message)

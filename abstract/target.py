@@ -1,6 +1,9 @@
 import itertools
 
-from abstract.bases.importer import time, dispatch, decimal, json, datetime, operator
+from typing import Optional
+
+from abstract.bases.importer import time, dispatch, decimal, json, datetime, operator, LOCAL_TIMEZONE, UTC_TIMEZONE
+from abstract.bases.importer import LOCAL_TIMESHIFT, today_7am
 
 from abstract.bases.config import CONFIG
 from abstract.apis.frame_server import FRAME_SERVER
@@ -322,7 +325,7 @@ class Group:
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.id == other.id
 
-    def get_arcades(self) -> dict[str, dict[str, list | int | datetime.datetime]]:
+    def get_arcades(self) -> dict[str, dict[str, list | Optional[int] | Optional[datetime.datetime]]]:
         """
         获取群组的机厅信息
         
@@ -332,13 +335,18 @@ class Group:
             - update_time: 更新时间（对应数据库update_time字段）
         """
         result = ARCADES_TABLE.get_all(f'where group_id = {self.id}', attr='name, subnames, num, update_time')
-        return {
-            arcade[0]: {
-                'sub_names': json.loads(arcade[1]),
-                'num': arcade[2],
-                'update_time': arcade[3]
-            } for arcade in result
-        }
+        response = {}
+        for name, sub_names, num, update_time in result:
+            if update_time and update_time.astimezone(UTC_TIMEZONE) < today_7am():
+                self.reset_arcade_num(name)
+                num = None
+                update_time = None
+            response[name] = {
+                'sub_names': json.loads(sub_names),
+                'num': num,
+                'update_time': update_time.replace(tzinfo=LOCAL_TIMEZONE) + LOCAL_TIMESHIFT if update_time else update_time,
+            }
+        return response
 
     def add_arcade(self, name: str):
         assert json.dumps(name, ensure_ascii=False) == f'"{name}"', '机厅名不符合要求.'
@@ -393,12 +401,21 @@ class Group:
         with ARCADES_TABLE:
             ARCADES_TABLE.cursor.execute(
                 f'update {ARCADES_TABLE.name} '
-                f'set num = %s, update_time = %s '
+                f'set num = %s, update_time = current_timestamp '
                 f'where group_id = %s and json_contains(names, json_quote(%s))',
-                (num, datetime.datetime.now(), self.id, name)
+                (num, self.id, name)
             )
 
-    def get_arcade_num(self, name: str) -> tuple[int, datetime.datetime]:
+    def reset_arcade_num(self, name: str):
+        with ARCADES_TABLE:
+            ARCADES_TABLE.cursor.execute(
+                f'update {ARCADES_TABLE.name} '
+                f'set num = NULL, update_time = NULL '
+                f'where group_id = %s and json_contains(names, json_quote(%s))',
+                (self.id, name)
+            )
+
+    def get_arcade_num(self, name: str) -> tuple[Optional[int], Optional[datetime.datetime]]:
         """
         获取指定机厅的数量和更新时间
         
@@ -409,6 +426,7 @@ class Group:
         :example:
             (10, datetime.datetime(2024, 1, 1, 12, 0, 0))
         """
+
         with ARCADES_TABLE:
             ARCADES_TABLE.cursor.execute(
                 f'select num, update_time '
@@ -416,4 +434,12 @@ class Group:
                 f'where group_id = %s and json_contains(names, JSON_QUOTE(%s))',
                 (self.id, name)
             )
-            return ARCADES_TABLE.cursor.fetchone()
+            result = ARCADES_TABLE.cursor.fetchone()
+
+        if result[1] and result[1].astimezone(UTC_TIMEZONE) < today_7am():
+            self.reset_arcade_num(name)
+            return None, None
+
+        return result[0], result[1].replace(tzinfo=LOCAL_TIMEZONE) + LOCAL_TIMESHIFT if result[1] else result[1]
+
+

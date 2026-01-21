@@ -1,4 +1,4 @@
-from abstract.bases.importer import operator, last_commit, psutil, platform, json, pathlib
+from abstract.bases.importer import operator, LAST_COMMIT, psutil, platform, json, pathlib
 from typing import Callable
 
 import abstract
@@ -25,11 +25,11 @@ class Bot:
         '   机器人协议: Onebot, http\n'
         '   数据库使用: MariaDB\n'
         '最近一次提交:\n'
-        f'   哈希: {last_commit.hexsha}\n'
-        f'   作者: {last_commit.author.name}\n'
-        f'   时间: {last_commit.committed_datetime}\n'
+        f'   哈希: {LAST_COMMIT.hexsha}\n'
+        f'   作者: {LAST_COMMIT.author.name}\n'
+        f'   时间: {LAST_COMMIT.committed_datetime}\n'
         '   信息: \n'
-        f'{last_commit.message.strip()}'
+        f'{LAST_COMMIT.message.strip()}'
     )
     def __init__(
             self,
