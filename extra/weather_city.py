@@ -99,7 +99,7 @@ class WeatherCity:
         if self.cache.get(self.get_weather_day_text.__name__) is None:
             self.cache[self.get_weather_day_text.__name__] = {}
         if self.cache[self.get_weather_day_text.__name__].get(delay) is None:
-            self.flush_cache(self.get_weather_day_text)
+            self.flush_cache(self.get_weather_day)
             weather = self.get_weather_day(delay)
             match delay:
                 case 0:
