@@ -1,6 +1,7 @@
 import abstract
-from abstract.bases.importer import queue, threading, time
+from abstract.bases.importer import queue, threading, time, inspect, local_time, datetime
 from typing import Optional
+from types import FrameType
 
 from abstract.bases.exceptions import *
 from abstract.bases.log import LOG
@@ -36,7 +37,16 @@ class Session:
     def pipe_put(self, message: MESSAGE):
         self.pipe.put(message)
 
-    def pipe_get(self, message: MESSAGE, inform=True, timeout: Optional[int] = 30):
+    def pipe_get(self, message: MESSAGE, inform=True, timeout: Optional[int | float] = 30):
+        stacks = inspect.stack()
+        top_pipe_get_frame: FrameType = next(filter(lambda a: a.function == self.pipe_get.__name__, stacks[::-1])).frame
+        try:
+            get_time = top_pipe_get_frame.f_locals['get_time']
+        except KeyError:
+            get_time = local_time()
+        if get_time + datetime.timedelta(seconds=timeout) < local_time():
+            raise CommandCancel('未继续输入.')
+        timeout = (local_time() + datetime.timedelta(seconds=timeout) - get_time).total_seconds()
         if inform:
             notice_message = message.reply_text(f'正在等待输入{timeout}秒...发送"cancel"以取消.')
         try:

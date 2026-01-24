@@ -1,3 +1,5 @@
+from abstract.bases.exceptions import CommandCancel
+from abstract.bases.importer import local_time, datetime
 from abstract.message import *
 from abstract.session import Session
 from abstract.bot import BOT
@@ -68,13 +70,38 @@ def update_arcade_num(message: MESSAGE, session: Session):
             digits += letter
         else:
             break
-    text = text[:-len(digits)]
+    arcade = text[:-len(digits)]
     num = int(digits[::-1])
 
-    if not message.target.get_arcade_num(text):
+    result = message.target.get_arcade_num(arcade)
+    if not result:
         return
     if num > 255:
         message.reply_text('开玩笑呢? 怎么可能这么多人?')
 
-    message.target.update_arcade_num(text, num)
-    message.reply_text(f'{text}人数已记录为{num}.')
+    with session:
+        message.target.update_arcade_num(arcade, num)
+        timeout = 10
+        message.reply_text(f'{arcade}人数已记录为{num}. {timeout}秒内发送undo来取消记录, 发送push马上提交记录.')
+        get_time = local_time()
+        target_time = get_time + datetime.timedelta(seconds=timeout)
+        try:
+            while local_time() < target_time:
+                message_get = session.pipe_get(
+                    message, False,
+                    (target_time - local_time()).total_seconds()
+                ).get_parts_by_type(TextMessage)
+                if not message_get:
+                    continue
+                text = message_get[0].text
+                match text:
+                    case 'undo':
+                        message.target.update_arcade_num(arcade, *result)
+                        message.reply_text('记录已还原.')
+                        return
+                    case 'push':
+                        break
+        except CommandCancel:
+            ...
+
+    message.reply_text('记录已提交.')

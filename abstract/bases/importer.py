@@ -46,13 +46,12 @@ import platform
 import decimal
 import typing
 LAST_COMMIT = git.Repo(pathlib.Path(__file__).parents[2]).head.commit
-def local_time():
+def local_time() -> datetime.datetime:
     return datetime.datetime.now().astimezone()
 LOCAL_TIMEZONE = local_time().tzinfo
-LOCAL_TIMESHIFT = LOCAL_TIMEZONE.utcoffset(datetime.datetime.now())
-UTC_TIMEZONE = datetime.timezone.utc
 def today_7am():
-    replaced_localtime = local_time().replace(hour=7, minute=0, second=0, microsecond=0)
-    if local_time() > replaced_localtime:
+    time = local_time()
+    replaced_localtime = time.replace(hour=7, minute=0, second=0, microsecond=0)
+    if time > replaced_localtime:
         return replaced_localtime
     return replaced_localtime + datetime.timedelta(days=-1)

@@ -2,8 +2,8 @@ import itertools
 
 from typing import Optional
 
-from abstract.bases.importer import time, dispatch, decimal, json, datetime, operator, LOCAL_TIMEZONE, UTC_TIMEZONE
-from abstract.bases.importer import LOCAL_TIMESHIFT, today_7am
+from abstract.bases.importer import time, dispatch, decimal, json, datetime, operator, LOCAL_TIMEZONE
+from abstract.bases.importer import today_7am
 
 from abstract.bases.config import CONFIG
 from abstract.apis.frame_server import FRAME_SERVER
@@ -327,24 +327,29 @@ class Group:
 
     def get_arcades(self) -> dict[str, dict[str, list | Optional[int] | Optional[datetime.datetime]]]:
         """
-        获取群组的机厅信息
+        获取群组的所有机厅信息，自动处理过期数据
+        
+        功能说明：
+        - 获取群内所有机厅的详细信息
+        - 自动重置今日7点前的数据（num和update_time设为None）
+        - 将update_time转换为本地时区
         
         :return: 机厅信息字典，键为机厅名称，值为包含以下字段的字典：
-            - sub_names: 机厅别名列表（对应数据库subnames字段，JSON解析后）
-            - num: 机厅数量（对应数据库num字段）
-            - update_time: 更新时间（对应数据库update_time字段）
+            - sub_names: 机厅别名列表，从数据库subnames字段JSON解析
+            - num: 机厅数量，可能为None（未记录或已过期）
+            - update_time: 更新时间，可能为None，已转换为本地时区
         """
         result = ARCADES_TABLE.get_all(f'where group_id = {self.id}', attr='name, subnames, num, update_time')
         response = {}
         for name, sub_names, num, update_time in result:
-            if update_time and update_time.astimezone(UTC_TIMEZONE) < today_7am():
+            if update_time and (update_time := update_time.replace(tzinfo=datetime.UTC)) < today_7am():
                 self.reset_arcade_num(name)
                 num = None
                 update_time = None
             response[name] = {
                 'sub_names': json.loads(sub_names),
                 'num': num,
-                'update_time': update_time.replace(tzinfo=LOCAL_TIMEZONE) + LOCAL_TIMESHIFT if update_time else update_time,
+                'update_time': update_time.astimezone(LOCAL_TIMEZONE) if update_time else update_time,
             }
         return response
 
@@ -397,13 +402,13 @@ class Group:
             )
         )
 
-    def update_arcade_num(self, name: str, num: int):
+    def update_arcade_num(self, name: str, num: Optional[int], time: Optional[datetime.datetime] = datetime.datetime.now()):
         with ARCADES_TABLE:
             ARCADES_TABLE.cursor.execute(
                 f'update {ARCADES_TABLE.name} '
-                f'set num = %s, update_time = current_timestamp '
+                f'set num = %s, update_time = %s '
                 f'where group_id = %s and json_contains(names, json_quote(%s))',
-                (num, self.id, name)
+                (num, time.astimezone(datetime.UTC), self.id, name)
             )
 
     def reset_arcade_num(self, name: str):
@@ -415,16 +420,31 @@ class Group:
                 (self.id, name)
             )
 
-    def get_arcade_num(self, name: str) -> tuple[Optional[int], Optional[datetime.datetime]]:
+    def get_arcade_num(self, name: str) -> Optional[tuple[Optional[int], Optional[datetime.datetime]]]:
         """
-        获取指定机厅的数量和更新时间
+        获取指定机厅的数量和更新时间，自动处理过期数据
         
-        :param name: 机厅名称
-        :type name: str
+        功能说明：
+        - 使用参数化查询和JSON_QUOTE处理机厅名称，支持使用机厅别名查询
+        - 自动处理过期数据：
+          - 未找到记录时返回None
+          - 更新时间为None时返回(None, None)
+          - 更新时间在今日7点之前时：
+            - 调用reset_arcade_num重置数据库中的num和update_time为NULL
+            - 返回(None, None)
+          - 否则返回(机厅数量, 本地时区的更新时间)
         
-        :return: 包含机厅数量和更新时间的元组
+        :param name: 机厅名称或别名
+        
+        :return: 包含机厅数量和更新时间的元组，可能为：
+            - None: 未找到指定机厅
+            - (None, None): 数据已过期或未记录
+            - (num, update_time): 机厅数量和更新时间，update_time已转换为本地时区
+        
         :example:
-            (10, datetime.datetime(2024, 1, 1, 12, 0, 0))
+            - 正常返回: (10, datetime.datetime(2024, 1, 1, 12, 0, 0, tzinfo=LOCAL_TIMEZONE))
+            - 数据过期: (None, None)
+            - 未找到: None
         """
 
         with ARCADES_TABLE:
@@ -436,10 +456,13 @@ class Group:
             )
             result = ARCADES_TABLE.cursor.fetchone()
 
-        if result[1] and result[1].astimezone(UTC_TIMEZONE) < today_7am():
+        if not result:
+            return None
+
+        if not result[1] or (update_time := result[1].replace(tzinfo=datetime.UTC)) < today_7am():
             self.reset_arcade_num(name)
             return None, None
 
-        return result[0], result[1].replace(tzinfo=LOCAL_TIMEZONE) + LOCAL_TIMESHIFT if result[1] else result[1]
+        return result[0], update_time.astimezone(LOCAL_TIMEZONE)
 
 
