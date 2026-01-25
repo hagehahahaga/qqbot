@@ -49,6 +49,7 @@ LAST_COMMIT = git.Repo(pathlib.Path(__file__).parents[2]).head.commit
 def local_time() -> datetime.datetime:
     return datetime.datetime.now().astimezone()
 LOCAL_TIMEZONE = local_time().tzinfo
+SENTINEL = object()
 def today_7am():
     time = local_time()
     replaced_localtime = time.replace(hour=7, minute=0, second=0, microsecond=0)

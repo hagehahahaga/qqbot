@@ -2,7 +2,7 @@ import itertools
 
 from typing import Optional
 
-from abstract.bases.importer import time, dispatch, decimal, json, datetime, operator, LOCAL_TIMEZONE
+from abstract.bases.importer import time, dispatch, decimal, json, datetime, operator, LOCAL_TIMEZONE, SENTINEL
 from abstract.bases.importer import today_7am
 
 from abstract.bases.config import CONFIG
@@ -402,7 +402,9 @@ class Group:
             )
         )
 
-    def update_arcade_num(self, name: str, num: Optional[int], time: Optional[datetime.datetime] = datetime.datetime.now()):
+    def update_arcade_num(self, name: str, num: Optional[int], time: Optional[datetime.datetime] = SENTINEL):
+        if time is SENTINEL:
+            time = datetime.datetime.now()
         with ARCADES_TABLE:
             ARCADES_TABLE.cursor.execute(
                 f'update {ARCADES_TABLE.name} '
