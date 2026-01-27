@@ -6,7 +6,7 @@ CREATE TABLE `ai_messages` (
   `type` enum('text','image_url') DEFAULT 'text',
   PRIMARY KEY (`id`),
   KEY `ai_messages_target_index` (`target`)
-) ENGINE=InnoDB AUTO_INCREMENT=489 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `arcades` (
   `group_id` decimal(10,0) NOT NULL,

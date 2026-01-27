@@ -47,7 +47,7 @@ class LLM:
         self.r18 = r18
         if not self.messages_table.get(f'where target = "{self.name}" and role = "system"'):
             for message in prompts:
-                self.messages_table.add(NULL, self.name, message['role'], message['content'])
+                self.messages_table.add(NULL, self.name, message['role'], message['content'], 'text')
 
         self.messages = []
         messages_data = self.messages_table.get_all(
