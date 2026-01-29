@@ -78,6 +78,7 @@ def update_arcade_num(message: MESSAGE, session: Session):
         return
     if num > 255:
         message.reply_text('开玩笑呢? 怎么可能这么多人?')
+        return
 
     with session:
         message.target.update_arcade_num(arcade, num)
