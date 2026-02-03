@@ -81,7 +81,6 @@ def update_arcade_num(message: MESSAGE, session: Session):
         return
 
     with session:
-        message.target.update_arcade_num(arcade, num)
         timeout = 10
         message.reply_text(f'{arcade}人数已记录为{num}. {timeout}秒内发送undo来取消记录, 发送push马上提交记录.')
         get_time = local_time()
@@ -105,4 +104,5 @@ def update_arcade_num(message: MESSAGE, session: Session):
         except CommandCancel:
             ...
 
+    message.target.update_arcade_num(arcade, num)
     message.reply_text('记录已提交.')
