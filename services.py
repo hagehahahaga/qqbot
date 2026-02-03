@@ -18,15 +18,15 @@ def noticer():
             case 'day':
                 ...
             case 'week':
-                if notice[2].weekday() != time.localtime().tm_wday:
+                if notice[2].weekday() > time.localtime().tm_wday:
                     time.sleep(1)
                     continue
             case _:
-                if notice[2].date() != datetime.datetime.now().date():
+                if notice[2].date() > datetime.datetime.now().date():
                     continue
                 NOTICE_SCHEDULE_TABLE.delete(
-                    f'(id, type, time)',
-                    (target_id, notice[1], notice[2].strftime('%Y-%m-%d %H:%M:%S'))
+                    '(id, type, time)',
+                    (target_id, notice[1], notice[2])
                 )
 
         try:
@@ -41,10 +41,10 @@ def noticer():
                         notice[3],
                         User(target_id)
                     ).send()
-        except TypeError:
+        except GroupNotJoined:
             NOTICE_SCHEDULE_TABLE.delete(
                 f'(id, type, time)',
-                (target_id, notice[1], notice[2].strftime('%Y-%m-%d %H:%M:%S'))
+                (target_id, notice[1], notice[2])
             )
 
     time.sleep(1)

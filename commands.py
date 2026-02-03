@@ -1,7 +1,4 @@
-from abstract.bases.importer import datetime, functools, copy
-from abstract.bases.importer import getopt, io, time
-from abstract.bases.importer import filetype, numpy, pymysql
-from abstract.bases.importer import json, PIL
+from abstract.bases.importer import datetime, functools, itertools, io, time, filetype, numpy, pymysql, json, PIL
 
 from PicImageSearch.sync import *
 
@@ -14,7 +11,6 @@ from abstract.session import Session
 from extra.chat_ai import LLM, CHAT_AIs
 from abstract.bases.exceptions import *
 from abstract.apis.table import GROUP_OPTION_TABLE, STOCK_TABLE, NOTICE_SCHEDULE_TABLE
-from abstract.apis.table import NULL
 from extra.vits_speaker import SPEAKER_MANAGER
 from extra.weather_city import WEATHER_CITY_MANAGER
 
@@ -511,37 +507,68 @@ def notice(message: MESSAGE, session: Session, args):
     match args:
         case []:
             return abstract.bot.help(message, session, ['notice'])
-        case ['add', *args]:
-            args = dict(
-                getopt.getopt(
-                    args,
-                    '',
-                    ['time=', 'text=', 'every=']
-                )[0]
-            )
-            notice_time = args.get('--time', 'now')
-            if notice_time.endswith('后'):
-                offset = dict(
-                    map(
-                        lambda a: (a[0][2:], int(a[1])),
-                        getopt.getopt(
-                            notice_time[:-1].split(','),
-                            '',
-                            ['days=', 'seconds=', 'minutes=', 'hours=', 'weeks=']
-                        )[0]
+        case ['add', text, time, *every]:
+            if every:
+                every = every[0]
+                assert every in ('day', 'week')
+            else:
+                every = None
+            if time.endswith('后'):
+                time = time[:-1]
+                assert time, '多久后没说'
+                time = [time]
+                mapping = {
+                    ('天', '日'): 'days',
+                    ('秒', '秒钟'): 'seconds',
+                    ('分', '分钟'): 'minutes',
+                    ('时', '小时'): 'hours',
+                    ('周', '星期'): 'weeks'
+                }
+                mapping = dict(
+                    itertools.chain.from_iterable(
+                        (
+                            (key, value) for key in keys
+                        ) for keys, value in mapping.items()
                     )
                 )
-                notice_time = (datetime.datetime.now() + datetime.timedelta(**offset)).strftime('%Y-%m-%d %H:%M:%S')
-            elif notice_time == 'now':
-                notice_time = time.strftime('%Y-%m-%d %H:%M:%S')
+                for word in sorted(mapping, key=len, reverse=True):
+                    new_time = []
+                    for part in time:
+                        if word in part and part not in mapping:
+                            point = part.index(word)
+                            new_time.append(part[:point])
+                            new_time.append(word)
+                            new_time.append(part[point+len(word):])
+                            continue
+                        new_time.append(part)
+                    time = new_time
+                while '' in time:
+                    time.remove('')
+
+                params = {}
+                time_iter = iter(reversed(time))
+                for part in time_iter:
+                    try:
+                        digit = next(time_iter)
+                        params[mapping[part]] = float(digit)
+                    except StopIteration:
+                        message.reply_text(f'{part}前没有数字, 检查输入.')
+                        return None
+                    except ValueError:
+                        message.reply_text(f'{digit}不是一个数字, 检查输入.')
+                        return None
+
+                time = datetime.datetime.now() + datetime.timedelta(**params)
+            elif time == 'now':
+                time = datetime.datetime.now()
             else:
-                notice_time = ' '.join(notice_time.split(','))
+                time = datetime.datetime.strptime(time, '%Y%m%d%H%M%S')
             NOTICE_SCHEDULE_TABLE.add(
                 id,
                 notice_type,
-                notice_time,
-                args.get('--text', NULL),
-                args.get('--every', NULL)
+                time,
+                text,
+                every
             )
 
         case ['status']:
@@ -549,7 +576,7 @@ def notice(message: MESSAGE, session: Session, args):
                 '查询结果:\n' +
                 '\n'.join(
                     map(
-                        lambda a: f'时间: {a[0]}, 每: {a[1]}, 内容: {a[2]}',
+                        lambda a: f'时间: {a[0].strftime('%Y%m%d%H%M%S')}, 每: {a[1]}, 内容: {a[2]}',
                         NOTICE_SCHEDULE_TABLE.get_all(
                             f'where (id, type) = ({id}, "{notice_type}")',
                             attr='time, every, text'
@@ -562,9 +589,9 @@ def notice(message: MESSAGE, session: Session, args):
         case ['remove', 'all']:
             NOTICE_SCHEDULE_TABLE.delete('(id, type)', (id, notice_type))
 
-        case ['remove', *args]:
-            notice_time = ' '.join(args)
-            NOTICE_SCHEDULE_TABLE.delete('(id, type, time)', (id, notice_type, notice_time))
+        case ['remove', time]:
+            time = datetime.datetime.strptime(time, '%Y%m%d%H%M%S')
+            NOTICE_SCHEDULE_TABLE.delete('(id, type, time)', (id, notice_type, time))
 
         case final:
             message.reply_text(f'匹配 {final} 失败, 检查输入.')

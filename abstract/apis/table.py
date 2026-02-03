@@ -46,10 +46,7 @@ class Table:
 
     @_with_lock
     def get_len(self):
-        assert self.cursor.execute(
-            f'select column_name from information_schema.columns where table_name = "{self.name}"'
-        ), 'No data. Can not get len.'
-        return len(self.cursor.fetchall())
+        return self.cursor.execute(f'SHOW COLUMNS FROM {self.name}')
 
     @_with_lock
     def exists(self):
@@ -74,13 +71,13 @@ class Table:
     @dispatch
     @_with_lock
     def add(self, *args):
-        self.cursor.execute(f"INSERT INTO {self.name} VALUES {args}")
+        self.cursor.execute(f"INSERT INTO {self.name} VALUES ({','.join(['%s'] * len(args))})", args)
         return self
 
     @dispatch
     @_with_lock
     def add(self, args: tuple):
-        self.cursor.execute(f"INSERT INTO {self.name} VALUES {args}")
+        self.cursor.execute(f"INSERT INTO {self.name} VALUES ({','.join(['%s'] * len(args))})", args)
         return self
 
     @dispatch
@@ -90,7 +87,10 @@ class Table:
 
     @_with_lock
     def delete(self, key, value):
-        self.cursor.execute(f"DELETE FROM {self.name} WHERE {key} = %s", (value, ))
+        self.cursor.execute(
+            f"DELETE FROM {self.name} WHERE {key} = ({','.join(['%s'] * len(value))})",
+            value
+        )
         return self
 
     @_with_lock

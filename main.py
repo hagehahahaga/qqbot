@@ -43,6 +43,7 @@ def main():
                 GroupMessage(
                     ImageMessage(
                         text2img(
+                            '机器人已重启' +
                             BOT.VERSION
                         )
                     ),

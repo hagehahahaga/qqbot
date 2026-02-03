@@ -247,7 +247,7 @@
 - `svc <speaker> [pitch]`：AI变音，需附带语音消息
 - `forge`：伪造聊天记录，交互式命令
 - `notice status`：查询当前进行中的定时提醒
-- `notice add [--time=] [--text=] [--every=]`：添加定时提醒
+- `notice add <text> <time> [every]`：添加定时提醒，time支持now、具体时间或"多久后"格式，every可选day/week
 - `stock status`：查询个人状态以及股市状态
 - `stock buy/sell <price> <num>`：发起股票交易
 - `stock cancel`：取消委托中的交易
