@@ -1,4 +1,4 @@
-from abstract.bases.importer import json, pathlib
+from .importer import json, pathlib
 
 
 class Config:

@@ -2649,3 +2649,8 @@ __pycache__/
 /.idea/sqldialects.xml
 /.idea/data_source_mapping.xml
 /.idea/encodings.xml
+/extra/MaimaiDXStatus/test/all.png
+/extra/MaimaiDXStatus/test/all_night.png
+/extra/MaimaiDXStatus/test/stat.png
+/extra/MaimaiDXStatus/test/status.png
+/extra/MaimaiDXStatus/test/status_night.png

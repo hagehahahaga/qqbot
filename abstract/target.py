@@ -2,7 +2,7 @@ import itertools
 
 from typing import Optional
 
-from abstract.bases.importer import time, dispatch, decimal, json, datetime, operator, LOCAL_TIMEZONE, SENTINEL
+from abstract.bases.importer import time, dispatch, decimal, json, datetime, operator, SENTINEL
 from abstract.bases.importer import today_7am
 
 from abstract.bases.config import CONFIG
@@ -349,7 +349,7 @@ class Group:
             response[name] = {
                 'sub_names': json.loads(sub_names),
                 'num': num,
-                'update_time': update_time.astimezone(LOCAL_TIMEZONE) if update_time else update_time,
+                'update_time': update_time.astimezone() if update_time else update_time,
             }
         return response
 
@@ -465,6 +465,6 @@ class Group:
             self.reset_arcade_num(name)
             return None, None
 
-        return result[0], update_time.astimezone(LOCAL_TIMEZONE)
+        return result[0], update_time.astimezone()
 
 

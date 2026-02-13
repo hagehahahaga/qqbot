@@ -1,7 +1,6 @@
-import threading
-import time
+import pathlib
 
-from abstract.bases.importer import getopt, sys, requests
+from abstract.bases.importer import getopt, sys, requests, time, threading
 
 from abstract.apis.frame_server import FRAME_SERVER
 from abstract.bases.text2img import text2img
@@ -21,6 +20,10 @@ import games
 LOG.INF('Games registered successfully.')
 import triggers
 LOG.INF('Triggers registered successfully.')
+from extra import *
+LOG.INF('Extras registered successfully.')
+
+BOT.register_help_text('help_text.json')
 
 
 def main():

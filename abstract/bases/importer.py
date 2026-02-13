@@ -25,30 +25,25 @@ import json
 import sys
 import inspect
 import git
-import urllib3
 import os
-import select
-import enum
 import cairosvg
 import matplotlib
 import matplotlib.patheffects
 import matplotlib.pyplot
 import matplotlib.dates
 import matplotlib.font_manager
+import matplotlib.ticker
 import pandas
 import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageFont
-import warnings
-import copy
-import socket
 import platform
 import decimal
 import typing
+import importlib
 LAST_COMMIT = git.Repo(pathlib.Path(__file__).parents[2]).head.commit
 def local_time() -> datetime.datetime:
     return datetime.datetime.now().astimezone()
-LOCAL_TIMEZONE = local_time().tzinfo
 SENTINEL = object()
 def today_7am():
     time = local_time()

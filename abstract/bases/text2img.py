@@ -4,7 +4,7 @@ from abstract.bases.config import CONFIG
 def text2img(text: str | list[str], night: bool = False) -> bytes:
     # 处理文本输入
     if isinstance(text, str):
-        lines = text.split('\n')
+        lines = text.removeprefix('\n').split('\n')
     else:
         lines = []
         for item in text:

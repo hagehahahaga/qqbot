@@ -13,9 +13,6 @@ from abstract.apis.table import GROUP_OPTION_TABLE
 from abstract.bases.log import LOG
 from abstract.bases.text2img import text2img
 
-# 加载帮助配置
-HELP_TEXT = json.loads(pathlib.Path('help_text.json').read_text(encoding='utf-8'))
-
 
 class Bot:
     VERSION = (
@@ -47,6 +44,7 @@ class Bot:
         self.must_at = must_at
         self.services: dict[str, Service] = {}
         self.triggers: list[tuple[Callable[[MESSAGE], bool], Callable]] = []
+        self.help_text = {}
 
     def register_service(self, service_name: str, auto_restart=False):
         """
@@ -79,6 +77,9 @@ class Bot:
             self.triggers.append((condition, func))
             return func
         return decorator
+
+    def register_help_text(self, path: str):
+        self.help_text.update(json.loads(pathlib.Path(path).read_text(encoding='utf-8')))
 
     def router(self, data: dict):
         LOG.DEB(str(data))
@@ -232,8 +233,8 @@ def help(message: MESSAGE, session: Session, args):
 
     match args:
         case [command]:
-            if command in HELP_TEXT['commands']:
-                help_content = HELP_TEXT['commands'][command]
+            if command in BOT.help_text:
+                help_content = BOT.help_text[command]
                 if isinstance(help_content, list):
                     help_text = '\n' + '\n'.join(help_content)
                 else:

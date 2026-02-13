@@ -12,6 +12,7 @@ from extra.weather_city import WEATHER_CITY_MANAGER, WeatherCity
 
 @BOT.register_service('noticer', auto_restart=True)
 def noticer():
+    time.sleep(1)
     for notice in NOTICE_SCHEDULE_TABLE.get_all(f'where time(time) = "{time.strftime("%H:%M:%S")}"'):
         target_id = int(notice[0])
         match notice[4]:
@@ -46,8 +47,6 @@ def noticer():
                 f'(id, type, time)',
                 (target_id, notice[1], notice[2])
             )
-
-    time.sleep(1)
 
 
 def _get_wait_seconds(target_times: list[datetime.datetime]) -> float:

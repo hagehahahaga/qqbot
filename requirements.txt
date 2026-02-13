@@ -9,6 +9,5 @@ matplotlib
 cairosvg
 pandas
 requests
-urllib3
 plum-dispatch
 gitpython

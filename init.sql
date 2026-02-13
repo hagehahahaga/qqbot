@@ -32,6 +32,7 @@ CREATE TABLE `group_options` (
   `recall_catch` tinyint(1) DEFAULT 0,
   `city` varchar(30) DEFAULT NULL,
   `weather_notice` tinyint(1) NOT NULL DEFAULT 0,
+  `maimai_notice` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   CONSTRAINT `check_trusted` CHECK (`trusted` = 1 and 2 >= `r18` >= 0 or `trusted` = 0 and `r18` = 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

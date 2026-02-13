@@ -88,8 +88,7 @@ def update_arcade_num(message: MESSAGE, session: Session):
     with session:
         timeout = 10
         message.reply_text(f'{arcade} {num}人的记录已寄存. {timeout}秒内发送undo取消提交, 发送push马上提交.')
-        get_time = local_time()
-        target_time = get_time + datetime.timedelta(seconds=timeout)
+        target_time = local_time() + datetime.timedelta(seconds=timeout)
         try:
             while local_time() < target_time:
                 message_get = session.pipe_get(

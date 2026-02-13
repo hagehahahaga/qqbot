@@ -47,7 +47,7 @@ class LLM:
         self.r18 = r18
         if not self.messages_table.get(f'where target = "{self.name}" and role = "system"'):
             for message in prompts:
-                self.messages_table.add(NULL, self.name, message['role'], message['content'], 'text')
+                self.messages_table.add(None, self.name, message['role'], message['content'], 'text')
 
         self.messages = []
         messages_data = self.messages_table.get_all(
@@ -70,7 +70,7 @@ class LLM:
             'role': role,
             'content': text
         }
-        self.messages_table.add(NULL, self.name, role, text, 'text')
+        self.messages_table.add(None, self.name, role, text, 'text')
         self.messages.append(
             data
         )
@@ -84,7 +84,7 @@ class LLM:
                     part = part['image_url']['url']
                 case 'text':
                     part = part['text']
-            self.messages_table.add(NULL, self.name, role, part, type)
+            self.messages_table.add(None, self.name, role, part, type)
 
         data = {
             'role': role,

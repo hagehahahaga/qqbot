@@ -1,6 +1,6 @@
-from typing import Optional
-
 from abstract.bases.importer import itertools, PIL, io
+from abstract.bases import PIL_FONT
+from typing import Optional
 
 from abstract.game import BaseGame, GameManager, GAME_MANAGER
 from abstract.message import GroupMessage, TextMessage, ImageMessage, AtMessage
@@ -32,9 +32,8 @@ class TicTacToe(BaseGame):
             draw.line((0, i * 100, 300, i * 100), fill='black', width=2)
             draw.line((i * 100, 0, i * 100, 300), fill='black', width=2)
         # 画棋子 - 使用调整大小后的默认字体
-        default_font = PIL.ImageFont.load_default()
         # 创建更大的字体变体
-        font = default_font.font_variant(size=40)
+        font = PIL_FONT.font_variant(size=40)
         for i, cell in enumerate(self.board):
             # 计算文字居中位置
             bbox = draw.textbbox((0, 0), cell, font=font)
@@ -149,11 +148,9 @@ class Gomoku(BaseGame):
         # 创建画布，包含坐标轴区域
         image = PIL.Image.new('RGB', (total_size_px, total_size_px), color='#F5DEB3')  # 米黄色背景
         draw = PIL.ImageDraw.Draw(image)
-        
-        # 设置字体 - 使用调整大小后的默认字体
-        default_font = PIL.ImageFont.load_default()
+
         # 创建更大的字体变体
-        font = default_font.font_variant(size=24)
+        font = PIL_FONT.font_variant(size=24)
         
         # 绘制数字标记（左侧和顶部）
         for i in range(self.board_size):
