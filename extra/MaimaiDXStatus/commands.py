@@ -1,13 +1,12 @@
-from abstract.bases.importer import operator
-
 from .MaimaiDXStatusService import MAIMAIDX_STATUS_SERVICE
-from abstract.command import COMMAND_GROUP
+from abstract.command import COMMAND_GROUP, ask_for_wait
 from abstract.message import *
 from abstract.session import *
 from abstract.bases.text2img import text2img
 
 
 @COMMAND_GROUP.register_command(('maimai', '舞萌状态'), 1)
+@ask_for_wait
 def maimai(message: MESSAGE, session: Session, args):
     night = not (8 < local_time().hour < 20)
     match args:

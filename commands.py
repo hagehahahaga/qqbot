@@ -1,4 +1,4 @@
-from abstract.bases.importer import datetime, functools, itertools, io, time, filetype, numpy, pymysql, json, PIL
+from abstract.bases.importer import datetime, itertools, io, time, filetype, numpy, pymysql, json, PIL
 
 from PicImageSearch.sync import *
 
@@ -6,73 +6,13 @@ import abstract.message
 from abstract.bases.custom_thread import CustomThreadGroup
 from abstract.message import *
 from abstract.bot import BOT
-from abstract.command import COMMAND_GROUP
+from abstract.command import COMMAND_GROUP, ask_for_wait, cost, group_only, authorize
 from abstract.session import Session
 from extra.chat_ai import LLM, CHAT_AIs
 from abstract.bases.exceptions import *
 from abstract.apis.table import GROUP_OPTION_TABLE, STOCK_TABLE, NOTICE_SCHEDULE_TABLE
 from extra.vits_speaker import SPEAKER_MANAGER
 from extra.weather_city import WEATHER_CITY_MANAGER
-
-
-def ask_for_wait(func):
-    @functools.wraps(func)
-    def decorated(*args, **kwargs):
-        wait_message: BaseMessage = args[0].reply_text('别急')
-        try:
-            func(*args, **kwargs)
-        finally:
-            wait_message.delete()
-
-    return decorated
-
-
-def cost(cost: int):
-    def decorator(func):
-        @functools.wraps(func)
-        def decorated(*args, **kwargs):
-            message = args[0]
-            if message.sender.get_points() < cost:
-                message.reply_text(
-                    '\n韭菜盒子不足!\n'
-                    f'我早上本来应该吃 {cost} 个韭菜盒子, 饱饱的.\n'
-                    '那我缺的这个这个营养这一块的, 谁给我补啊?\n'
-                )
-                return
-
-            func(*args, **kwargs)
-
-            message.sender.add_points(-cost)
-            message.reply_text(f'本次请求消耗 {cost} 个韭菜盒子, 贼jb好吃.')
-
-        return decorated
-
-    return decorator
-
-
-def group_only(func):
-    @functools.wraps(func)
-    def decorated(*args, **kwargs):
-        assert type(args[0]) is GroupMessage, '此指令仅在群聊中可用!'
-        func(*args, **kwargs)
-
-    return decorated
-
-
-def authorize(min_level: str):
-    level_list = ['member', 'admin', 'owner', 'operator']
-
-    def decorator(func):
-        @functools.wraps(func)
-        def decorated(*args, **kwargs):
-            assert level_list.index(args[0].sender.role) >= level_list.index(min_level), \
-                f'执行此指令最低需要{min_level}权限.'
-
-            func(*args, **kwargs)
-
-        return decorated
-
-    return decorator
 
 
 @COMMAND_GROUP.register_command(('search', '搜图', '以图搜图'), {'needed_type': ImageMessage}, '多API同时搜索')
