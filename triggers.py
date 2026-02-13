@@ -1,7 +1,8 @@
+import commands
 from abstract.bases.exceptions import CommandCancel
 from abstract.bases.importer import local_time, datetime
 from abstract.message import *
-from abstract.session import Session
+from abstract.session import Session, SESSION_MANAGER
 from abstract.bot import BOT
 
 def get_group_message_text(message: MESSAGE) -> str:
@@ -37,13 +38,17 @@ def get_arcade_num(message: MESSAGE, session: Session):
             text = text[:-len(suffix)]
             break
 
+    if not text:
+        commands.arcade(message, SESSION_MANAGER.get_session(message.sender), ['list'])
+        return
+
     result = message.target.get_arcade_num(text)
     if not result:
         message.reply_text(f'此群未设置机厅或别名 {text}.')
         return
 
     if not any(result):
-        message.reply_text(f'{text} 还没有记录过人数.')
+        message.reply_text(f'今天 {text} 还没有记录人数.')
         return
 
     message.reply_text(f'\n{text}{result[0]}\n{result[1].strftime("%H点%M分 UTC%z")}数据')
