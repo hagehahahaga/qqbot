@@ -87,7 +87,7 @@ def update_arcade_num(message: MESSAGE, session: Session):
 
     with session:
         timeout = 10
-        message.reply_text(f'{arcade}人数已记录为{num}. {timeout}秒内发送undo来取消记录, 发送push马上提交记录.')
+        message.reply_text(f'{arcade} {num}人的记录已寄存. {timeout}秒内发送undo取消提交, 发送push马上提交.')
         get_time = local_time()
         target_time = get_time + datetime.timedelta(seconds=timeout)
         try:
@@ -101,8 +101,7 @@ def update_arcade_num(message: MESSAGE, session: Session):
                 text = message_get[0].text
                 match text:
                     case 'undo':
-                        message.target.update_arcade_num(arcade, *result)
-                        message.reply_text('记录已还原.')
+                        message.reply_text('记录未提交.')
                         return
                     case 'push':
                         break
