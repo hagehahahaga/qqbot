@@ -2,7 +2,6 @@ from .MaimaiDXStatusService import MAIMAIDX_STATUS_SERVICE
 from abstract.command import COMMAND_GROUP, ask_for_wait
 from abstract.message import *
 from abstract.session import *
-from abstract.bases.text2img import text2img
 
 
 @COMMAND_GROUP.register_command(('maimai', '舞萌状态'), 1)
@@ -15,15 +14,10 @@ def maimai(message: MESSAGE, session: Session, args):
 
         case ['nodes']:
             message.reply(
-                ImageMessage(
-                    text2img(
-                        '\n'.join(
-                            map(
-                                lambda a: f'{a.ID} - {a.NAME}',
-                                MAIMAIDX_STATUS_SERVICE.result[1].values()
-                            )
-                        )
-                    )
+                TextImageMessage(
+                    [
+                        f'{node.ID} - {node.NAME}' for node in MAIMAIDX_STATUS_SERVICE.result[1].values()
+                    ]
                 )
             )
 

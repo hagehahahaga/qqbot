@@ -3,11 +3,10 @@ import pathlib
 from abstract.bases.importer import getopt, sys, requests, time, threading
 
 from abstract.apis.frame_server import FRAME_SERVER
-from abstract.bases.text2img import text2img
 from abstract.bot import BOT
 from abstract.bases.exceptions import *
 from abstract.bases.log import LOG
-from abstract.message import GroupMessage, ImageMessage
+from abstract.message import GroupMessage, TextImageMessage
 from abstract.target import Group
 from web import FRAME_CLIENT
 
@@ -44,11 +43,9 @@ def main():
         ):
             try:
                 GroupMessage(
-                    ImageMessage(
-                        text2img(
-                            '机器人已重启' +
-                            BOT.VERSION
-                        )
+                    TextImageMessage(
+                        '机器人已重启' +
+                        BOT.VERSION
                     ),
                     Group(group_id)
                 ).send()

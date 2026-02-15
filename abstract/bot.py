@@ -11,7 +11,6 @@ from abstract.target import User, Group
 from abstract.apis.frame_server import FRAME_SERVER
 from abstract.apis.table import GROUP_OPTION_TABLE
 from abstract.bases.log import LOG
-from abstract.bases.text2img import text2img
 
 
 class Bot:
@@ -253,16 +252,14 @@ def help(message: MESSAGE, session: Session, args):
     if detail:
         message.reply_text(help_text)
     else:
-        message.reply(ImageMessage(text2img(help_text)))
+        message.reply(TextImageMessage(help_text))
 
 
 @COMMAND_GROUP.register_command(('version', '版本', '版本信息'), info='查看机器人开发信息')
 def version(message: MESSAGE, session: Session):
     message.reply(
-        ImageMessage(
-            text2img(
-                BOT.VERSION
-            )
+        TextImageMessage(
+            BOT.VERSION
         )
     )
 

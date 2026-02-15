@@ -1,4 +1,4 @@
-from abstract.bases.importer import abc, base64, pathlib, requests, dispatch, Iterable, typing
+from abstract.bases.importer import abc, base64, pathlib, requests, dispatch, Iterable, typing, PIL, io
 
 from abstract.bases.config import CONFIG
 from abstract.target import User, Group
@@ -128,6 +128,62 @@ class ImageMessage(BaseMessagePart):
             }
 
 
+class TextImageMessage(ImageMessage):
+    def __init__(self, text: str | list[str], night: bool = None):
+        # 处理文本输入
+        if isinstance(text, str):
+            text = text.removeprefix('\n').split('\n')
+
+        # 设置颜色
+        if night:
+            bg_color = (0, 0, 0)
+            text_color = (255, 255, 255)
+        else:
+            bg_color = (255, 255, 255)
+            text_color = (0, 0, 0)
+
+        # 设置字体
+        font_path = CONFIG['zh_font_path']
+        font_size = 24
+        font = PIL.ImageFont.truetype(font_path, font_size)
+
+        # 计算文本尺寸
+        line_height = font_size + 10
+        max_width = 0
+        for line in text:
+            if line:
+                bbox = font.getbbox(line)
+                line_width = bbox[2] - bbox[0]
+                if line_width > max_width:
+                    max_width = line_width
+
+        # 设置图片尺寸，添加边距
+        margin = 20
+        img_width = max_width + 2 * margin
+        img_height = len(text) * line_height + 2 * margin
+
+        # 创建图片
+        img = PIL.Image.new('RGB', (img_width, img_height), bg_color)
+        draw = PIL.ImageDraw.Draw(img)
+
+        # 绘制文本
+        for i, line in enumerate(text):
+            if line:
+                draw.text(
+                    (margin, margin + i * line_height),
+                    line,
+                    font=font,
+                    fill=text_color
+                )
+
+        # 保存为字节流
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG')
+        buffer.seek(0)
+
+        super().__init__(data=buffer.getvalue())
+
+
 class FaceMessage(BaseMessagePart):
     NAME = '表情消息'
     def __init__(self, id: str):
@@ -228,6 +284,7 @@ class BaseMessage(abc.ABC):
     def send(self):
         message = get_message(self.send_api(message=self))
         LOG.INF(f'Sent to {message.target}:  {message.data["raw_message"]}')
+        LOG.DEB(repr(self))
         return message
 
     @abc.abstractmethod
