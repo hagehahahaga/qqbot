@@ -1,4 +1,4 @@
-from abstract.bases.importer import abc, base64, pathlib, requests, dispatch, Iterable, typing, PIL, io
+from abstract.bases.importer import abc, base64, pathlib, requests, dispatch, Iterable, typing, PIL, io, local_time
 
 from abstract.bases.config import CONFIG
 from abstract.target import User, Group
@@ -130,6 +130,8 @@ class ImageMessage(BaseMessagePart):
 
 class TextImageMessage(ImageMessage):
     def __init__(self, text: str | list[str], night: bool = None):
+        if night is None:
+            night = not (8 < local_time().hour < 20)
         # 处理文本输入
         if isinstance(text, str):
             text = text.removeprefix('\n').split('\n')
