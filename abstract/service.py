@@ -1,11 +1,12 @@
-from abstract.bases.importer import threading
+from abstract.bases.importer import threading, time
+from typing import Callable
 
 from abstract.bases.exceptions import *
 from abstract.bases.log import LOG
 
 
 class Service:
-    def __init__(self, func, service_name, auto_restart=False):
+    def __init__(self, func: Callable, service_name: str, loop_delay: int | float, auto_restart=False):
         def decorated(*args, **kwargs):
             while not self.stop_flag.is_set():
                 try:
@@ -15,9 +16,11 @@ class Service:
                 except Exception as error:
                     LOG.ERR(error)
                     if self.auto_restart:
+                        time.sleep(60)
                         LOG.WAR(f'Service {self} automatically restarting...')
                         continue
                     LOG.WAR(f'Service {self} failed.')
+                time.sleep(loop_delay)
             else:
                 self.stop_flag.clear()
         self.thread = threading.Thread()

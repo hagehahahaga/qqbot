@@ -8,9 +8,8 @@ from abstract.bases.exceptions import *
 from extra.MaimaiDXStatus import MAIMAIDX_STATUS_SERVICE
 
 
-@BOT.register_service('maimai_status_auto_notice', True)
+@BOT.register_service('maimai_status_auto_notice', 20, True)
 def maimai_status_auto_notice():
-    time.sleep(20)
     try:
         result = MAIMAIDX_STATUS_SERVICE.update_status()
     except requests.exceptions.ConnectionError, requests.exceptions.JSONDecodeError:

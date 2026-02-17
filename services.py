@@ -10,9 +10,8 @@ from abstract.target import Group, User
 from extra.weather_city import WEATHER_CITY_MANAGER, WeatherCity
 
 
-@BOT.register_service('noticer', auto_restart=True)
+@BOT.register_service('noticer', 1, auto_restart=True)
 def noticer():
-    time.sleep(1)
     for notice in NOTICE_SCHEDULE_TABLE.get_all(f'where time(time) = "{time.strftime("%H:%M:%S")}"'):
         target_id = int(notice[0])
         match notice[4]:
@@ -117,7 +116,7 @@ def _execute_weather_task(
             LOG.ERR(e)
 
 
-@BOT.register_service('weather_predictor_hourly', auto_restart=True)
+@BOT.register_service('weather_predictor_hourly', 0, auto_restart=True)
 def weather_predictor_hourly():
     # 每小时任务的差异化参数：目标时间、天气获取方法、消息类型
     now = datetime.datetime.now()
@@ -137,7 +136,7 @@ def weather_predictor_hourly():
     )
 
 
-@BOT.register_service('weather_predictor_daily', auto_restart=True)
+@BOT.register_service('weather_predictor_daily', 0, auto_restart=True)
 def weather_predictor_daily():
     # 每日任务的差异化参数：目标时间、天气获取方法、消息类型
     now = datetime.datetime.now()
@@ -157,7 +156,7 @@ def weather_predictor_daily():
     )
 
 
-@BOT.register_service('weather_today', auto_restart=True)
+@BOT.register_service('weather_today', 0, auto_restart=True)
 def weather_today():
     # 每日任务的差异化参数：目标时间、天气获取方法、消息类型
     now = datetime.datetime.now()
@@ -176,7 +175,7 @@ def weather_today():
     )
 
 
-@BOT.register_service('weather_predictor_weekly', auto_restart=True)
+@BOT.register_service('weather_predictor_weekly', 0, auto_restart=True)
 def weather_predictor_weekly():
     """每周日12点执行一次，发送7天天气预报图表（修复负等待时间问题）"""
     now = datetime.datetime.now()
@@ -201,7 +200,7 @@ def weather_predictor_weekly():
     )
 
 
-@BOT.register_service('weather_predictor_minutely', auto_restart=True)
+@BOT.register_service('weather_predictor_minutely', 0, auto_restart=True)
 def weather_predictor_minutely():
     """每五分钟执行一次，发送分钟级降水变化预报"""
     now = datetime.datetime.now()

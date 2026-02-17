@@ -45,17 +45,18 @@ class Bot:
         self.triggers: list[tuple[Callable[[MESSAGE], bool], Callable]] = []
         self.help_text = {}
 
-    def register_service(self, service_name: str, auto_restart=False):
+    def register_service(self, service_name: str, loop_delay: int | float, auto_restart=False):
         """
         Register and run services
 
         :param service_name: Name of the service
+        :param loop_delay: How many seconds to wait between loops
         :param auto_restart: Whether to auto restart the service when it stops unexpectedly
 
         :return: decorated method
         """
         def decorator(func):
-            service = Service(func, service_name, auto_restart)
+            service = Service(func, service_name, loop_delay, auto_restart)
             self.services[service_name] = service
             service.start()
 

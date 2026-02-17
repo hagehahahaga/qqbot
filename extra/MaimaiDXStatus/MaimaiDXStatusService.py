@@ -49,7 +49,8 @@ class MaimaiDXStatusService:
             except IndexError:
                 continue
             if (node.STATUSES[-1].TIME - earliest_inequal_status.TIME).total_seconds() / 60 > 1:
-                output[node.NAME] = earliest_inequal_status.STATUS
+                if earliest_inequal_status.STATUS_CODE != 3:
+                    output[node.NAME] = earliest_inequal_status.STATUS
                 self._nodes_status[node.ID] = node.STATUSES[-1]
         return output
 
@@ -99,6 +100,57 @@ class MaimaiDXStatusService:
         # 绘制更新时间
         time_text = f"更新时间: {update_time.strftime('%Y-%m-%d %H:%M:%S')}"
         draw.text((50, 25), time_text, font=font, fill=text_color)
+        
+        # 在右上角添加状态图例（横向排列）
+        legend_font = PIL_FONT.font_variant(size=48)  # 增大字号
+        legend_items = [
+            ((92, 221, 139), "正常"),
+            ((255, 193, 7), "不稳定"),
+            ((220, 53, 69), "异常"),
+            ((13, 110, 253), "维护")
+        ]
+        
+        # 调整位置，使其贴近右上角
+        padding = 40  # 右上角内边距
+        legend_y = padding
+        box_size = 40  # 增大颜色方块大小
+        item_margin = 40  # 每个图例项之间的最小间距
+        
+        # 计算每个图例项的宽度
+        item_widths = []
+        for _, label in legend_items:
+            bbox = draw.textbbox((0, 0), label, font=legend_font)
+            text_width = bbox[2] - bbox[0]
+            item_width = box_size + 15 + text_width
+            item_widths.append(item_width)
+        
+        # 计算总宽度
+        total_width = sum(item_widths) + (len(legend_items) - 1) * item_margin
+        
+        # 计算起始x坐标，确保整个图例靠右对齐
+        legend_x = width - padding - total_width
+        
+        # 绘制图例项
+        current_x = legend_x
+        for i, (color, label) in enumerate(legend_items):
+            # 绘制颜色方块
+            draw.rectangle([
+                (current_x, legend_y),
+                (current_x + box_size, legend_y + box_size)
+            ], fill=color)
+            
+            # 计算文字位置，使其与色块垂直居中
+            text_y = legend_y - 10   # 对齐文字
+            # 绘制标签文字
+            draw.text(
+                (current_x + box_size + 15, text_y),
+                label,
+                font=legend_font,
+                fill=text_color
+            )
+            
+            # 移动到下一个图例项的位置
+            current_x += item_widths[i] + item_margin
         
         # 创建底部数据来源图像
         footer_image = PIL.Image.new('RGB', (width, footer_height), bg_color)
@@ -225,12 +277,17 @@ class MaimaiDXNode:
         # 为每个状态绘制色块
         for i, status in enumerate(recent_statuses):
             # 确定色块颜色
-            if status.STATUS == '稳定':
-                block_color = (0, 255, 0)  # 绿色 - 正常
-            elif status.STATUS == '不稳定':
-                block_color = (255, 255, 0)  # 黄色 - 不稳定
-            else:
-                block_color = (255, 0, 0)  # 红色 - 异常
+            match status.STATUS_CODE:
+                case 1:
+                    block_color = (92, 221, 139)  # 绿色 - 正常
+                case 2:
+                    block_color = (255, 193, 7)  # 黄色 - 不稳定
+                case 0:
+                    block_color = (220, 53, 69)  # 红色 - 异常
+                case 3:
+                    block_color = (13, 110, 253)  # 深蓝色 - 维护
+                case _:
+                    block_color = (128, 128, 128)  # 灰色 - 未支持状态
 
             # 计算色块位置（包含间隙）
             block_x = padding + i * (block_width + gap)
@@ -407,7 +464,8 @@ class MaimaiDXNodeStatus:
     STATUS_MAPPING = {
         0: '死了',
         1: '稳定',
-        2: '不稳定'
+        2: '不稳定',
+        3: '维护'
     }
 
     def __init__(self, data: dict):
