@@ -48,7 +48,7 @@ class MaimaiDXStatusService:
                 )[-1]
             except IndexError:
                 continue
-            if (node.STATUSES[-1].TIME - earliest_inequal_status.TIME).total_seconds() / 60 > 5:
+            if (node.STATUSES[-1].TIME - earliest_inequal_status.TIME).total_seconds() / 60 > 1:
                 output[node.NAME] = earliest_inequal_status.STATUS
                 self._nodes_status[node.ID] = node.STATUSES[-1]
         return output
@@ -277,12 +277,15 @@ class MaimaiDXNode:
         all_times = []  # 所有时间点（包括ping为None的）
         valid_times = []  # ping不为None的时间点
         valid_pings = []  # ping不为None的ping值
+        none_ping_times = []  # ping为None的时间点
         
         for status in self.STATUSES:
             all_times.append(status.TIME)
             if status.PING is not None:
                 valid_times.append(status.TIME)
                 valid_pings.append(status.PING)
+            else:
+                none_ping_times.append(status.TIME)
         
         # 创建图形
         fig, ax = matplotlib.pyplot.subplots(figsize=(width/100, (height + footer_height)/100), dpi=100)
@@ -293,8 +296,72 @@ class MaimaiDXNode:
 
         # 转换时间为相对时间（分钟）
         relative_valid_times = [(end_time - t).total_seconds() / 60 for t in valid_times]
+        relative_none_ping_times = [(end_time - t).total_seconds() / 60 for t in none_ping_times]
+        
+        # 计算折线数据：每个点前后两个点共五个点的平均值
+        line_times = []
+        line_values = []
+        
+        # 创建一个只包含有效ping值的列表
+        valid_statuses = [(status.TIME, status.PING) for status in self.STATUSES if status.PING is not None]
+        valid_count = len(valid_statuses)
+        
+        if valid_count >= 5:
+            for i in range(2, valid_count - 2):
+                # 检查前后两个点是否都有有效ping值
+                has_none = False
+                ping_sum = 0
+                
+                for j in range(i-2, i+3):
+                    if valid_statuses[j][1] is None:
+                        has_none = True
+                        break
+                    ping_sum += valid_statuses[j][1]
+                
+                if not has_none:
+                    # 计算平均值
+                    avg_ping = ping_sum / 5
+                    # 转换时间为相对时间
+                    relative_time = (end_time - valid_statuses[i][0]).total_seconds() / 60
+                    line_times.append(relative_time)
+                    line_values.append(avg_ping)
+        
         # 绘制散点图（只使用ping不为None的数据）
-        ax.scatter(relative_valid_times, valid_pings, s=50, alpha=0.7)
+        ax.scatter(relative_valid_times, valid_pings, s=50, alpha=0.7, label='Ping值')
+        
+        # 绘制折线（如果有足够的点）
+        if len(line_times) >= 2:
+            ax.plot(line_times, line_values, color='blue', linewidth=2, label='5点平均值')
+        
+        # 计算所有有效ping值的平均值并绘制横线
+        if valid_count > 0:
+            avg_all_ping = sum(valid_pings) / valid_count
+            ax.axhline(y=avg_all_ping, color='green', linestyle='--', linewidth=2, label=f'总平均值')
+        
+        # 在ping为None的时间点绘制红竖线
+        if relative_none_ping_times:
+            # 绘制第一条红线并添加图例
+            ax.axvline(x=relative_none_ping_times[0], color='red', linestyle='--', alpha=0.5, label='访问失败')
+            # 绘制剩余的红线
+            for relative_time in relative_none_ping_times[1:]:
+                ax.axvline(x=relative_time, color='red', linestyle='--', alpha=0.5)
+        
+        # 在对数刻度上，直接在平均值横线位置添加标签
+        if valid_count > 0:
+            # 确保平均值在刻度范围内
+            ymin, ymax = ax.get_ylim()
+            if ymin <= avg_all_ping <= ymax:
+                # 在y轴左侧，平均值横线的位置添加标签，无背景框
+                ax.annotate(f'{avg_all_ping:.1f}',
+                            xy=(-0.03, avg_all_ping),
+                            xycoords=('axes fraction', 'data'),
+                            ha='right',
+                            va='center',
+                            fontsize=10)
+        
+        # 确保显示图例，并设置位置
+        if valid_count > 0 or relative_none_ping_times:
+            ax.legend(loc='upper right')
         
         # 设置横坐标范围（使用所有时间点的范围）
         total_duration = (end_time - start_time).total_seconds() / 60
