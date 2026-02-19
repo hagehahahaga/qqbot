@@ -40,16 +40,19 @@ class MaimaiDXStatusService:
                 continue
             try:
                 earliest_inequal_status = list(
-                    itertools.takewhile(
+                    itertools.takewhile(  # 必须连续
+                        #                     状态有变
                         lambda a: a.STATUS_CODE != self._nodes_status[node.ID].STATUS_CODE and
                                   a.STATUS_CODE == node.STATUSES[-1].STATUS_CODE,
-                        node.STATUSES[::-1]
+                        #                      状态持续
+                        node.STATUSES[::-1]  # 取最早
                     )
                 )[-1]
             except IndexError:
                 continue
-            if (node.STATUSES[-1].TIME - earliest_inequal_status.TIME).total_seconds() / 60 > 1:
-                if earliest_inequal_status.STATUS_CODE != 3:
+            if (node.STATUSES[-1].TIME - earliest_inequal_status.TIME).total_seconds() / 60 > 3:  # 变化状态持续三分钟
+                #                       状态不正常                                    刚才状态不正常
+                if earliest_inequal_status.STATUS_CODE in (0, 2) or self._nodes_status[node.ID] in (0, 2):
                     output[node.NAME] = earliest_inequal_status.STATUS
                 self._nodes_status[node.ID] = node.STATUSES[-1]
         return output

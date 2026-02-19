@@ -18,7 +18,7 @@ def maimai_status_auto_notice():
         return
 
     text = '\n'.join(
-        f'{name}好像{status}超过一分钟了.' for name, status in result.items()
+        f'{name}好像{status}超过三分钟了.' for name, status in result.items()
     )
     if not text:
         return
