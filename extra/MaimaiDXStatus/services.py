@@ -14,7 +14,7 @@ def maimai_status_auto_notice():
         result = MAIMAIDX_STATUS_SERVICE.update_status()
     except requests.exceptions.ConnectionError, requests.exceptions.JSONDecodeError:
         LOG.WAR('status.awmc.cc is now unavailable.')
-        time.sleep(60)
+        time.sleep(40)
         return
 
     text = '\n'.join(
