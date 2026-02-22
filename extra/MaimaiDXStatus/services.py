@@ -1,4 +1,4 @@
-from abstract.bases.importer import time, requests
+from abstract.bases.importer import time
 
 from abstract.bot import BOT
 from abstract.apis.table import GROUP_OPTION_TABLE
@@ -8,11 +8,11 @@ from abstract.bases.exceptions import *
 from extra.MaimaiDXStatus import MAIMAIDX_STATUS_SERVICE
 
 
-@BOT.register_service('maimai_status_auto_notice', 20, True)
-def maimai_status_auto_notice():
+@BOT.register_service('maimai_status_noticer', 20, True)
+def maimai_status_noticer():
     try:
         result = MAIMAIDX_STATUS_SERVICE.update_status()
-    except requests.exceptions.ConnectionError, requests.exceptions.JSONDecodeError:
+    except requests.exceptions.RequestException:
         LOG.WAR('status.awmc.cc is now unavailable.')
         time.sleep(40)
         return
