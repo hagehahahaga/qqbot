@@ -458,7 +458,7 @@ class Message:
             case User():
                 return PrivateMessage(message, target)
             case Group():
-                GroupMessage(message, target)
+                return GroupMessage(message, target)
 
 
 MESSAGE = PrivateMessage | GroupMessage

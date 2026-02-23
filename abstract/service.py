@@ -42,7 +42,7 @@ class Service:
         assert not self.is_alive()
         self.args = args
         self.kwargs = kwargs
-        self.thread = threading.Thread(target=self.func, args=self.args, kwargs=self.kwargs)
+        self.thread = threading.Thread(target=self.func, args=self.args, kwargs=self.kwargs, daemon=True)
         self.thread.start()
         LOG.INF(f'Service {self} started.')
 
