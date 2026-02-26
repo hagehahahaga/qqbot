@@ -898,10 +898,12 @@ def arcade(message: MESSAGE, session: Session, args):
                 '\n' +
                 '\n'.join(
                     f'{name}, '
-                    f'别名{data["sub_names"]}, '
-                    f'{"未记录" if data["num"] is None else data["num"]}人'
-                    f'({"未记录" if data["update_time"] is None else data["update_time"].strftime("%H点%M分 UTC%z")}数据)' for name, data in
-                    result.items()
+                    f'别名{data["sub_names"]}, ' +
+                    (
+                        '未记录人数' if None in data.values() else
+                        f'{data["num"]}人({data["update_user"]}记录于{data["update_time"].strftime("%H点%M分 UTC%z")})'
+                    )
+                    for name, data in result.items()
                 )
             )
             return None

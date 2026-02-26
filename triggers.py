@@ -51,7 +51,7 @@ def get_arcade_num(message: MESSAGE, session: Session):
         message.reply_text(f'今天 {text} 还没有记录人数.')
         return
 
-    message.reply_text(f'\n{text}{result[0]}\n{result[1].strftime("%H点%M分 UTC%z")}数据')
+    message.reply_text(f'\n{text}{result[0]}\n{result[2]}记录于{result[1].strftime("%H点%M分 UTC%z")}')
 
 def update_arcade_num_condition(message: MESSAGE) -> bool:
     text = get_group_message_text(message)
@@ -107,5 +107,5 @@ def update_arcade_num(message: MESSAGE, session: Session):
         except CommandCancel:
             ...
 
-    message.target.update_arcade_num(arcade, num)
+    message.update_arcade_num(arcade, num)
     message.reply_text('记录已提交.')

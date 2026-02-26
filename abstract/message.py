@@ -1,4 +1,6 @@
 from abstract.bases.importer import abc, base64, pathlib, requests, dispatch, Iterable, typing, PIL, io, local_time
+from abstract.bases.importer import SENTINEL, datetime
+from typing import Optional
 
 from abstract.bases.config import CONFIG
 from abstract.target import User, Group
@@ -322,7 +324,7 @@ class PrivateMessage(BaseMessage):
     @dispatch
     def __init__(self, data: dict):
         super().__init__(data)
-        self.target = User(CONFIG['bot_config']['id'])
+        self.target: User = User(CONFIG['bot_config']['id'])
 
     @dispatch
     def __init__(self, text: str | None, target: User):
@@ -384,7 +386,7 @@ class GroupMessage(BaseMessage):
     @dispatch
     def __init__(self, data: dict):
         super().__init__(data)
-        self.target = Group(data['group_id'])
+        self.target: Group = Group(data['group_id'])
 
     @dispatch
     def __init__(self, text: str | None, target: Group):
@@ -441,6 +443,16 @@ class GroupMessage(BaseMessage):
         return self.reply(
             list(messages)
         )
+
+    def update_arcade_num(self, name: str, num: Optional[int], time: Optional[datetime.datetime] = SENTINEL):
+        """
+        更新当前群组中指定机厅的数量
+        
+        :param name: 机厅名称或别名
+        :param num: 机厅数量，可为None表示未记录
+        :param time: 更新时间，默认为当前时间
+        """
+        self.target.update_arcade_num(name, num, self.sender, time)
 
 
 class Message:
