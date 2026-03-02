@@ -7,7 +7,7 @@ from abstract.session import *
 @COMMAND_GROUP.register_command(('maimai', '舞萌状态'), 1)
 @ask_for_wait
 def maimai(message: MESSAGE, session: Session, args):
-    night = not (8 < local_time().hour < 20)
+    night = at_night()
     match args:
         case []:
             message.reply(ImageMessage(MAIMAIDX_STATUS_SERVICE.render(night)))

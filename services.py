@@ -1,4 +1,4 @@
-from abstract.bases.importer import time, datetime
+from abstract.bases.importer import time, at_midnight
 from typing import Callable, Type
 
 from abstract.apis.table import *
@@ -65,8 +65,11 @@ def _execute_weather_task(
     """执行天气提醒任务的通用逻辑（处理群组、城市验证、消息发送）"""
     for city in WEATHER_CITY_MANAGER.values():
         city.flush_cache(weather_getter)
-    
-    for id, city in GROUP_OPTION_TABLE.get_all('where weather_notice = 1', attr="id, city"):
+
+    case = 'where weather_notice = 1'
+    if at_midnight():
+        case += ' and night_disturb = 1'
+    for id, city in GROUP_OPTION_TABLE.get_all(case, attr="id, city"):
         group_id = int(id)
         try:
             # 处理未设置城市的情况

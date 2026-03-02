@@ -1,4 +1,4 @@
-from abstract.bases.importer import time
+from abstract.bases.importer import time, at_midnight
 
 from abstract.bot import BOT
 from abstract.apis.table import GROUP_OPTION_TABLE
@@ -23,7 +23,10 @@ def maimai_status_noticer():
     if not text:
         return
 
-    for group_id, city in GROUP_OPTION_TABLE.get_all('where maimai_notice = 1', attr="id, city"):
+    case = 'where maimai_notice = 1'
+    if at_midnight():
+        case += ' and night_disturb = 1'
+    for group_id, city in GROUP_OPTION_TABLE.get_all(case, attr="id, city"):
         try:
             GroupMessage(text, Group(int(group_id))).send()
         except GroupNotJoined:

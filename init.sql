@@ -34,6 +34,7 @@ CREATE TABLE `group_options` (
   `city` varchar(30) DEFAULT NULL,
   `weather_notice` tinyint(1) NOT NULL DEFAULT 0,
   `maimai_notice` tinyint(1) NOT NULL DEFAULT 0,
+  `night_disturb` tinyint(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id`),
   CONSTRAINT `check_trusted` CHECK (`trusted` = 1 and 2 >= `r18` >= 0 or `trusted` = 0 and `r18` = 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

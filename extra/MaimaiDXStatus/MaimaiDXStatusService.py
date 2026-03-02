@@ -36,7 +36,7 @@ class MaimaiDXStatusService:
         self.ready = True
         output = {}
         for node in self._nodes.values():
-            if node.NAME == '舞萌DX状态':
+            if node.NAME == '舞萌DX状态' or not node.NAME.endswith('[上海电信代理]'):
                 continue
             if self._nodes_status.get(node.ID) is None:
                 self._nodes_status[node.ID] = node.STATUSES[-1]

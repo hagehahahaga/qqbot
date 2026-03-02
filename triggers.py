@@ -1,6 +1,5 @@
 import commands
 from abstract.bases.exceptions import CommandCancel
-from abstract.bases.importer import local_time, datetime
 from abstract.message import *
 from abstract.session import Session, SESSION_MANAGER
 from abstract.bot import BOT

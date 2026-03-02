@@ -51,3 +51,9 @@ def today_7am():
     if time > replaced_localtime:
         return replaced_localtime
     return replaced_localtime + datetime.timedelta(days=-1)
+
+def at_night():
+    return not (8 <= local_time().hour < 20)
+
+def at_midnight():
+    return 0 <= local_time().hour < 6
