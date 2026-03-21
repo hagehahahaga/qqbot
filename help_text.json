@@ -19,15 +19,6 @@
     "       0 - 开, 1 - 关 (部分高频率服务不在深夜提醒)"
   ],
   "sign": "randint(1,9) + %9: 3/ %1: 10",
-  "stock": [
-    "支持功能:",
-    "   status[ stock/commission]:",
-    "       查询个人状态以及股市状态",
-    "   sell/buy <price> <num>:",
-    "       发起交易",
-    "   cancel:",
-    "       取消委托中的交易"
-  ],
   "random": "tag格式参照: https://api.lolicon.app/#/setu?id=tag, 如: tag=萝莉|少女&tag=白丝|黑丝.",
   "notice": [
     "支持功能:",

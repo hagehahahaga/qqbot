@@ -8,17 +8,6 @@ CREATE TABLE `ai_messages` (
   KEY `ai_messages_target_index` (`target`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE `arcades` (
-  `group_id` decimal(10,0) NOT NULL,
-  `name` tinytext NOT NULL,
-  `subnames` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '[]' CHECK (json_valid(`subnames`)),
-  `names` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin GENERATED ALWAYS AS (json_array_append(`subnames`,'$',`name`)) VIRTUAL,
-  `num` tinyint(3) unsigned DEFAULT NULL,
-  `update_time` datetime DEFAULT NULL,
-  `update_user_id` decimal(10,0) DEFAULT NULL,
-  KEY `group_id` (`group_id`,`name`(255))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
 CREATE TABLE `game_data` (
   `id` decimal(65,0) NOT NULL,
   `black_list` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '[]' CHECK (json_valid(`black_list`)),
@@ -54,20 +43,3 @@ CREATE TABLE `qq_users` (
   `sign_date` date DEFAULT '1000-01-01',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-CREATE TABLE `stocks` (
-  `id` decimal(65,0) NOT NULL,
-  `stocks` decimal(10,0) DEFAULT 0,
-  `stocks_bought` decimal(10,0) DEFAULT 0,
-  `points_sold` decimal(10,0) DEFAULT 0,
-  `commission_type` enum('buy','sell','none') DEFAULT 'none',
-  `commission_price` decimal(10,0) DEFAULT 0,
-  `commission_num` decimal(10,0) DEFAULT 0,
-  `commission_time` datetime DEFAULT '1000-01-01 00:00:00',
-  `points_sold_using` decimal(10,0) DEFAULT 0,
-  `trade_price` decimal(10,0) DEFAULT 0,
-  `trade_num` decimal(10,0) DEFAULT 0,
-  `trade_time` datetime DEFAULT '1000-01-01 00:00:00',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-

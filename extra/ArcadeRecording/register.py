@@ -1,8 +1,23 @@
-from abstract.bases.importer import today_7am, itertools, operator
+import operator, itertools, datetime
+from typing import Optional
+from abstract.bases.importer import today_7am, SENTINEL
 
 from abstract.target import *
 
 from .tables import ARCADES_TABLE
+
+
+@User.register_func
+def update_arcade_num(self, group: Group, name: str, num: Optional[int], time: Optional[datetime.datetime] = SENTINEL):
+    """
+    更新指定群组中指定机厅的数量
+
+    :param group: 群组对象
+    :param name: 机厅名称或别名
+    :param num: 机厅数量，可为None表示未记录
+    :param time: 更新时间，默认为当前时间
+    """
+    group.update_arcade_num(name, num, self, time)
 
 
 @Group.register_func

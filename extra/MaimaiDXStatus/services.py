@@ -1,4 +1,5 @@
-from abstract.bases.importer import time, at_midnight
+import time
+from abstract.bases.importer import at_midnight
 
 from abstract.bot import BOT
 from abstract.apis.table import GROUP_OPTION_TABLE

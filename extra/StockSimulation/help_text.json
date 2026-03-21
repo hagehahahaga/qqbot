@@ -1,0 +1,11 @@
+{
+  "stock": [
+    "支持功能:",
+    "   status[ stock/commission]:",
+    "       查询个人状态以及股市状态",
+    "   sell/buy <price> <num>:",
+    "       发起交易",
+    "   cancel:",
+    "       取消委托中的交易"
+  ]
+}

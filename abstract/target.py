@@ -1,9 +1,9 @@
-from abstract.bases.importer import time, dispatch, decimal, json, datetime, SENTINEL
-from typing import Optional, Literal
+from abstract.bases.importer import time, dispatch, decimal, json
+from typing import Literal
 
 from abstract.bases.config import CONFIG
 from abstract.apis.frame_server import FRAME_SERVER
-from abstract.apis.table import STOCK_TABLE, USER_TABLE, GROUP_OPTION_TABLE, GAME_DATA_TABLE
+from abstract.apis.table import USER_TABLE, GROUP_OPTION_TABLE, GAME_DATA_TABLE
 
 
 class User:
@@ -23,7 +23,7 @@ class User:
         self.role = data.get('role', 'member')
         if self.id in CONFIG.get('operators', []):
             self.role = 'operator'
-        init_tables = {USER_TABLE, STOCK_TABLE, GAME_DATA_TABLE}
+        init_tables = {USER_TABLE, GAME_DATA_TABLE}
         for table in init_tables:
             if not table.find_exists('id', self.id):
                 table.add(f'{self.id}' + ', DEFAULT' * (table.get_len() - 1))
@@ -41,16 +41,11 @@ class User:
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.id == other.id
 
-    def update_arcade_num(self, group: Group, name: str, num: Optional[int], time: Optional[datetime.datetime] = SENTINEL):
-        """
-        更新指定群组中指定机厅的数量
-        
-        :param group: 群组对象
-        :param name: 机厅名称或别名
-        :param num: 机厅数量，可为None表示未记录
-        :param time: 更新时间，默认为当前时间
-        """
-        group.update_arcade_num(name, num, self, time)
+    @classmethod
+    def register_func(cls, func):
+        assert not hasattr(cls, func.__name__), f"注册失败！方法 {func.__name__} 已存在，禁止重复覆盖"
+        setattr(cls, func.__name__, func)
+        return func
 
     def get_points(self) -> int:  # 韭菜盒子数操作
         return USER_TABLE.get(f'where id = {self.id}', attr='points')[0]
@@ -68,145 +63,6 @@ class User:
 
     def update_sign_date(self):
         USER_TABLE.set('id', self.id, 'sign_date', time.strftime("%Y-%m-%d"))
-
-    def get_stocks(self):  # 股票数操作
-        return STOCK_TABLE.get(f'where id = {self.id}', attr='stocks')[0]
-
-    def add_stocks(self, d):
-        STOCK_TABLE.set('id', self.id, 'stocks', self.get_stocks() + d)
-
-    def get_stocks_bought(self):  # 当日购入股票数操作
-        return STOCK_TABLE.get(f'where id = {self.id}', attr='stocks_bought')[0]
-
-    def add_stocks_bought(self, d):
-        assert d > 0
-        STOCK_TABLE.set('id', self.id, 'stocks_bought', self.get_stocks_bought() + d)
-
-    def store_stocks_bought(self):
-        self.add_stocks(self.get_stocks_bought())
-        STOCK_TABLE.set('id', self.id, 'stocks_bought', 0)
-
-    def get_points_sold(self) -> int:  # 当日收益操作
-        return STOCK_TABLE.get(f'where id = {self.id}', attr='points_sold')[0]
-
-    def add_points_sold(self, d):
-        STOCK_TABLE.set('id', self.id, 'points_sold', self.get_points_sold() + d)
-
-    def store_points_sold(self):
-        self.add_points(self.get_points_sold())
-        STOCK_TABLE.set('id', self.id, 'points_sold', 0)
-
-    def get_commission(self) -> dict:  # 交易委托操作
-        result = STOCK_TABLE.get(
-            f'where id = {self.id}',
-            attr='(commission_type, commission_price, commission_num, commission_time)'
-        )
-        return {
-            'type': result[0],
-            'price': result[1],
-            'num': result[2],
-            'time': result[3],
-        }
-
-    def reset_commission(self):
-        STOCK_TABLE.set(
-            'id', self.id, 'commission_type', 'default'
-        ).set(
-            'id', self.id, 'commission_price', 'default'
-        ).set(
-            'id', self.id, 'commission_num', 'default'
-        ).set(
-            'id', self.id, 'commission_time', 'now()'
-        ).set(
-            'id', self.id, 'points_sold_using', 'default'
-        )
-
-    def set_commission(self, type, price, num):
-        assert price >= 0 and num > 0
-        match type:
-            case 'buy':
-                points = price * num
-                points_sold = self.get_points_sold()
-                delta = points - points_sold
-                self.add_points_sold(-points)
-                self.add_points_sold_using(points)
-                if delta > 0:
-                    self.add_points(-delta)
-                    self.add_points_sold(delta)
-            case 'sell':
-                self.add_stocks(-num)
-            case _:
-                return
-
-        STOCK_TABLE.set(
-            'id', self.id, 'commission_type', f"'{type}'"
-        ).set(
-            'id', self.id, 'commission_price', price
-        ).set(
-            'id', self.id, 'commission_num', num
-        ).set(
-            'id', self.id, 'commission_time',
-            f"'{time.strftime('%Y-%m-%d %H:%M:%S')}'"
-        )
-
-    def cancel_commission(self):
-        commission = self.get_commission()
-        match commission['type']:
-            case 'buy':
-                self.add_points_sold(self.get_points_sold_using())
-            case 'sell':
-                self.add_stocks(commission['num'])
-            case 'none':
-                return
-        self.reset_commission()
-
-    def achieve_commission(self, price, num):
-        commission = self.get_commission()
-        result_num = commission['num'] - num
-        match commission['type']:
-            case 'buy':
-                self.add_stocks_bought(num)
-                self.add_points_sold_using(-price * num)
-            case 'sell':
-                self.add_points_sold(num * price)
-            case 'none':
-                return
-        STOCK_TABLE.set('id', self.id, 'commission_num', result_num)
-        self.update_trade(price, num)
-        if result_num <= 0:
-            self.add_points_sold(self.get_points_sold_using())
-            self.reset_commission()
-
-    def get_points_sold_using(self):  # 用于撤销/完成交易委托时计算
-        return STOCK_TABLE.get(f'where id = {self.id}', attr='points_sold_using')[0]
-
-    def set_points_sold_using(self, num):
-        assert num >= 0
-        STOCK_TABLE.set('id', self.id, 'points_sold_using', num)
-
-    def add_points_sold_using(self, d):
-        STOCK_TABLE.set('id', self.id, 'points_sold_using', self.get_points_sold_using() + d)
-
-    def get_trade(self) -> dict:  # 最后一次交易时间操作
-        result = STOCK_TABLE.get(
-            f'where id = {self.id}',
-            attr='(trade_price, trade_num, trade_time)'
-        )
-        return {
-            'price': result[0],
-            'num': result[1],
-            'time': result[2],
-        }
-
-    def update_trade(self, price, num):
-        STOCK_TABLE.set(
-            'id', self.id, 'trade_price', price
-        ).set(
-            'id', self.id, 'trade_num', num
-        ).set(
-            'id', self.id, 'trade_time',
-            f"'{time.strftime('%Y-%m-%d %H:%M:%S')}'"
-        )
 
     def game_data_exist(self, game: str) -> bool:
         return bool(
