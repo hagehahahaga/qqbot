@@ -22,6 +22,9 @@
   "commands_configs": {
     "random_pic": {
       "default_tags": ""
+    },
+    "pic_searching": {
+      "ascii2d_proxy": null
     }
   },
   "lottery_pool": 0,

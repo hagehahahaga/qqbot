@@ -188,7 +188,7 @@ class Bot:
                 GroupMessage(
                     [
                         TextMessage('人生自古谁无死？不幸的，'),
-                        AtMessage(data['user_id']),
+                        AtMessage(User(data['user_id'])),
                         TextMessage(' 已经无法再与您互动，让我们默哀一普朗克时间，，，')
                     ],
                     Group(data['group_id'])

@@ -1,4 +1,4 @@
-from abstract.bases.importer import datetime, itertools, io, time, filetype, numpy, pymysql, json, PIL
+from abstract.bases.importer import itertools, time, filetype, numpy, pymysql, json
 
 from PicImageSearch.sync import *
 
@@ -22,7 +22,7 @@ def pic_searching(message: MESSAGE, session: Session, image: list[ImageMessage])
     def pic_search(api, index: int):
         name = api.__class__.__name__
         try:
-            result = api.search(file=input_image)
+            result = api.search(url=input_url)
             if result.raw[index].thumbnail:
                 result = result.raw[index]
             else:
@@ -61,12 +61,11 @@ def pic_searching(message: MESSAGE, session: Session, image: list[ImageMessage])
                     ]
                 )
 
-    input_image = image[0].image
-    if not input_image:
+    input_url = image[0].url
+    if not input_url:
         raise CommandCancel('获取图片失败!')
-    ascii2d_proxy = 'http://reverse-proxies.hagehaga.space/https%3A%2F%2Fascii2d.net%2F'
     apis = [
-        (Ascii2D(bovw=True, base_url=ascii2d_proxy), 1),
+        (Ascii2D(bovw=True, proxies=CONFIG['commands_configs']['pic_searching'].get('ascii2d_proxy'), verify_ssl=False), 1),
         (SauceNAO(api_key='bd4378a4695ff0145d32d950bdbe890a46387082'), 0),
         (BaiDu(), 0),
         (Yandex(), 0),

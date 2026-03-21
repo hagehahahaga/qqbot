@@ -125,11 +125,19 @@
 "commands_configs": {
   "random_pic": {
     "default_tags": ""
+  },
+  "pic_searching": {
+    "ascii2d_proxy": null
   }
 }
 ```
 - **用途**：配置命令相关参数
-- **说明**：目前主要用于配置随机图片的默认标签
+- **说明**：
+  - `random_pic.default_tags`：随机图片的默认标签
+  - `pic_searching.ascii2d_proxy`：Ascii2d搜图代理配置
+    - 类型：代理URL字符串或null
+    - 示例：`"http://127.0.0.1:7890"`
+    - 作用：为Ascii2d搜图提供代理，解决网络访问问题
 
 #### lottery_pool
 ```json
