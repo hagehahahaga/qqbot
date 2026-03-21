@@ -121,7 +121,6 @@ GROUP_OPTION_TABLE = Table(sql_db, 'group_options')
 NOTICE_SCHEDULE_TABLE = Table(sql_db, 'notice_schedule')
 AI_MESSAGES_TABLE = Table(sql_db, 'ai_messages')
 GAME_DATA_TABLE = Table(sql_db, 'game_data')
-ARCADES_TABLE = Table(sql_db, 'arcades')
 LOG.INF(
     'Loaded database tables:\n' +
     ',\n'.join(

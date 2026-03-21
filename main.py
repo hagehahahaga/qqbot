@@ -1,5 +1,3 @@
-import pathlib
-
 from abstract.bases.importer import getopt, sys, requests, time, threading
 
 from abstract.apis.frame_server import FRAME_SERVER

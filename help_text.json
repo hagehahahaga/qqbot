@@ -120,19 +120,6 @@
     "   start <game> @玩家...: 开始游戏",
     "   blacklist [add/remove] @玩家: 管理游戏黑名单"
   ],
-  "arcade": [
-    "管理机厅",
-    "使用格式:",
-    "   arcade list - 列出所有机厅",
-    "   arcade add <name> - 添加机厅",
-    "   arcade remove <name> - 删除机厅",
-    "   arcade option <name> add <subname> - 添加机厅别名",
-    "   arcade option <name> remove <subname> - 删除机厅别名",
-    "注意事项:",
-    "   - 仅在群聊中可用",
-    "   - 删除机厅需要先删除所有别名",
-    "   - 不能使用别名删除机厅"
-  ],
   "help": [
     "列出指令列表",
     "使用格式:",
