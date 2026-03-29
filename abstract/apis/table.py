@@ -53,14 +53,14 @@ class Table:
         return bool(self.cursor.execute(f"select * from information_schema.tables where table_name = '{self.name}'"))
 
     @_with_lock
-    def get(self, *args, attr: str = '*'):
-        self.cursor.execute(f"SELECT {attr} FROM {self.name} " + ' '.join(args))
+    def get(self, *conditions: str, attr: str = '*'):
+        self.cursor.execute(f"SELECT {attr} FROM {self.name} " + ' '.join(conditions))
         result = self.cursor.fetchone()
         return result
 
     @_with_lock
-    def get_all(self, *args, attr: str = '*'):
-        self.cursor.execute(f"SELECT {attr} FROM {self.name} " + ' '.join(args))
+    def get_all(self, *conditions: str, attr: str = '*'):
+        self.cursor.execute(f"SELECT {attr} FROM {self.name} " + ' '.join(conditions))
         return self.cursor.fetchall()
 
     @_with_lock
@@ -118,7 +118,6 @@ LOG.INF('Loading database tables...')
 USER_TABLE = Table(sql_db, 'qq_users')
 GROUP_OPTION_TABLE = Table(sql_db, 'group_options')
 NOTICE_SCHEDULE_TABLE = Table(sql_db, 'notice_schedule')
-AI_MESSAGES_TABLE = Table(sql_db, 'ai_messages')
 GAME_DATA_TABLE = Table(sql_db, 'game_data')
 LOG.INF(
     'Loaded database tables:\n' +

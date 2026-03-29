@@ -43,7 +43,13 @@ class User:
 
     @classmethod
     def register_func(cls, func):
-        assert not hasattr(cls, func.__name__), f"注册失败！方法 {func.__name__} 已存在，禁止重复覆盖"
+        assert not hasattr(cls, func.__name__), f"注册失败!方法 {func.__name__} 已存在，覆盖需要使用override函数."
+        setattr(cls, func.__name__, func)
+        return func
+
+    @classmethod
+    def override(cls, func):
+        assert hasattr(cls, func.__name__), f"注册失败! 原方法 {func.__name__} 不存在, 创建需要使用register_func函数."
         setattr(cls, func.__name__, func)
         return func
 
@@ -190,6 +196,12 @@ class Group:
 
     @classmethod
     def register_func(cls, func):
-        assert not hasattr(cls, func.__name__), f"注册失败！方法 {func.__name__} 已存在，禁止重复覆盖"
+        assert not hasattr(cls, func.__name__), f"注册失败!方法 {func.__name__} 已存在，覆盖需要使用override函数."
+        setattr(cls, func.__name__, func)
+        return func
+
+    @classmethod
+    def override(cls, func):
+        assert hasattr(cls, func.__name__), f"注册失败! 原方法 {func.__name__} 不存在, 创建需要使用register_func函数."
         setattr(cls, func.__name__, func)
         return func

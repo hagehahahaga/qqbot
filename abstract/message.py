@@ -334,7 +334,7 @@ class PrivateMessage(BaseMessage):
         self.__init__([TextMessage(text)], target)
 
     @dispatch
-    def __init__(self, messages: list | MESSAGE_PART, target: User):
+    def __init__(self, messages: list[MESSAGE_PART] | MESSAGE_PART, target: User):
         if isinstance(messages, MESSAGE_PART):
             messages = [messages]
         self.messages = messages
@@ -396,7 +396,7 @@ class GroupMessage(BaseMessage):
         self.__init__([TextMessage(text)], target)
 
     @dispatch
-    def __init__(self, messages: list | MESSAGE_PART, target: Group):
+    def __init__(self, messages: list[MESSAGE_PART] | MESSAGE_PART, target: Group):
         if isinstance(messages, MESSAGE_PART):
             messages = [messages]
         self.messages = messages

@@ -41,5 +41,6 @@ CREATE TABLE `qq_users` (
   `id` decimal(65,0) NOT NULL,
   `points` decimal(65,0) DEFAULT 0,
   `sign_date` date DEFAULT '1000-01-01',
+  `todo_notice` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

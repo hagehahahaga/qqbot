@@ -1,6 +1,6 @@
-from abstract.bases.exceptions import CommandCancel
-from abstract.bases.importer import threading, requests, functools
+import threading, requests, functools
 
+from abstract.bases.exceptions import CommandCancel
 from abstract.bases.log import LOG
 from abstract.bases.config import CONFIG
 

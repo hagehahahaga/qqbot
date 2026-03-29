@@ -161,6 +161,15 @@ def group_only(func):
     return decorated
 
 
+def private_only(func):
+    @functools.wraps(func)
+    def decorated(*args, **kwargs):
+        assert type(args[0]) is PrivateMessage, '此指令仅在私聊中可用'
+        func(*args, **kwargs)
+
+    return decorated
+
+
 def authorize(min_level: str):
     level_list = ['member', 'admin', 'owner', 'operator']
 

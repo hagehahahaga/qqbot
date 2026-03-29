@@ -1,18 +1,18 @@
-from abstract.bases.importer import fractions, threading, openai, requests
-from abstract.bases.importer import dispatch, itertools, operator
+import fractions, threading, openai, requests, itertools, operator
+from abstract.bases.importer import dispatch
 
-import abstract.apis.table
-from abstract.apis.table import NULL
 from abstract.bases.config import CONFIG
 from abstract.bases.log import LOG
 from abstract.session import Session
+
+from .tables import Table, AI_MESSAGES_TABLE
 
 
 class LLM:
     def __init__(
         self,
         client: openai.Client,
-        messages_table: abstract.apis.table.Table,
+        messages_table: Table,
         name: str,
         prompts: list,
         vision=False,
@@ -147,12 +147,12 @@ class LLM:
 
 
 LOG.INF('Loading LLM modules...')
-CHAT_AIs = {
+CHAT_AGENTS = {
     name: LLM(
         openai.OpenAI(base_url=CONFIG['ai']['base_url'], api_key=CONFIG['ai']['api_key']),
-        abstract.apis.table.AI_MESSAGES_TABLE,
+        AI_MESSAGES_TABLE,
         name,
         **CONFIG['ai']['characters'][name]
     ) for name in CONFIG['ai']['characters']
 }
-LOG.INF(f'Loaded {len(CHAT_AIs)} LLMs: {", ".join(CHAT_AIs.keys())}')
+LOG.INF(f'Loaded {len(CHAT_AGENTS)} LLMs: {", ".join(CHAT_AGENTS.keys())}')

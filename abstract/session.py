@@ -37,7 +37,7 @@ class Session:
     def pipe_put(self, message: MESSAGE):
         self.pipe.put(message)
 
-    def pipe_get(self, message: MESSAGE, inform=True, timeout: Optional[int | float] = 30):
+    def pipe_get(self, message: MESSAGE, inform=True, timeout: Optional[int | float] = 30) -> MESSAGE:
         stacks = inspect.stack()
         top_pipe_get_frame: FrameType = next(filter(lambda a: a.function == self.pipe_get.__name__, stacks[::-1])).frame
         try:

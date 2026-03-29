@@ -1,9 +1,9 @@
-from abstract.bases.importer import abc, pathlib, cairosvg, io, requests
+import abc, pathlib, cairosvg, io, requests
 from PIL import Image
 
 from abstract.bases.config import CONFIG
 from abstract.bases.log import LOG
-from abstract.bases.exceptions import *
+from .exceptions import CityNotFound
 
 
 class WeatherAPI(abc.ABC):

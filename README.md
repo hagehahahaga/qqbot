@@ -259,6 +259,11 @@
 - `stock status`：查询个人状态以及股市状态
 - `stock buy/sell <price> <num>`：发起股票交易
 - `stock cancel`：取消委托中的交易
+- `set <key> [value]`：更改机器人的私聊设置，如 todo_notice
+- `todo add <text>`：添加待办事项
+- `todo remove <text>`：删除待办事项
+- `todo list [all]`：查看待办事项列表
+- `todo finish <text>`：完成待办事项
 
 ### 服务管理
 - `service status`：查看服务状态
@@ -274,6 +279,7 @@
 - `weather_predictor_minutely`：分钟级降水预报服务
 - `weather_predictor_weekly`：每周天气预测服务
 - `weather_today`：今日天气提醒服务
+- `todo_noticer`：待办事项提醒服务，每天9点、14点、20点提醒未完成的待办事项
 
 ## 经济系统
 

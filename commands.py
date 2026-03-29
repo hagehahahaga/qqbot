@@ -1,4 +1,4 @@
-from abstract.bases.importer import itertools, time, filetype, numpy, pymysql, json
+from abstract.bases.importer import itertools, time, numpy, pymysql, json
 
 from PicImageSearch.sync import *
 
@@ -6,13 +6,10 @@ import abstract.message
 from abstract.bases.custom_thread import CustomThreadGroup
 from abstract.message import *
 from abstract.bot import BOT
-from abstract.command import COMMAND_GROUP, ask_for_wait, cost, group_only, authorize
+from abstract.command import COMMAND_GROUP, ask_for_wait, cost, group_only, authorize, private_only
 from abstract.session import Session
-from extra.chat_ai import LLM, CHAT_AIs
 from abstract.bases.exceptions import *
-from abstract.apis.table import GROUP_OPTION_TABLE, NOTICE_SCHEDULE_TABLE
-from extra.vits_speaker import SPEAKER_MANAGER
-from extra.weather_city import WEATHER_CITY_MANAGER
+from abstract.apis.table import GROUP_OPTION_TABLE, NOTICE_SCHEDULE_TABLE, USER_TABLE
 
 
 @COMMAND_GROUP.register_command(('search', '搜图', '以图搜图'), {'needed_type': ImageMessage}, '多API同时搜索')
@@ -190,7 +187,7 @@ def option(message: MESSAGE, session: Session, args):
                     case pymysql.OperationalError(args=(1054, _)):
                         raise CommandCancel('错误: 设置项不存在.')
                     case pymysql.OperationalError(args=(3819, _)):
-                        raise CommandCancel('错误: 本群不在白名单中或输入不合法.')
+                        raise CommandCancel('错误: 本群不在白名单中或输入不合规.')
                     case _:
                         LOG.WAR(f'Group option {key} set failed.')
                         raise CommandCancel(f'错误: {error}.')
@@ -210,7 +207,37 @@ def option(message: MESSAGE, session: Session, args):
                         LOG.WAR(f'Group option {key} query failed.')
                         raise CommandCancel(f'错误: {error}.')
         case final:
-            raise CommandCancel(f'参数 {final} 有误!')
+            raise CommandCancel(f'参数 {final} 有误.')
+
+
+@COMMAND_GROUP.register_command(('set', '设置'), 1, '更改机器人的私聊设置')
+@private_only
+def option_private(message: MESSAGE, session: Session, args):
+    match args:
+        case []:
+            abstract.bot.help(message, session, ['set'])
+        case [key, value]:
+            assert key in ('todo_notice',), f'没有权限访问{key}.'
+            try:
+                USER_TABLE.set('id', message.sender.id, key, value)
+            except Exception as error:
+                match error:
+                    case pymysql.OperationalError(args=(3819, _)):
+                        raise CommandCancel('错误: 输入不合规.')
+                    case _:
+                        LOG.WAR(f'Group option {key} set failed.')
+                        raise CommandCancel(f'错误: {error}.')
+            else:
+                message.reply_text(f'{key}已设置为{value}')
+        case [key]:
+            assert key in ('todo_notice',), f'没有权限访问{key}.'
+            try:
+                message.reply_text(f'设置项 {key} 值为 {USER_TABLE.get(f"where id = {message.sender.id}", attr=key)[0]}')
+            except Exception as error:
+                LOG.WAR(f'Group option {key} query failed.')
+                raise CommandCancel(f'错误: {error}.')
+        case final:
+            raise CommandCancel(f'参数 {final} 有误.')
 
 
 @COMMAND_GROUP.register_command(('points', '点数', '韭菜盒子'), info='查询韭菜盒子数')
@@ -258,7 +285,6 @@ def transfer(message: MESSAGE, session: Session, args):
             )
         case final:
             message.reply_text(f'匹配 {final} 失败, 检查输入.')
-            return
 
 
 @COMMAND_GROUP.register_command(('sign', '签到'), info='签到获取韭菜盒子')
@@ -440,81 +466,6 @@ def say(message: MESSAGE, session: Session):
     )
 
 
-@COMMAND_GROUP.register_command(('chat', ), info='与ai对话')
-@group_only
-@cost(3)
-@ask_for_wait
-def chat(message: GroupMessage, session: Session):
-    def format(message: GroupMessage) -> list[dict]:
-        output = []
-        for part in message.split_when(lambda a: isinstance(a, ImageMessage | ReplyMessage)):
-            match type(part):
-                case _ if isinstance(part, list):
-                    text = message.sender.__str__() + ': '
-                    for message_part in part:
-                        match type(message_part):
-                            case abstract.message.AtMessage:
-                                if message_part.target.id == CONFIG["robot_id"]:
-                                    continue
-                                text += message_part.target.__str__()
-                            case abstract.message.TextMessage:
-                                parts: list = message_part.to_args()
-                                for prefix in COMMAND_GROUP.command_prefixes:
-                                    if parts[0].startswith(prefix) and parts[0][1:] == 'ai':
-                                        parts = parts[2:]
-                                text += ' '.join(parts)
-                            case final:
-                                raise TypeError(f'Unsupported type {final} for function "ai"!')
-                    output.append(
-                        {
-                            'type': 'text',
-                            'text': text
-                        }
-                    )
-                case abstract.message.ImageMessage:
-                    output.extend(
-                        [
-                            {
-                                'type': 'text',
-                                'text': message.sender.__str__() + ': '
-                            },
-                            {
-                                'type': 'image_url',
-                                'image_url': {
-                                    'url': f'data:{filetype.image_match(part.image).MIME};'
-                                           f'base64,{base64.b64encode(part.image).decode()}'
-                                }
-                            }
-                        ]
-                    )
-                case abstract.message.ReplyMessage:
-                    output.extend(
-                        [
-                            {
-                                'type': 'text',
-                                'text': '`'
-                            }
-                        ] +
-                        format(part.get_reply_message()) +
-                        [
-                            {
-                                'type': 'text',
-                                'text': '`'
-                            }
-                        ]
-                    )
-
-        return output
-
-    character: LLM = CHAT_AIs[message.get_parts_by_type(TextMessage)[0].to_args()[1]]
-    assert not character.r18 or GROUP_OPTION_TABLE.get(f'where id = {message.target.id}', attr='r18')[0] > 0, \
-        '你所在的群聊的r18设置为0'
-    message.reply_text(
-        character.chat(session, format(message))
-    )
-    message.reply_text(f'本次请求消耗bot主约{character.cost: .2f}元')
-
-
 @COMMAND_GROUP.register_command(('phantom', '幻影坦克'), {'needed_type': ImageMessage, 'needed_num': 2}, '幻影坦克图片生成')
 @cost(2)
 @ask_for_wait
@@ -638,47 +589,6 @@ def service(message: MESSAGE, session: Session, args):
         message.reply_text(f'服务 {service} 不存在.')
 
 
-@COMMAND_GROUP.register_command(('tts', 'ai语音'), 1, 'ai语音')
-@cost(2)
-@ask_for_wait
-def TTS(message: MESSAGE, session: Session, args):
-    match args:
-        case [speaker, *text]:
-            text = ' '.join(text)
-        case final:
-            message.reply_text(f'匹配{final}失败, 检查输入.')
-            return
-
-    message.reply(
-        RecordMessage(SPEAKER_MANAGER[speaker].TTS(text))
-    )
-
-
-@COMMAND_GROUP.register_command(
-    ('svc', 'ai变音', '变音', '变声'),
-    {'needed_type': RecordMessage, 'needed_num': 1},
-    'ai变音'
-)
-@cost(2)
-@ask_for_wait
-def SVC(message: MESSAGE, session: Session, args: list[RecordMessage]):
-    try:
-        command_args = message.get_parts_by_type(TextMessage)[0].to_args()
-        speaker = command_args[1]
-        try:
-            pitch = float(command_args[2])
-        except IndexError:
-            pitch = None
-    except IndexError:
-        raise CommandCancel('未指定speaker.')
-
-    message.reply(
-        RecordMessage(
-            SPEAKER_MANAGER[speaker].SVC(args[0].record, pitch)
-        )
-    )
-
-
 @COMMAND_GROUP.register_command(('forge', '伪造'), 0, '伪造聊天记录')
 def forge_chat(message: MESSAGE, session: Session):
     content: list[NodeMessage] = []
@@ -707,64 +617,3 @@ def forge_chat(message: MESSAGE, session: Session):
     message.reply(
         content
     )
-
-
-@COMMAND_GROUP.register_command(('weather', '天气', '现在天气'), 1, '获取实时天气')
-@cost(2)
-@group_only
-@ask_for_wait
-def weather(message: MESSAGE, session: Session, args):
-    match args:
-        case []:
-            city_name = ''
-            method = 'now'
-        case [*city_name, method]:
-            if city_name:
-                city_name = city_name[0]
-            else:
-                city_name = ''
-        case _:
-            message.reply_text(f'匹配 {args} 失败, 检查输入.')
-            return
-
-    if not city_name:
-        city_name = GROUP_OPTION_TABLE.get(f'where id = {message.target.id}', attr='city')[0]
-        if not city_name:
-            raise CommandCancel('未设置默认城市, 在命令后添加城市名, 或让管理员设置默认城市.')
-        message.reply_text(f'未指定城市, 将使用群默认城市 {city_name}.')
-
-    try:
-        weather_city = WEATHER_CITY_MANAGER[city_name]
-    except CityNotFound:
-        raise CommandCancel(f'未能找到城市 {city_name}. 如为默认城市则让管理员更正, 或手动输入.')
-
-    weather_city.flush_cache()
-
-    match method:
-        case 'now':
-            message.reply_text(
-                '\n' +
-                weather_city.get_weather_now_text()
-            )
-        case 'hourly':
-            message.reply(ImageMessage(weather_city.get_weather_hourly()))
-        case 'daily':
-            message.reply(ImageMessage(weather_city.get_weather_daily()))
-        case 'today':
-            message.reply_text(
-                '\n' +
-                weather_city.get_weather_day_text()
-            )
-        case 'tomorrow':
-            message.reply_text(
-                '\n' +
-                weather_city.get_weather_tomorow_text()
-            )
-        case 'minutely':
-            rain_change = weather_city.get_minutely_rain_change()
-            if rain_change:
-                message.reply_text('\n' + rain_change)
-            else:
-                message.reply_text('\n未来30分钟内降水情况无变化或暂无数据.')
-        case _:
-            message.reply_text(f'匹配 {args} 失败, 检查输入.')

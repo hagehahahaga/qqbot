@@ -34,6 +34,23 @@ class GroupNotJoined(SendFailure):
         return f'<{self.__class__.__name__} {self.group}> at {hex(id(self))}'
 
 
+class PrivateChatFailed(SendFailure):
+    """
+    Exception raised when the private chat failed due to user's qq option.
+    """
+    def __init__(self, user):
+        """
+        :type user: abstract.target.User
+        """
+        self.user = user
+
+    def __str__(self):
+        return f'发送失败: 无法私聊{self.user}, 可能因对方隐私设置或群聊设置.'
+
+    def __repr__(self):
+        return f'<{self.__class__.__name__} {self.user}> at {hex(id(self))}'
+
+
 class CommandCancel(BaseException):
     """
     The command is canceled
@@ -49,20 +66,3 @@ class CommandCancel(BaseException):
 
     def __repr__(self):
         return f'<{self.__class__.__name__} {self.text}> at {hex(id(self))}'
-
-
-class CityNotFound(Exception):
-    """
-    Exception raised when the specified city is not found.
-    """
-    def __init__(self, city: str | int):
-        """
-        :type city: str | int
-        """
-        self.city = city
-
-    def __str__(self):
-        return f'城市未找到: {self.city}'
-
-    def __repr__(self):
-        return f'<{self.__class__.__name__} {self.city}> at {hex(id(self))}'

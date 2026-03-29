@@ -1,0 +1,4 @@
+{
+  "tts": "AI语音合成, 使用格式: tts <speaker> <text>",
+  "svc": "AI变音, 使用格式: svc <speaker> [pitch] 并附带语音消息"
+}
