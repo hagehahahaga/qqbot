@@ -1,388 +1,676 @@
-# QQ机器人项目
+# QQBot Extra 组件开发指南
 
-这是一个功能丰富的Python QQ机器人项目，基于无头NapCatQQ框架，使用Onebot协议进行通信。
+## 概述
 
-## 功能特性
+本文档面向 QQBot 的 extra 组件开发者，详细介绍了项目的技术架构、各模块的实现细节与注册机制，以及如何开发、集成和扩展 extra 组件。通过本文档，您将能够理解项目的整体设计，掌握 command、service、trigger、game 和 target 等核心模块的使用方法，并能够独立开发符合规范的 extra 组件。
 
-### 核心功能
-- **命令系统**：支持多种命令，如搜索、随机图片、天气查询等
-- **服务系统**：提供定时提醒、天气预测等服务
-- **游戏系统**：实现了井字棋、五子棋等游戏
-- **触发器系统**：支持自动触发功能，如机厅人数查询
-- **Web界面**：提供服务状态监控和实时日志查看
-- **经济系统**：基于"韭菜盒子"的经济体系，支持签到、彩票、股票交易等
+## 技术架构概述
 
-### 特色功能
-- **AI集成**：支持AI对话、语音合成、变音服务
-- **天气服务**：提供实时天气、逐小时预报、每日预报、未来30分钟降水预报
-- **搜图功能**：支持多API同时搜索，包括Ascii2d、SauceNAO、百度、Yandex等
-- **机厅管理**：支持机厅添加、删除、别名管理和人数统计
-- **提醒系统**：支持定时提醒，可设置每天/每周重复
-- **幻影坦克**：生成幻影坦克图片
+QQBot 是一个基于 Python 的模块化 QQ 机器人框架，采用 Onebot 协议与 NapCatQQ 框架通信。项目采用分层架构设计，核心模块位于 `abstract` 目录下，提供基础功能；扩展模块位于 `extra` 目录下，通过统一的注册机制动态集成。
 
-## 项目结构
+### 核心模块
+
+- **bot**: 机器人核心，负责消息路由、组件注册和生命周期管理。
+- **command**: 命令系统，提供命令的注册、解析和执行。
+- **service**: 后台服务系统，支持定时任务和循环执行。
+- **trigger**: 触发器系统，基于条件自动响应消息。
+- **game**: 游戏系统，支持多玩家回合制游戏。
+- **target**: 目标系统，管理用户和群组数据，支持动态扩展。
+
+### 扩展模块 (extra)
+
+extra 组件是独立的功能模块，通过标准的注册接口集成到机器人中。每个组件可以注册命令、服务、触发器、游戏，并可以扩展用户和群组的功能。
+
+### 数据存储
+
+项目使用 MariaDB 数据库，通过 `abstract.apis.table` 模块提供抽象的表操作接口。用户数据、群组设置和游戏状态等均持久化存储。
+
+## 组件间交互逻辑
+
+### 消息处理流程
+
+1. 机器人接收到消息后，首先尝试匹配命令。
+2. 如果匹配到命令，则执行对应的命令函数。
+3. 如果未匹配到命令，则按注册顺序检查触发器条件。
+4. 如果触发器条件满足，则执行触发器响应函数。
+5. 后台服务独立运行，定时执行任务，不受消息流影响。
+6. 游戏系统通过命令或触发器启动，管理独立的游戏会话。
+
+### 组件注册顺序
+
+extra 组件的注册在机器人启动时自动完成。每个 extra 组件的 `__init__.py` 文件导入其子模块（commands、services、triggers 等），这些子模块在导入时即通过全局对象（如 `COMMAND_GROUP`、`BOT`、`GAME_MANAGER`）完成注册。
+
+### 依赖关系
+
+- command、trigger、game 依赖于 target（User/Group）来获取上下文。
+- service 可以独立运行，也可操作 target 和数据库。
+- extra 组件之间应保持松耦合，通过标准接口交互。
+
+## 核心模块详解
+
+### 1. Command 模块
+
+#### 1.1 概述
+
+command 模块负责管理所有用户命令。命令通过装饰器注册，支持多种参数类型和修饰器（如权限控制、成本消耗等）。
+
+#### 1.2 核心类
+
+- **Command**: 封装命令函数，包含名称、参数类型、帮助文本等信息。
+- **CommandGroup**: 管理命令集合，提供注册和查找功能。
+
+#### 1.3 注册机制
+
+使用 `COMMAND_GROUP.register_command` 装饰器注册命令：
+
+```python
+from abstract.command import COMMAND_GROUP, cost, group_only, ask_for_wait
+
+@COMMAND_GROUP.register_command(('weather', '天气'), 1, '获取天气信息')
+@cost(2)
+@group_only
+@ask_for_wait
+def weather_command(message, session, args):
+    # 命令实现
+    pass
+```
+
+**参数说明**：
+- 第一个参数：命令名称（元组，支持多个别名）
+- 第二个参数：参数类型（0: 无参数，1: 字符串参数，2: 消息部件参数，字典: 指定所需消息部件类型和数量）
+- 第三个参数：帮助文本
+
+#### 1.4 修饰器
+
+- `@cost(points)`: 命令消耗用户点数
+- `@group_only`: 仅限群聊使用
+- `@private_only`: 仅限私聊使用
+- `@authorize(level)`: 需要指定权限等级
+- `@ask_for_wait`: 在执行前发送等待提示
+
+#### 1.5 命令函数签名
+
+命令函数接收三个参数：
+- `message`: `MESSAGE` 对象，代表接收到的消息
+- `session`: `Session` 对象，管理命令会话状态
+- `args`: 解析后的参数列表（根据参数类型不同而不同）
+
+#### 1.6 异常处理
+
+命令执行中可抛出 `CommandCancel` 异常来取消命令并返回错误信息给用户。
+
+### 2. Service 模块
+
+#### 2.1 概述
+
+service 模块用于创建后台运行的任务，支持定时执行和循环逻辑。
+
+#### 2.2 核心类
+
+- **Service**: 服务基类，定义服务生命周期方法（实际使用中更多直接使用装饰器）。
+
+#### 2.3 注册机制
+
+使用 `BOT.register_service` 装饰器注册服务：
+
+```python
+from abstract.bot import BOT
+
+@BOT.register_service('weather_predictor_hourly', 0, auto_restart=True)
+def weather_predictor_hourly():
+    # 服务逻辑，通常包含循环
+    while True:
+        # 执行任务
+        time.sleep(3600)  # 每小时执行
+```
+
+**参数说明**：
+- 第一个参数：服务名称
+- 第二个参数：初始延迟（秒）
+- `auto_restart`: 异常时是否自动重启
+
+#### 2.4 服务设计模式
+
+服务函数通常包含无限循环，通过 `time.sleep` 控制执行间隔。可以使用 `abstract.bases.importer.at_midnight()` 等工具函数处理定时逻辑。
+
+### 3. Trigger 模块
+
+#### 3.1 概述
+
+trigger 模块提供条件触发器，当消息满足特定条件时自动执行响应函数。
+
+#### 3.2 注册机制
+
+使用 `BOT.register_trigger` 装饰器注册触发器：
+
+```python
+from abstract.bot import BOT
+
+@BOT.register_trigger
+def trigger_condition(message):
+    # 条件函数，返回布尔值
+    return 'hello' in message.text
+
+@trigger_condition.register
+def trigger_response(message, session):
+    # 响应函数
+    message.reply_text('Hello!')
+```
+
+触发器由条件函数和响应函数组成。条件函数接收 `MESSAGE` 对象，返回布尔值；响应函数接收 `MESSAGE` 和 `Session` 对象。
+
+#### 3.3 执行顺序
+
+触发器按注册顺序检查。当消息未匹配任何命令时，机器人按顺序调用每个触发器的条件函数，第一个返回 `True` 的触发器将执行其响应函数。
+
+### 4. Game 模块
+
+#### 4.1 概述
+
+game 模块提供回合制游戏框架，支持多玩家游戏、状态管理和胜负判定。
+
+#### 4.2 核心类
+
+- **BaseGame**: 游戏抽象基类，定义游戏接口。
+- **GameManager**: 游戏管理器，负责游戏的注册和会话管理。
+
+#### 4.3 注册机制
+
+使用 `GAME_MANAGER.register_game` 装饰器注册游戏：
+
+```python
+from abstract.game import GAME_MANAGER, BaseGame
+
+@GAME_MANAGER.register_game('guess_number', '猜数字游戏')
+class GuessNumberGame(BaseGame):
+    def handle(self, message, session):
+        # 游戏逻辑
+        pass
+```
+
+**参数说明**：
+- 第一个参数：游戏标识符
+- 第二个参数：游戏显示名称
+
+#### 4.4 游戏生命周期
+
+1. 通过命令或触发器启动游戏，创建游戏实例。
+2. 游戏实例管理玩家状态和游戏数据。
+3. 游戏通过 `handle` 方法处理玩家输入。
+4. 游戏结束后，结果保存到用户数据中。
+
+#### 4.5 游戏数据存储
+
+游戏数据通过 `User` 类的 `game_data` 属性持久化存储，支持胜率统计和黑名单功能。
+
+### 5. Target 模块
+
+#### 5.1 概述
+
+target 模块代表消息的发送者和接收者，包括 `User`（用户）和 `Group`（群组）类。该类提供数据管理和动态方法扩展功能。
+
+#### 5.2 核心类
+
+- **User**: 用户类，管理用户数据（点数、签到记录、游戏统计等）。
+- **Group**: 群组类，管理群组设置。
+
+#### 5.3 数据管理
+
+用户和群组数据通过数据库持久化存储，提供便捷的访问接口：
+
+```python
+# 获取用户点数
+points = user.points
+
+# 增加用户点数
+user.points += 10
+
+# 获取用户游戏数据
+game_data = user.game_data['guess_number']
+```
+
+#### 5.4 动态扩展
+
+extra 组件可以通过装饰器动态扩展 `User` 和 `Group` 类的方法：
+
+```python
+from abstract.target import User
+
+@User.register_func
+def get_weather_history(self, days=7):
+    """获取用户的历史天气记录（示例扩展方法）"""
+    # 通过 self 访问用户数据
+    pass
+
+# 使用扩展方法
+user.get_weather_history(3)
+```
+
+#### 5.5 方法重写
+
+使用 `@User.override` 装饰器可以重写已有的方法（谨慎使用）。
+
+## Extra 组件开发规范
+
+### 1. 目录结构
+
+每个 extra 组件应位于 `extra` 目录下的独立子目录中，目录名使用 PascalCase（如 `Weather`、`ArcadeRecording`）。建议的目录结构：
 
 ```
-├── abstract/           # 核心抽象层
-│   ├── apis/           # API实现
-│   ├── bases/          # 基础组件
-│   ├── bot.py          # 机器人核心类
-│   ├── command.py      # 命令系统
-│   ├── message.py      # 消息处理
-│   ├── service.py      # 服务系统
-│   ├── session.py      # 会话管理
-│   └── target.py       # 目标对象
-├── extra/              # 额外功能
-│   ├── say/            # 语音文件
-│   ├── chat_ai.py      # AI对话
-│   ├── vits_speaker.py # 语音合成
-│   ├── weather.py      # 天气服务
-│   └── weather_city.py # 城市管理
-├── web/                # Web界面
-├── main.py             # 主入口
-├── commands.py         # 命令实现
-├── services.py         # 服务实现
-├── games.py            # 游戏实现
-├── triggers.py         # 触发器实现
-├── config_default.json # 默认配置
-├── help_text.json      # 帮助文档
-├── init.sql            # 数据库初始化脚本
-├── requirements.txt    # 依赖文件
-└── README.md           # 项目说明
+extra/ComponentName/
+├── __init__.py          # 组件入口，导入子模块
+├── commands.py          # 命令定义
+├── services.py          # 服务定义
+├── triggers.py          # 触发器定义
+├── register.py          # User/Group 方法扩展
+├── help_text.json       # 帮助文本（可选）
+└── ...                  # 其他模块文件
 ```
 
-## 安装部署
+### 2. 组件入口 (`__init__.py`)
 
-### 环境要求
-- Python 3.8+
-- MySQL/MariaDB
-- 无头NapCatQQ
+组件入口文件应导入所有需要注册的子模块，并可注册帮助文本：
 
-### 安装步骤
-1. 克隆项目代码
-2. 安装依赖：`pip install -r requirements.txt`
-3. 配置数据库：导入`init.sql`文件到MySQL/MariaDB
-4. 配置机器人：复制`config_default.json`为`config.json`并填写相关配置
-5. 启动无头NapCatQQ框架
-6. 启动机器人：`python main.py`
+```python
+import pathlib
 
-## 配置说明
+from .commands import *
+from .services import *
+from .triggers import *
+from .register import *
 
-### 配置文件结构
+# 注册帮助文本（可选）
+BOT.register_help_text(pathlib.Path(__path__[0]) / 'help_text.json')
+```
 
-配置文件使用JSON格式，主要包含以下配置项：
+### 3. 命令定义 (`commands.py`)
 
-### 1. 核心配置
+命令定义文件应使用 `COMMAND_GROUP.register_command` 装饰器注册命令，并合理使用修饰器：
 
-#### frame_server_config
+```python
+from abstract.command import COMMAND_GROUP, cost, group_only, ask_for_wait
+from abstract.message import MESSAGE
+from abstract.session import Session
+
+@COMMAND_GROUP.register_command(('cmd', '命令'), 1, '命令描述')
+@cost(1)
+@group_only
+def example_command(message: MESSAGE, session: Session, args):
+    # 命令实现
+    pass
+```
+
+### 4. 服务定义 (`services.py`)
+
+服务定义文件应使用 `BOT.register_service` 装饰器注册后台服务：
+
+```python
+from abstract.bot import BOT
+import time
+
+@BOT.register_service('example_service', 0, auto_restart=True)
+def example_service():
+    while True:
+        # 服务逻辑
+        time.sleep(60)  # 每分钟执行
+```
+
+### 5. 触发器定义 (`triggers.py`)
+
+触发器定义文件应使用 `BOT.register_trigger` 装饰器注册触发器：
+
+```python
+from abstract.bot import BOT
+
+@BOT.register_trigger
+def example_condition(message):
+    return 'keyword' in message.text
+
+@example_condition.register
+def example_response(message, session):
+    message.reply_text('触发响应！')
+```
+
+### 6. 方法扩展 (`register.py`)
+
+方法扩展文件应使用 `User.register_func` 或 `Group.register_func` 装饰器扩展功能：
+
+```python
+from abstract.target import User, Group
+
+@User.register_func
+def custom_user_method(self, param):
+    # 扩展方法实现
+    return f"User {self.id}: {param}"
+
+@Group.register_func  
+def custom_group_method(self, param):
+    # 扩展方法实现
+    return f"Group {self.id}: {param}"
+```
+
+### 7. 帮助文本 (`help_text.json`)
+
+帮助文本文件为 JSON 格式，用于生成命令帮助信息：
+
 ```json
-"frame_server_config": {
-  "host": "",
-  "token": ""
+{
+  "weather": "获取天气信息\n用法: /天气 [城市] [模式]\n模式: now(实时), hourly(小时), daily(每日), today(今天), tomorrow(明天), minutely(分钟降水)"
 }
 ```
-- **用途**：配置FrameServer连接信息
-- **使用位置**：`abstract/apis/frame_server.py` - 初始化OneBotHttpServer
-- **说明**：`host`是FrameServer的地址，`token`是认证令牌
 
-#### sql_config
+### 8. 数据库操作
+
+extra 组件可通过 `abstract.apis.table` 模块访问数据库表：
+
+```python
+from abstract.apis.table import USER_TABLE, GROUP_OPTION_TABLE
+
+# 查询用户数据
+user_data = USER_TABLE.get(f'where id = {user_id}', attr='points, sign_in_date')
+
+# 更新群组选项
+GROUP_OPTION_TABLE.set('id', group_id, 'weather_notice', 1)
+```
+
+### 9. 消息发送
+
+使用 `abstract.message` 模块中的消息类发送消息：
+
+```python
+from abstract.message import GroupMessage, PrivateMessage, TextMessage, ImageMessage
+
+# 发送群消息
+GroupMessage(TextMessage('文本内容'), Group(group_id)).send()
+
+# 发送图片
+GroupMessage(ImageMessage(image_path), Group(group_id)).send()
+
+# 发送私聊消息
+PrivateMessage(TextMessage('私聊内容'), User(user_id)).send()
+```
+
+### 10. 日志记录
+
+使用 `abstract.bases.log.LOG` 进行日志记录：
+
+```python
+from abstract.bases.log import LOG
+
+LOG.INF('信息日志')
+LOG.WAR('警告日志')
+LOG.ERR('错误日志')
+```
+
+## API 参考
+
+### 全局对象
+
+| 对象 | 类型 | 说明 |
+|------|------|------|
+| `BOT` | `Bot` | 机器人实例，用于注册服务、触发器 |
+| `COMMAND_GROUP` | `CommandGroup` | 命令组，用于注册命令 |
+| `GAME_MANAGER` | `GameManager` | 游戏管理器，用于注册游戏 |
+| `USER_TABLE` | `Table` | 用户数据表 |
+| `GROUP_OPTION_TABLE` | `Table` | 群组选项表 |
+
+### 常用装饰器
+
+| 装饰器 | 模块 | 功能 |
+|--------|------|------|
+| `@COMMAND_GROUP.register_command` | `abstract.command` | 注册命令 |
+| `@BOT.register_service` | `abstract.bot` | 注册服务 |
+| `@BOT.register_trigger` | `abstract.bot` | 注册触发器 |
+| `@GAME_MANAGER.register_game` | `abstract.game` | 注册游戏 |
+| `@User.register_func` | `abstract.target` | 扩展 User 方法 |
+| `@Group.register_func` | `abstract.target` | 扩展 Group 方法 |
+| `@cost` | `abstract.command` | 设置命令消耗点数 |
+| `@group_only` | `abstract.command` | 限制命令仅群聊使用 |
+| `@private_only` | `abstract.command` | 限制命令仅私聊使用 |
+| `@authorize` | `abstract.command` | 设置命令权限等级 |
+| `@ask_for_wait` | `abstract.command` | 命令执行前发送等待提示 |
+
+### 核心类
+
+#### MESSAGE 类
+
+代表接收到的消息，主要属性与方法：
+
+- `text`: 消息文本内容
+- `sender`: 发送者（User 对象）
+- `target`: 接收目标（User 或 Group 对象）
+- `parts`: 消息部件列表
+- `reply_text(text)`: 回复文本消息
+- `reply(message_part)`: 回复消息部件
+- `delete()`: 删除消息
+
+#### Session 类
+
+管理命令会话状态，主要属性与方法：
+
+- `user`: 发起命令的用户（User 对象）
+- `group`: 命令所在的群组（Group 对象，私聊时为 None）
+- `data`: 会话数据字典
+- `end()`: 结束会话
+
+#### User 类
+
+代表用户，主要属性与方法：
+
+- `id`: 用户 ID
+- `points`: 用户点数
+- `game_data`: 游戏数据字典
+- `sign_in(date)`: 签到
+- `is_signed_in(date)`: 检查是否已签到
+
+#### Group 类
+
+代表群组，主要属性与方法：
+
+- `id`: 群组 ID
+- `settings`: 群组设置字典
+
+## 集成步骤
+
+### 1. 创建组件目录
+
+在 `extra` 目录下创建新的组件目录，使用 PascalCase 命名：
+
+```bash
+cd extra
+mkdir NewComponent
+```
+
+### 2. 创建组件文件
+
+按照开发规范创建 `__init__.py`、`commands.py`、`services.py` 等文件。
+
+### 3. 实现组件功能
+
+根据需求实现命令、服务、触发器等功能。
+
+### 4. 测试组件
+
+启动机器人测试组件功能：
+
+```bash
+python main.py
+```
+
+### 5. 注册帮助文本（可选）
+
+创建 `help_text.json` 文件，提供命令使用说明。
+
+### 6. 提交组件
+
+将组件目录提交到版本控制系统。
+
+## 示例代码
+
+### 完整组件示例：简单问候组件
+
+#### 目录结构
+
+```
+extra/Greeting/
+├── __init__.py
+├── commands.py
+├── triggers.py
+└── help_text.json
+```
+
+#### __init__.py
+
+```python
+import pathlib
+
+from .commands import *
+from .triggers import *
+
+BOT.register_help_text(pathlib.Path(__path__[0]) / 'help_text.json')
+```
+
+#### commands.py
+
+```python
+from abstract.command import COMMAND_GROUP
+from abstract.message import MESSAGE
+from abstract.session import Session
+
+@COMMAND_GROUP.register_command(('hello', '你好'), 0, '打招呼')
+def hello_command(message: MESSAGE, session: Session, args):
+    message.reply_text(f'你好，{message.sender.id}！')
+```
+
+#### triggers.py
+
+```python
+from abstract.bot import BOT
+
+@BOT.register_trigger
+def morning_trigger(message):
+    return '早上好' in message.text
+
+@morning_trigger.register
+def morning_response(message, session):
+    message.reply_text('早上好！今天也是充满希望的一天！')
+```
+
+#### help_text.json
+
 ```json
-"sql_config": {
-  "host": "",
-  "user": "",
-  "password": "",
-  "database": ""
+{
+  "hello": "打招呼\n用法: /hello 或 /你好"
 }
 ```
-- **用途**：配置数据库连接信息
-- **使用位置**：`abstract/apis/table.py` - 建立数据库连接
-- **说明**：用于连接MariaDB数据库，存储用户数据、游戏数据等
 
-#### bot_config
-```json
-"bot_config": {
-  "id": 0,
-  "must_at": false,
-  "command_prefixes": [""],
-  "operators": [0]
-}
+### 数据库操作示例
+
+```python
+from abstract.apis.table import USER_TABLE
+from abstract.target import User
+
+def update_user_points(user_id, delta):
+    """更新用户点数"""
+    user = User(user_id)
+    user.points += delta
+    
+    # 同时直接操作数据库表
+    current_points = USER_TABLE.get(f'where id = {user_id}', attr='points')[0]
+    USER_TABLE.set('id', user_id, 'points', current_points + delta)
 ```
-- **用途**：配置机器人基本信息
-- **使用位置**：
-  - `abstract/bot.py` - 初始化Bot实例
-  - `abstract/message.py` - 构造消息对象
-  - `abstract/game.py` - 游戏验证
-- **说明**：
-  - `id`：机器人的QQ号
-  - `must_at`：是否需要@机器人才能触发命令
-  - `command_prefixes`：命令前缀列表
-  - `operators`：操作员QQ号列表，拥有最高权限
 
-### 2. 功能配置
+### 服务示例：定时提醒
 
-#### commands_configs
-```json
-"commands_configs": {
-  "random_pic": {
-    "default_tags": ""
-  },
-  "pic_searching": {
-    "ascii2d_proxy": null
-  }
-}
+```python
+from abstract.bot import BOT
+import time
+import datetime
+
+@BOT.register_service('daily_reminder', 0, auto_restart=True)
+def daily_reminder():
+    """每天8点发送提醒"""
+    while True:
+        now = datetime.datetime.now()
+        
+        # 计算到第二天8点的等待时间
+        target_time = now.replace(hour=8, minute=0, second=0, microsecond=0)
+        if target_time <= now:
+            target_time += datetime.timedelta(days=1)
+        
+        wait_seconds = (target_time - now).total_seconds()
+        time.sleep(wait_seconds)
+        
+        # 发送提醒
+        from abstract.message import GroupMessage, TextMessage
+        from abstract.target import Group
+        
+        # 这里需要实现具体的提醒逻辑
+        # GroupMessage(TextMessage('每日提醒！'), Group(group_id)).send()
 ```
-- **用途**：配置命令相关参数
-- **说明**：
-  - `random_pic.default_tags`：随机图片的默认标签
-  - `pic_searching.ascii2d_proxy`：Ascii2d搜图代理配置
-    - 类型：代理URL字符串或null
-    - 示例：`"http://127.0.0.1:7890"`
-    - 作用：为Ascii2d搜图提供代理，解决网络访问问题
 
-#### lottery_pool
-```json
-"lottery_pool": 0
-```
-- **用途**：配置彩票奖池大小
-- **使用位置**：`commands.py` - 彩票系统
-- **说明**：初始奖池大小，随着彩票购买和中奖动态变化
+## 常见问题与解决方案
 
-#### next_lottery_time
-```json
-"next_lottery_time": "00000000000000"
-```
-- **用途**：配置下一次彩票时间
-- **使用位置**：`commands.py` - 彩票系统
-- **说明**：格式为"年月日时分秒"，当奖池为空时设置
+### 1. 命令未注册
 
-#### log_level
-```json
-"log_level": "INF"
-```
-- **用途**：配置日志级别
-- **说明**：可选值包括DEBUG、INF、WAR、ERR等
+**问题**: 命令定义后无法使用。
 
-#### zh_font_path
-```json
-"zh_font_path": "C:/Windows/Fonts/msyh.ttc"
-```
-- **用途**：配置中文字体路径
-- **使用位置**：`abstract/bases/text2img.py` - 文本转图片
-- **说明**：用于生成包含中文的图片，如帮助信息、版本信息等
+**解决方案**:
+- 确保 `commands.py` 被 `__init__.py` 导入。
+- 检查命令装饰器参数是否正确。
+- 重启机器人使更改生效。
 
-### 3. API配置
+### 2. 服务未启动
 
-#### ai
-```json
-"ai": {
-  "api_key": "",
-  "base_url": "",
-  "characters": {
-    "": {
-      "vision": false,
-      "r18": false,
-      "prompts": [
-        {
-          "role": "system",
-          "content": ""
-        }
-      ]
-    }
-  }
-}
-```
-- **用途**：配置AI相关参数
-- **使用位置**：`extra/chat_ai.py` - 初始化AI客户端
-- **说明**：
-  - `api_key`：AI服务的API密钥
-  - `base_url`：AI服务的基础URL
-  - `characters`：AI角色配置，每个角色包含：
-    - `vision`：是否支持视觉能力
-    - `r18`：是否包含R18内容（如果为True，只能在r18设置大于0的群聊中使用）
-    - `prompts`：系统提示列表，用于定义AI角色的行为和个性
+**问题**: 服务注册后未执行。
 
-#### vits_url
-```json
-"vits_url": {
-  "tts": "",
-  "svc": "",
-  "speakers": {
-    "": {
-      "tts": "",
-      "svc": ""
-    }
-  }
-}
-```
-- **用途**：配置语音合成相关参数
-- **说明**：用于AI语音合成和变音服务
+**解决方案**:
+- 检查服务函数是否包含循环逻辑。
+- 确认 `auto_restart=True` 设置正确。
+- 查看日志中是否有服务异常。
 
-#### weather_api
-```json
-"weather_api": {
-  "api_host": "",
-  "api_key": ""
-}
-```
-- **用途**：配置天气API参数
-- **使用位置**：`extra/weather.py` - 初始化天气API客户端
-- **说明**：用于获取天气数据，提供天气查询服务
+### 3. 数据库操作失败
 
-## 使用方法
+**问题**: 数据库查询或更新出错。
 
-### 命令格式
-- 群聊中：`@机器人 命令 参数`
-- 私聊中：`命令 参数`
+**解决方案**:
+- 确认表名和字段名正确。
+- 检查 SQL 条件表达式格式。
+- 确保数据库连接正常。
 
-### 常用命令
-- `help`：查看命令列表，默认以图片格式显示
-- `help <命令>`：查看特定命令的帮助
-- `help <命令> -detail`：以文本格式显示详细帮助
-- `sign`：签到获取韭菜盒子，每天随机获得5-14个
-- `weather [城市名] [类型]`：查询天气，类型包括now/hourly/daily/today/tomorrow/minutely
-- `random [标签]`：获取随机图片，标签格式参照api.lolicon.app
-- `game start <游戏> @玩家...`：开始游戏，支持井字棋、五子棋
-- `arcade list`：查看机厅列表
-- `search`：搜图功能，支持多API同时搜索
-- `compress`：一键电子包浆，降低图片质量
-- `points`：查询你的韭菜盒子数量
-- `transfer @收款人 <数量>`：转账韭菜盒子
-- `lottery`：5个韭菜盒子购买一个彩票
-- `say`：随机播放电棍语录
-- `chat <character> <message>`：与AI对话
-- `phantom`：生成幻影坦克图片
-- `tts <speaker> <text>`：AI语音合成
-- `svc <speaker> [pitch]`：AI变音，需附带语音消息
-- `forge`：伪造聊天记录，交互式命令
-- `notice status`：查询当前进行中的定时提醒
-- `notice add <text> <time> [every]`：添加定时提醒，time支持now、具体时间或"多久后"格式，every可选day/week
-- `stock status`：查询个人状态以及股市状态
-- `stock buy/sell <price> <num>`：发起股票交易
-- `stock cancel`：取消委托中的交易
-- `set <key> [value]`：更改机器人的私聊设置，如 todo_notice
-- `todo add <text>`：添加待办事项
-- `todo remove <text>`：删除待办事项
-- `todo list [all]`：查看待办事项列表
-- `todo finish <text>`：完成待办事项
+### 4. 权限不足
 
-### 服务管理
-- `service status`：查看服务状态
-- `service start <服务>`：启动服务
-- `service stop <服务>`：停止服务
-- `service restart <服务>`：重启服务
-- `service option <服务> <属性> <值>`：设置服务属性
+**问题**: 用户无法执行某些命令。
 
-### 服务列表
-- `noticer`：提醒服务，处理定时提醒
-- `weather_predictor_hourly`：每小时天气预测服务
-- `weather_predictor_daily`：每日天气预测服务
-- `weather_predictor_minutely`：分钟级降水预报服务
-- `weather_predictor_weekly`：每周天气预测服务
-- `weather_today`：今日天气提醒服务
-- `todo_noticer`：待办事项提醒服务，每天9点、14点、20点提醒未完成的待办事项
+**解决方案**:
+- 检查 `@authorize` 装饰器设置的权限等级。
+- 确认用户具有足够权限。
+- 使用 `User` 类的 `authority` 属性检查用户权限。
 
-## 经济系统
+### 5. 消息发送失败
 
-### 股票交易
-- `stock status`：查询个人状态以及股市状态
-- `stock buy <price> <num>`：买入股票
-- `stock sell <price> <num>`：卖出股票
-- `stock cancel`：取消委托中的交易
+**问题**: 消息无法发送到群组或用户。
 
-### 韭菜盒子获取方式
-- **签到**：每天签到随机获得5-14个韭菜盒子
-- **彩票**：5个韭菜盒子购买一张彩票，有机会获得更多韭菜盒子
-- **股票交易**：通过股票买卖赚取韭菜盒子
-- **转账**：其他用户转账给你
+**解决方案**:
+- 确认机器人已加入目标群组。
+- 检查目标用户是否在好友列表中。
+- 查看是否有频率限制或风控限制。
 
-### 韭菜盒子使用方式
-- **搜索图片**：每次消耗2个韭菜盒子
-- **随机图片**：每次消耗2个韭菜盒子
-- **AI对话**：每次消耗3个韭菜盒子
-- **语音合成**：每次消耗2个韭菜盒子
-- **变音服务**：每次消耗2个韭菜盒子
-- **幻影坦克**：每次消耗2个韭菜盒子
-- **天气查询**：每次消耗2个韭菜盒子
-- **电棍语录**：每次消耗2个韭菜盒子
+## 最佳实践
 
-## 游戏系统
+1. **模块化设计**: 每个组件应功能独立，避免过度耦合。
+2. **错误处理**: 妥善处理异常，避免组件崩溃影响机器人运行。
+3. **资源管理**: 及时释放数据库连接、文件句柄等资源。
+4. **日志记录**: 关键操作记录日志，便于调试和监控。
+5. **性能优化**: 避免在循环中进行昂贵的数据库操作。
+6. **代码复用**: 提取公共逻辑到工具函数或基类中。
+7. **文档完善**: 为组件提供清晰的帮助文本和使用说明。
 
-### 支持的游戏
-- **井字棋**：需要2名玩家，游戏发起者先手，使用X
-- **五子棋**：需要2名玩家，游戏发起者先手（黑棋），使用X
+## 结语
 
-### 游戏规则
+本文档详细介绍了 QQBot extra 组件的开发流程和技术细节。通过遵循本文档的规范，您可以开发出功能强大、稳定可靠的 extra 组件，扩展机器人的能力。如有问题或建议，请参考现有组件代码或联系项目维护者。
 
-#### 井字棋
-1. 使用`game start 井字棋 @玩家`开始游戏
-2. 游戏发起者先手，输入位置编号(1-9)进行落子
-3. 先连成3子的玩家获胜
-4. 游戏结束后会自动记录战绩
+---
 
-#### 五子棋
-1. 使用`game start 五子棋 @玩家`开始游戏
-2. 游戏发起者先手（黑棋），输入坐标(例如: 5 5)进行落子
-3. 棋盘大小为15x15，坐标范围为1-15
-4. 先连成5子的玩家获胜
-5. 游戏结束后会自动记录战绩
-
-### 游戏管理
-- `game list`：查看可用游戏列表
-- `game info <游戏>`：查看游戏信息
-- `game blacklist add @玩家`：添加游戏黑名单
-- `game blacklist remove @玩家`：移除游戏黑名单
-
-## 开发信息
-
-### 技术栈
-- **语言**：Python 3.8+
-- **框架**：无头NapCatQQ
-- **协议**：Onebot，http
-- **数据库**：MariaDB
-- **Web**：Tornado
-- **AI**：集成多种AI服务
-- **依赖库**：
-  - tornado：Web框架
-  - PyMySQL：数据库连接
-  - openai：AI接口
-  - filetype：文件类型检测
-  - numpy：数值计算
-  - psutil：系统信息
-  - pillow：图像处理
-  - matplotlib：图表生成
-  - cairosvg：SVG处理
-  - pandas：数据处理
-  - requests：网络请求
-  - urllib3：HTTP客户端
-  - plum-dispatch：分发库
-  - gitpython：Git操作
-
-### 开发指南
-1. **命令注册**：使用`@COMMAND_GROUP.register_command`装饰器注册命令
-2. **服务注册**：使用`@BOT.register_service`装饰器注册服务
-3. **游戏注册**：使用`@GAME_MANAGER.register_game`装饰器注册游戏
-4. **触发器注册**：使用`@BOT.register_trigger`装饰器注册触发器
-
-### 代码规范
-- 遵循PEP 8代码规范
-- 使用类型注解
-- 提供详细的注释
-- 保持代码结构清晰
-
-## 贡献指南
-
-1. Fork本项目
-2. 创建功能分支
-3. 提交代码
-4. 发起Pull Request
-
-## 许可证
-
-本项目采用GPLv3许可证。
-
-## 免责声明
-
-- 本项目仅用于学习和研究目的
-- 请勿使用本项目进行任何违法活动
-- 请遵守相关法律法规和平台规则
-- 使用本项目产生的一切后果由使用者自行承担
+*文档版本: 1.0*
+*最后更新: 2026-04-23*
