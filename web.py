@@ -1,6 +1,7 @@
 import tornado.websocket
 import tornado.web
-from abstract.bases.importer import json, threading, pathlib
+from abstract.bases.importer import json, coredumpy, sys, threading
+from abstract.bases.custom_thread import CustomThread
 
 from abstract.bases.log import *
 from abstract.bot import BOT
@@ -13,7 +14,7 @@ class OneBotHttpClient:
         
         def post(self):
             data = json.loads(self.request.body)
-            threading.Thread(
+            CustomThread(
                 target=BOT.router,
                 args=(data,),
                 daemon=True
@@ -61,7 +62,7 @@ class OneBotHttpClient:
             ],
             static_path=pathlib.Path('web/static')
         )
-        threading.Thread(
+        CustomThread(
             target=self.auto_post_logs
         ).start()
         self.app.listen(8000)
@@ -78,6 +79,26 @@ class OneBotHttpClient:
 
     def start(self):
         LOG.INF('Server starting up.')
+        # Save original before coredumpy patch
+        original_sys_excepthook = sys.excepthook
+        # Patch both main thread and thread exceptions
+        coredumpy.patch_except(directory='./dumps')
+        # Wrap sys.excepthook to ignore KeyboardInterrupt
+        coredump_sys_excepthook = sys.excepthook
+        def _sys_excepthook(type, value, tb):
+            if type is KeyboardInterrupt:
+                original_sys_excepthook(type, value, tb)
+            else:
+                coredump_sys_excepthook(type, value, tb)
+        sys.excepthook = _sys_excepthook
+        
+        # Also patch threading.excepthook for thread exceptions
+        def _threading_excepthook(args):
+            if args.exc_type is KeyboardInterrupt:
+                return
+            sys.excepthook(args.exc_type, args.exc_value, args.exc_traceback)
+        
+        threading.excepthook = _threading_excepthook
         self.loop.start()
 
 

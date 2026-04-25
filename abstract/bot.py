@@ -1,4 +1,5 @@
-from abstract.bases.importer import operator, LAST_COMMIT, psutil, platform, json, pathlib
+from abstract.bases.exceptions import CommandCancel
+from abstract.bases.importer import operator, LAST_COMMIT, psutil, platform, json
 from typing import Callable
 
 import abstract
@@ -135,7 +136,7 @@ class Bot:
                         func(message, session)
                     except Exception as e:
                         LOG.ERR(e)
-                        raise e
+                        raise
             return
 
         if not command:
@@ -175,11 +176,13 @@ class Bot:
     def notice_handler(self, data: dict):
         match data['notice_type']:
             case 'group_recall' if GROUP_OPTION_TABLE.get(f'where id = {data["group_id"]}', attr='recall_catch')[0]:
+                if data['user_id'] == BOT.id:
+                    return
                 GroupMessage(
                     [
-                        AtMessage(data['operator_id']),
+                        AtMessage(User(data['operator_id'])),
                         TextMessage(' 撤回了'),
-                        AtMessage(data['user_id']),
+                        AtMessage(User(data['user_id'])),
                         TextMessage(f' 的消息:\n{self.frame_server.get_msg(data["message_id"])["raw_message"]}'),
                     ],
                     Group(data['group_id'])
@@ -196,7 +199,7 @@ class Bot:
             case 'group_increase':
                 GroupMessage(
                     [
-                        AtMessage(data['user_id']),
+                        AtMessage(User(data['user_id'])),
                         TextMessage(' 进群了')
                     ],
                     Group(data['group_id'])
@@ -249,6 +252,8 @@ def help(message: MESSAGE, session: Session, args):
                     BOT.command_group
                 )
             )
+        case final:
+            raise CommandCancel(f'参数 {final} 有误.')
 
     if detail:
         message.reply_text(help_text)

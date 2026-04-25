@@ -37,7 +37,7 @@ class Command:
             except Exception as error:
                 LOG.ERR(error)
                 message.reply_text(f'错误: {error}. 哥我错啦——')
-                raise error
+                raise
         self.func = decorated
         self.command_names = command_names
         self.type = type

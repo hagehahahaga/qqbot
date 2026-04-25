@@ -1,4 +1,5 @@
-from abstract.bases.importer import getopt, sys, requests, time, threading
+from abstract.bases.importer import getopt, sys, requests, time
+from abstract.bases.custom_thread import CustomThread
 
 from abstract.apis.frame_server import FRAME_SERVER
 from abstract.bot import BOT
@@ -52,5 +53,5 @@ def main():
 
 
 if __name__ == '__main__':
-    threading.Thread(target=main).start()
+    CustomThread(target=main).start()
     FRAME_CLIENT.start()
