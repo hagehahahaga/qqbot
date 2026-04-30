@@ -100,7 +100,10 @@ def update_arcade_num(message: MESSAGE, session: Session):
         arcade = arcade[:-1]
     num = int(digits[::-1])
 
-    result = message.target.get_arcade_num(arcade)
+    try:
+        result = message.target.get_arcade_num(arcade)
+    except AssertionError:
+        return
     if not result:
         return
     if plus:
