@@ -1,3 +1,4 @@
+import json
 import operator, itertools, datetime
 from typing import Optional
 
@@ -23,7 +24,7 @@ def _reset_arcade_num(hash: bytes):
             f'set num = NULL, update_time = NULL, update_user_id = NULL '
             f'where hash = %s',
             (hash,)
-        ), f'没有 {hash} 这个机厅'
+        ), f'没有 {hash.hex()} 这个机厅'
 
 def _get_arcade(hash: bytes) -> dict:
     """
@@ -54,7 +55,7 @@ def _get_arcade(hash: bytes) -> dict:
             (hash,)
         )
         result = cursor.fetchone()
-    assert result, f'没有 {hash} 这个机厅.'
+    assert result, f'没有 {hash.hex()} 这个机厅.'
     hash, group_id, name, subnames, _, num, update_time, update_user_id = result
     if update_time and (update_time := update_time.replace(tzinfo=datetime.UTC)) < today_7am():
         _reset_arcade_num(hash)
@@ -372,6 +373,7 @@ def bind_arcade(self, hash: bytes):
     ), '此机厅不存在.'
 
     ARCADES_BIND_TABLE.add(type, self.id, hash, json.dumps([]))
+    return _get_arcade(hash)
 
 @Group.register_func
 @User.register_func
@@ -395,9 +397,10 @@ def unbind_arcade(self, hash: bytes):
     assert hash not in self.get_arcade_binding_names(), '解绑应该用hash而不是别名.'
     assert ARCADES_BIND_TABLE.find_exists(
         ('type', 'id', 'hash'), (type, self.id, hash)
-    ), f'未绑定 {hash} 这个机厅.'
+    ), f'未绑定 {hash.hex()} 这个机厅.'
 
     ARCADES_BIND_TABLE.delete(('type', 'id', 'hash'), (type, self.id, hash))
+    return _get_arcade(hash)
 
 @Group.register_func
 @User.register_func
@@ -420,7 +423,7 @@ def add_arcade_binding_name(self, hash: bytes, name: str):
     if isinstance(self, Group):
         assert name not in self.get_arcade_names(), '有重复命名.'
     assert name not in self.get_arcade_binding_names(), '有重复命名.'
-    assert hash in self.get_arcade_binding_hashes(), f'没有绑定这个机厅: {hash}'
+    assert hash in self.get_arcade_binding_hashes(), f'没有绑定这个机厅: {hash.hex()}'
     with ARCADES_BIND_TABLE as cursor:
         cursor.execute(
             f'update {cursor.table_name} '
@@ -428,6 +431,7 @@ def add_arcade_binding_name(self, hash: bytes, name: str):
             f'where hash = %s',
             (name, hash)
         )
+    return _get_arcade(hash)
 
 @Group.register_func
 @User.register_func
@@ -445,7 +449,7 @@ def remove_arcade_binding_name(self, hash: bytes, name: str):
     :raises AssertionError: 绑定名称不存在，或未绑定此机厅
     """
     assert name in self.get_arcade_binding_names(), f'没有绑定别名为 {name} 的机厅.'
-    assert hash in self.get_arcade_binding_hashes(), f'没有绑定这个机厅: {hash}'
+    assert hash in self.get_arcade_binding_hashes(), f'没有绑定这个机厅: {hash.hex()}'
     with ARCADES_BIND_TABLE as cursor:
         cursor.execute(
             f'update {cursor.table_name} '
@@ -453,6 +457,7 @@ def remove_arcade_binding_name(self, hash: bytes, name: str):
             f'where hash = %s',
             (name, hash)
         )
+    return _get_arcade(hash)
 
 @Group.register_func
 @User.register_func
@@ -505,8 +510,59 @@ def get_binding_arcades(self) -> dict:
     response = {}
     for hash in hashes:
         arcade = _get_arcade(hash)
-        response[arcade['name']] = arcade
+        with ARCADES_BIND_TABLE as cursor:
+            cursor.execute(
+                f'select names '
+                f'from {cursor.table_name} '
+                f'where hash = %s',
+                (hash,)
+            )
+            names = tuple(json.loads(cursor.fetchone()[0]))
+        response[names] = arcade
     return response
+
+@Group.register_func
+@User.register_func
+def get_binding_arcade(self, name: str) -> dict:
+    """
+    获取当前用户或群组中匹配指定名称的所有绑定及其机厅信息
+
+    功能说明：
+    - 根据调用者类型（Group/User）查询对应类型的绑定记录
+    - 通过json_contains匹配绑定表中的names字段，查找包含指定名称的绑定
+    - 支持返回多个匹配结果（同一名称可能出现在多个绑定的names列表中）
+    - 每个结果使用该绑定的完整names元组作为键，便于区分不同绑定
+
+    :param name: 要查找的绑定自定义名称
+    :return: 字典，键为绑定名称元组（tuple），值为机厅信息字典（同_get_arcade返回格式）：
+        - group: 群组对象
+        - name: 机厅名称
+        - subnames: 别名列表
+        - num: 机厅数量，数据过期或未记录时为None
+        - update_time: 更新时间（已转为本地时区），数据过期或未记录时为None
+        - update_user: 更新用户（User类型），数据过期或未记录时为None
+        - hash: 机厅哈希标识
+    :raises AssertionError: 未找到匹配此名称的任何绑定记录
+    """
+    if isinstance(self, Group):
+        type = 'group'
+    else:
+        type = 'private'
+
+    with ARCADES_BIND_TABLE as cursor:
+        cursor.execute(
+            'select hash, names '
+            f'from {cursor.table_name} '
+            'where type = %s '
+            'and id = %s '
+            'and json_contains(names, JSON_QUOTE(%s))',
+            (type, self.id, name)
+        )
+        result = cursor.fetchone()
+
+    assert result, f'未在此群绑定 {name} 这个机厅或别名.'
+
+    return _get_arcade(result[0])
 
 @Group.register_func
 @User.register_func
@@ -581,50 +637,3 @@ def get_arcade_binding_num(self, name: str) -> tuple:
     assert result, f'未在此群绑定 {name} 这个机厅或别名.'
 
     return _get_arcade_num(result[0])
-
-@Group.register_func
-@User.register_func
-def get_arcade_bindings(self, name: str) -> dict:
-    """
-    获取当前用户或群组中匹配指定名称的所有绑定及其机厅信息
-
-    功能说明：
-    - 根据调用者类型（Group/User）查询对应类型的绑定记录
-    - 通过json_contains匹配绑定表中的names字段，查找包含指定名称的绑定
-    - 支持返回多个匹配结果（同一名称可能出现在多个绑定的names列表中）
-    - 每个结果使用该绑定的完整names元组作为键，便于区分不同绑定
-
-    :param name: 要查找的绑定自定义名称
-    :return: 字典，键为绑定名称元组（tuple），值为机厅信息字典（同_get_arcade返回格式）：
-        - group: 群组对象
-        - name: 机厅名称
-        - subnames: 别名列表
-        - num: 机厅数量，数据过期或未记录时为None
-        - update_time: 更新时间（已转为本地时区），数据过期或未记录时为None
-        - update_user: 更新用户（User类型），数据过期或未记录时为None
-        - hash: 机厅哈希标识
-    :raises AssertionError: 未找到匹配此名称的任何绑定记录
-    """
-    if isinstance(self, Group):
-        type = 'group'
-    else:
-        type = 'private'
-
-    with ARCADES_BIND_TABLE as cursor:
-        cursor.execute(
-            'select hash, names '
-            f'from {cursor.table_name} '
-            'where type = %s '
-            'and id = %s '
-            'and json_contains(names, JSON_QUOTE(%s))',
-            (type, self.id, name)
-        )
-        result = cursor.fetchall()
-
-    assert result, f'未在此群绑定 {name} 这个机厅或别名.'
-
-    response = {}
-    for hash, names in result:
-        arcade = _get_arcade(hash)
-        response[tuple(json.loads(names))] = arcade
-    return response
