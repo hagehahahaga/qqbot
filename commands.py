@@ -74,7 +74,7 @@ def pic_searching(message: MESSAGE, session: Session, image: list[ImageMessage])
     try:
         thread_group.start()
         thread_group.join()
-    except CommandCancel as e:
+    except CommandCancel:
         thread_group.stop()
         completed = thread_group.completed_thread_count
         cost = int(completed / len(apis) * 100) / 100 * 2
@@ -85,7 +85,7 @@ def pic_searching(message: MESSAGE, session: Session, image: list[ImageMessage])
                 cost
             )
             message.reply_text(f'部分搜索已完成, 消耗了 {cost} 个韭菜盒子.')
-        raise e
+        raise
 
 @COMMAND_GROUP.register_command(('random', '随机', '随机图', '随机涩图', '涩图', '多来点'), 1, '随机pixiv图')
 @ask_for_wait

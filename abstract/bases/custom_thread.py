@@ -67,7 +67,7 @@ class CustomThread(threading.Thread):
         except Exception as e:
             self._exception = e
             self.status = 'ERROR'
-            raise e
+            raise
         finally:
             sys.settrace(original_trace)
             for func in self.callback:

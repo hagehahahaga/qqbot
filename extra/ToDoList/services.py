@@ -24,8 +24,8 @@ def todo_noticer():
     wait_seconds = get_wait_seconds(target_times)
     time.sleep(wait_seconds)
 
-    with TODOLIST_TABLE:
-        TODOLIST_TABLE.cursor.execute(
+    with TODOLIST_TABLE as cursor:
+        cursor.execute(
             'select qq_users.id, group_concat(todo_list.do separator \',\') '
             'from qq_users '
             'join todo_list on qq_users.id = todo_list.user_id '
@@ -33,7 +33,7 @@ def todo_noticer():
             '   and todo_list.finished = 0 '
             'group by qq_users.id '
         )
-        result = TODOLIST_TABLE.cursor.fetchall()
+        result = cursor.fetchall()
 
     for id, does in result:
         user = User(int(id))

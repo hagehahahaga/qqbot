@@ -100,6 +100,10 @@ class Session:
             message.reply_text('你现在还有进行中的命令.')
             return
 
+        if isinstance(command, str) and command != 'cancel':
+            message.reply_text(f'{command}不是一个可识别的指令, 检查输入.')
+            return
+
         if command != 'cancel':
             return
 

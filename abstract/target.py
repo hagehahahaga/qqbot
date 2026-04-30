@@ -78,9 +78,9 @@ class User:
         )
 
     def game_data_init(self, game: str):
-        with GAME_DATA_TABLE:
-            GAME_DATA_TABLE.cursor.execute(
-                f'update {GAME_DATA_TABLE.name} '
+        with GAME_DATA_TABLE as cursor:
+            cursor.execute(
+                f'update {cursor.table_name} '
                 f'set game_data = json_set(game_data, "$.{game}", json_object("count", 0, "win", 0, "draw", 0))'
                 f'where id = {self.id}'
             )
@@ -112,9 +112,9 @@ class User:
 
     @check_game_data
     def win_game(self, game: str):
-        with GAME_DATA_TABLE:
-            GAME_DATA_TABLE.cursor.execute(
-                f'update {GAME_DATA_TABLE.name} '
+        with GAME_DATA_TABLE as cursor:
+            cursor.execute(
+                f'update {cursor.table_name} '
                 f'set game_data = json_set(game_data, '
                 f'"$.{game}.count", json_extract(game_data, "$.{game}.count") + 1, '
                 f'"$.{game}.win", json_extract(game_data, "$.{game}.win") + 1) '
@@ -123,9 +123,9 @@ class User:
 
     @check_game_data
     def draw_game(self, game: str):
-        with GAME_DATA_TABLE:
-            GAME_DATA_TABLE.cursor.execute(
-                f'update {GAME_DATA_TABLE.name} '
+        with GAME_DATA_TABLE as cursor:
+            cursor.execute(
+                f'update {cursor.table_name} '
                 'set game_data = json_set(game_data, '
                 f'"$.{game}.count", json_extract(game_data, "$.{game}.count") + 1, '
                 f'"$.{game}.draw", json_extract(game_data, "$.{game}.draw") + 1) '
@@ -134,9 +134,9 @@ class User:
 
     @check_game_data
     def lose_game(self, game: str):
-        with GAME_DATA_TABLE:
-            GAME_DATA_TABLE.cursor.execute(
-                f'update {GAME_DATA_TABLE.name} '
+        with GAME_DATA_TABLE as cursor:
+            cursor.execute(
+                f'update {cursor.table_name} '
                 'set game_data = json_set(game_data, '
                 f'"$.{game}.count", json_extract(game_data, "$.{game}.count") + 1) '
                 f'where id = {self.id}'
@@ -144,18 +144,18 @@ class User:
 
     def add_game_blacklist(self, target: User):
         assert target != self, "不能拉黑你自己."
-        with GAME_DATA_TABLE:
-            GAME_DATA_TABLE.cursor.execute(
-                f'update {GAME_DATA_TABLE.name} '
+        with GAME_DATA_TABLE as cursor:
+            cursor.execute(
+                f'update {cursor.table_name} '
                 f'set black_list = json_array_append(black_list, "$", {target.id}) '
                 f'where id = {self.id}'
             )
 
     def remove_game_blacklist(self, target: User):
         assert target.in_game_blacklist(self), "你未将对方拉黑."
-        with GAME_DATA_TABLE:
-            GAME_DATA_TABLE.cursor.execute(
-                f'update {GAME_DATA_TABLE.name} '
+        with GAME_DATA_TABLE as cursor:
+            cursor.execute(
+                f'update {cursor.table_name} '
                 f'set black_list = json_remove(black_list, json_search(black_list, "one", {target.id}))) '
                 f'where id = {self.id}'
             )

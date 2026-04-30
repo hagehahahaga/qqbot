@@ -33,11 +33,11 @@ class Command:
             except CommandCancel as error:
                 message.reply_text(error.__str__())
             except AssertionError as error:
-                message.reply_text(f'检查不通过: {error.__str__()}.')
+                message.reply_text(f'检查不通过: {error}')
             except Exception as error:
                 LOG.ERR(error)
                 message.reply_text(f'错误: {error}. 哥我错啦——')
-                raise error
+                raise
         self.func = decorated
         self.command_names = command_names
         self.type = type
@@ -82,12 +82,12 @@ class CommandGroup(set):
                 break
         else:
             if need_prefix:
-                return None
+                return None  # 没有识别为指令
 
         for command in self:
             if command.match(command_name):
-                return command
-        return command_name
+                return command  # 识别到存在的指令
+        return command_name  # 不存在对应指令
 
     def register_command(self, command_name: str | Iterable, type: int | dict[str, MESSAGE_PART | int] = 0, info=''):
         """
@@ -122,7 +122,7 @@ def ask_for_wait(func):
     def decorated(*args, **kwargs):
         wait_message: BaseMessage = args[0].reply_text('别急')
         try:
-            func(*args, **kwargs)
+            return func(*args, **kwargs)
         finally:
             wait_message.delete()
 
@@ -134,18 +134,17 @@ def cost(cost: int):
         @functools.wraps(func)
         def decorated(*args, **kwargs):
             message = args[0]
-            if message.sender.get_points() < cost:
-                message.reply_text(
-                    '\n韭菜盒子不足!\n'
-                    f'我早上本来应该吃 {cost} 个韭菜盒子, 饱饱的.\n'
-                    '那我缺的这个这个营养这一块的, 谁给我补啊?\n'
-                )
-                return
+            assert message.sender.get_points() >= cost, (
+                f'韭菜盒子不足!'
+                f'\n我早上本来应该吃 {cost} 个韭菜盒子, 饱饱的.'
+                f'\n那我缺的这个这个营养这一块的, 谁给我补啊?'
+            )
 
-            func(*args, **kwargs)
+            result = func(*args, **kwargs)
 
             message.sender.add_points(-cost)
             message.reply_text(f'本次请求消耗 {cost} 个韭菜盒子, 贼jb好吃.')
+            return result
 
         return decorated
 
@@ -156,7 +155,7 @@ def group_only(func):
     @functools.wraps(func)
     def decorated(*args, **kwargs):
         assert type(args[0]) is GroupMessage, '此指令仅在群聊中可用!'
-        func(*args, **kwargs)
+        return func(*args, **kwargs)
 
     return decorated
 

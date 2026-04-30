@@ -2,7 +2,7 @@ from abstract.bases.importer import operator, LAST_COMMIT, psutil, platform, jso
 from typing import Callable
 
 import abstract
-from abstract.command import COMMAND_GROUP
+from abstract.command import COMMAND_GROUP, Command
 from abstract.game import GAME_MANAGER
 from abstract.message import *
 from abstract.service import Service
@@ -98,6 +98,10 @@ class Bot:
         # 获取session
         session = self.session_manager.get_session(message.sender)
 
+        if session.getting:
+            session.pipe_put(message)
+            return
+
         # 获取指令名
         try:
             args = message.get_parts_by_type(TextMessage)[0].to_args()
@@ -105,43 +109,43 @@ class Bot:
         except IndexError:
             command_name, args = '', []
 
-        command = self.command_group.match(command_name, isinstance(message, GroupMessage))
-
-        if session.getting:
-            session.pipe_put(message)
-            return
+        command = self.command_group.match(command_name, need_prefix=isinstance(message, GroupMessage))
 
         if isinstance(message, GroupMessage):
             if self.must_at and self.id not in map(
-                    operator.attrgetter('target', 'id'),
+                    operator.attrgetter('target.id'),
                     message.get_parts_by_type(AtMessage)
             ):
                 return
-        elif isinstance(message, PrivateMessage):
-            if message.sender.id not in map(
-                    operator.itemgetter('user_id'),
-                    self.frame_server.get_friend_list()
-            ):
-                return
 
-        if session.lock.locked():
-            session.handle(message, command)
-            return
-
-        if command is None:
+        if not isinstance(command, Command):
             for condition, func in self.triggers:
                 if condition(message):
                     try:
                         func(message, session)
+                        return
                     except Exception as e:
                         LOG.ERR(e)
-                        raise e
+                        raise
+
+        # 处理进行中的命令
+        if session.lock.locked():
+            session.handle(message, command)
             return
 
-        if not command:
-            message.reply_text('我白银我最萌, s8我上我能夺冠, 职业选手都是帅逼.')
+        # command为None: 群消息中指令前缀不匹配(如必须"!"前缀但用户没加)
+        # 在must_at=True的群聊中, 用户@了机器人但指令格式不对, 提示未输入指令
+        if command is None:
+            if isinstance(message, GroupMessage) and self.must_at:
+                message.reply_text('你好像没有输入指令?')
             return
 
+        # command为空字符串: 用户@了机器人但文本部分为空(如只发了"@bot")
+        if command == '':
+            message.reply_text('你好像没有输入指令?')
+            return
+
+        # command为字符串: 输入了不存在的指令名
         if isinstance(command, str):
             message.reply_text(f'{command}不是一个可识别的指令, 检查输入.')
             return

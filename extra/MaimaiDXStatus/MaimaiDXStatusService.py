@@ -31,9 +31,9 @@ class MaimaiDXStatusService:
                     timeout=60
                 ).json()['heartbeatList'].items()
             }
-        except Exception as e:
+        except Exception:
             self.ready = False
-            raise e
+            raise
         self._got_data.set()
         self.ready = True
         output = {}

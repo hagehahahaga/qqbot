@@ -2,13 +2,20 @@
   "arcade": [
     "管理机厅",
     "使用格式:",
-    "   arcade list - 列出所有机厅",
+    "群聊可用指令:",
+    "   arcade list - 列出群内所有机厅",
     "   arcade add <name> - 添加机厅",
     "   arcade remove <name> - 删除机厅",
     "   arcade option <name> add <subname> - 添加机厅别名",
     "   arcade option <name> remove <subname> - 删除机厅别名",
+    "   arcade hash <name> - 获取机厅hash",
+    "群聊和私聊均可用指令:",
+    "   arcade binding list - 列出已绑定的机厅",
+    "   arcade binding <hash> add <subname> - 为绑定的机厅添加自定义名称",
+    "   arcade binding <hash> remove <subname> - 移除绑定的机厅的自定义名称",
+    "   arcade bind <hash> - 绑定一个机厅",
+    "   arcade unbind <hash/name> - 解绑一个机厅(传入名称时自动匹配)",
     "注意事项:",
-    "   - 仅在群聊中可用",
     "   - 删除机厅需要先删除所有别名",
     "   - 不能使用别名删除机厅"
   ]

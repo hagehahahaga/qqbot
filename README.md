@@ -29,12 +29,17 @@ extra 组件是独立的功能模块，通过标准的注册接口集成到机�
 
 ### 消息处理流程
 
-1. 机器人接收到消息后，首先尝试匹配命令。
-2. 如果匹配到命令，则执行对应的命令函数。
-3. 如果未匹配到命令，则按注册顺序检查触发器条件。
-4. 如果触发器条件满足，则执行触发器响应函数。
-5. 后台服务独立运行，定时执行任务，不受消息流影响。
-6. 游戏系统通过命令或触发器启动，管理独立的游戏会话。
+1. 机器人接收到消息后，获取该消息发送者的 session。
+2. 如果 session 处于等待输入状态（`session.getting`），将消息传递给管道的接收端，跳过后续处理。
+3. 尝试从消息文本中解析指令名。
+4. 如果是群消息且开启了 `must_at` 模式，检查消息是否 @ 了机器人，若无则忽略。
+5. 如果解析结果不是有效的 `Command` 对象（即未识别为指令），按注册顺序检查触发器条件。首个匹配的触发器执行其响应函数后立即返回，不再继续匹配。
+6. 如果 session 存在进行中的命令（`lock.locked()`），由 session 处理该消息。
+7. 若指令为 `None`（群消息中未加指令前缀），或为空字符串（仅 @ 机器人无文本），提示"你好像没有输入指令?"。
+8. 若指令为不存在的指令名（字符串），提示该指令不可识别。
+9. 匹配到有效命令时，执行对应的命令函数。
+10. 后台服务独立运行，定时执行任务，不受消息流影响。
+11. 游戏系统通过命令或触发器启动，管理独立的游戏会话。
 
 ### 组件注册顺序
 
@@ -82,11 +87,11 @@ def weather_command(message, session, args):
 
 #### 1.4 修饰器
 
-- `@cost(points)`: 命令消耗用户点数
-- `@group_only`: 仅限群聊使用
-- `@private_only`: 仅限私聊使用
-- `@authorize(level)`: 需要指定权限等级
-- `@ask_for_wait`: 在执行前发送等待提示
+- `@cost(points)`: 命令消耗用户点数。通过 `assert` 检查点数是否充足，不足时抛出 `AssertionError` 提示。执行成功后自动扣除点数并发送消耗通知。同时传递被装饰函数的返回值。
+- `@group_only`: 仅限群聊使用。通过 `assert` 检查消息类型，同时传递被装饰函数的返回值。
+- `@private_only`: 仅限私聊使用。
+- `@authorize(level)`: 需要指定权限等级。
+- `@ask_for_wait`: 在执行前发送"别急"等待提示，执行完毕后自动删除该提示。同时传递被装饰函数的返回值。
 
 #### 1.5 命令函数签名
 
@@ -363,6 +368,8 @@ def custom_group_method(self, param):
 
 extra 组件可通过 `abstract.apis.table` 模块访问数据库表：
 
+**基础查询方法**：
+
 ```python
 from abstract.apis.table import USER_TABLE, GROUP_OPTION_TABLE
 
@@ -372,6 +379,24 @@ user_data = USER_TABLE.get(f'where id = {user_id}', attr='points, sign_in_date')
 # 更新群组选项
 GROUP_OPTION_TABLE.set('id', group_id, 'weather_notice', 1)
 ```
+
+**使用上下文管理器执行自定义 SQL**：
+
+`Table` 对象支持 `with` 语句作为上下文管理器，返回持有 `table_name` 属性的 cursor 对象，适用于执行复杂 SQL：
+
+```python
+from abstract.apis.table import USER_TABLE
+
+with USER_TABLE as cursor:
+    cursor.execute(
+        f'update {cursor.table_name} '
+        f'set points = points + 10 '
+        f'where id = %s',
+        (user_id,)
+    )
+```
+
+使用 `with TABLE as cursor` 时自动获取锁并提交事务。SQL 中通过 `cursor.table_name` 引用表名。
 
 ### 9. 消息发送
 
@@ -413,6 +438,18 @@ LOG.ERR('错误日志')
 | `GAME_MANAGER` | `GameManager` | 游戏管理器，用于注册游戏 |
 | `USER_TABLE` | `Table` | 用户数据表 |
 | `GROUP_OPTION_TABLE` | `Table` | 群组选项表 |
+
+### Table 核心方法
+
+| 方法 | 说明 |
+|------|------|
+| `get(conditions, attr='*')` | 查询单条记录 |
+| `get_all(conditions, attr='*')` | 查询多条记录 |
+| `set(key, value, attr, target)` | 更新指定字段 |
+| `add(*args)` | 插入新记录（支持变长参数、元组、字符串三种重载） |
+| `delete(key, value)` | 删除记录。`key` 为字符串时按单字段删除；`key` 为元组时按多字段组合条件删除 |
+| `find_exists(key, value)` | 检查记录是否存在。`key` 为字符串时按单字段检查；`key` 为元组时按多字段组合条件检查。均使用参数化查询防止 SQL 注入 |
+| `__enter__ / __exit__` | 上下文管理器支持，返回带 `table_name` 属性的 cursor 对象 |
 
 ### 常用装饰器
 
@@ -575,9 +612,14 @@ def update_user_points(user_id, delta):
     user = User(user_id)
     user.points += delta
     
-    # 同时直接操作数据库表
-    current_points = USER_TABLE.get(f'where id = {user_id}', attr='points')[0]
-    USER_TABLE.set('id', user_id, 'points', current_points + delta)
+    # 使用上下文管理器执行自定义 SQL
+    with USER_TABLE as cursor:
+        cursor.execute(
+            f'update {cursor.table_name} '
+            f'set points = points + %s '
+            f'where id = %s',
+            (delta, user_id)
+        )
 ```
 
 ### 服务示例：定时提醒
@@ -672,5 +714,5 @@ def daily_reminder():
 
 ---
 
-*文档版本: 1.0*
-*最后更新: 2026-04-23*
+*文档版本: 1.1*
+*最后更新: 2026-04-30*

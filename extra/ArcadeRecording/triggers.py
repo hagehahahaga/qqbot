@@ -21,9 +21,10 @@ def get_group_message_text(message: MESSAGE) -> str:
 
 
 def get_arcade_num_condition(message: MESSAGE) -> bool:
-    text = get_group_message_text(message)
+    text = message.get_parts_by_type(TextMessage)
     if not text:
         return False
+    text = text[0].text
     SUFFIEXES = ('几', 'j')
     for suffix in SUFFIEXES:
         if text.endswith(suffix):
@@ -40,14 +41,23 @@ def get_arcade_num(message: MESSAGE, session: Session):
             text = text[:-len(suffix)]
             break
 
-    if not text:
+    target = message.target if isinstance(message, GroupMessage) else message.sender
+
+    if not text and isinstance(target, Group):
         arcade(message, SESSION_MANAGER.get_session(message.sender), ['list'])
         return
 
-    result = message.target.get_arcade_num(text)
-    if not result:
-        message.reply_text(f'此群未设置机厅或别名 {text}.')
-        return
+    try:
+        result = target.get_arcade_binding_num(text)
+    except AssertionError:
+        if isinstance(target, User):
+            message.reply_text(f'没有绑定机厅为 {text}.')
+            return
+        try:
+            result = target.get_arcade_num(text)
+        except AssertionError:
+            message.reply_text(f'没有名为 {text} 的机厅或绑定.')
+            return
 
     if not any(result):
         message.reply_text(f'今天 {text} 还没有记录人数.')
@@ -74,17 +84,29 @@ def update_arcade_num(message: MESSAGE, session: Session):
     text = message.get_parts_by_type(TextMessage)[0].text
 
     digits = ''
+    plus: Optional[bool] = None  # 判断是否加减, None为报数, True为加, 反之为减
     for letter in text[::-1]:
         if letter.isdigit():
             digits += letter
-        else:
-            break
+            continue
+        match letter:
+            case '+' | '加':
+                plus = True
+            case '-' | '减':
+                plus = False
+        break
     arcade = text[:-len(digits)]
+    if not plus is None:
+        arcade = arcade[:-1]
     num = int(digits[::-1])
 
     result = message.target.get_arcade_num(arcade)
     if not result:
         return
+    if plus:
+        num += result
+    elif plus is False:
+        num = result - num
     if num > 255:
         message.reply_text('开玩笑呢? 怎么可能这么多人?')
         return

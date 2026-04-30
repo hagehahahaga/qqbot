@@ -77,10 +77,10 @@ class BaseGame(abc.ABC):
             self.status = 'CANCELED'
             self.invite_thread_group.stop(0)
             raise CommandCancel('游戏被发起者取消.')
-        except Exception as e:
+        except Exception:
             self.status = 'INVITE_FAIL'
             self._game_manager.free_game(self)
-            raise e
+            raise
 
         if self.status == 'INVITE_FAIL':
             self._game_manager.free_game(self)

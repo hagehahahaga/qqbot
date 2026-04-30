@@ -50,9 +50,9 @@ def todo(message: MESSAGE, session: Session, args):
         case ['finish', text]:
             assert TODOLIST_TABLE.find_exists('(user_id, do)', (message.sender.id, text)), f'你并没有设置 {text} 这个待办.'
             assert TODOLIST_TABLE.find_exists('(user_id, do, finished)', (message.sender.id, text, False)), f'{text} 这个待办已经完成了.'
-            with TODOLIST_TABLE:
-                TODOLIST_TABLE.cursor.execute(
-                    f"UPDATE {TODOLIST_TABLE.name} SET `finished` = 1 WHERE (`user_id`, `do`) = (%s, %s)",
+            with TODOLIST_TABLE as cursor:
+                cursor.execute(
+                    f"UPDATE {cursor.table_name} SET `finished` = 1 WHERE (`user_id`, `do`) = (%s, %s)",
                     (message.sender.id, text)
                 )
             message.reply_text(
