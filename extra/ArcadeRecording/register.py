@@ -516,6 +516,11 @@ def get_binding_arcades(self) -> dict:
         - update_user: 更新用户（User类型），数据过期或未记录时为None
         - hash: 机厅哈希标识
     """
+    if isinstance(self, Group):
+        type = 'group'
+    else:
+        type = 'private'
+
     hashes = self.get_arcade_binding_hashes()
     response = {}
     for hash in hashes:
@@ -524,8 +529,8 @@ def get_binding_arcades(self) -> dict:
             cursor.execute(
                 f'select names '
                 f'from {cursor.table_name} '
-                f'where hash = %s',
-                (hash,)
+                f'where hash = %s and type = %s and id = %s',
+                (hash, type, self.id)
             )
             names = tuple(json.loads(cursor.fetchone()[0]))
         response[names] = arcade
