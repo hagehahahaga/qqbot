@@ -419,6 +419,11 @@ def add_arcade_binding_name(self, hash: bytes, name: str):
     :param name: 要添加的自定义名称
     :raises AssertionError: 名称格式不符合要求、名称重复、或未绑定此机厅
     """
+    if isinstance(self, Group):
+        type = 'group'
+    else:
+        type = 'private'
+
     assert json.dumps(name, ensure_ascii=False) == f'"{name}"', '别名不符合要求.'
     if isinstance(self, Group):
         assert name not in self.get_arcade_names(), '有重复命名.'
@@ -428,8 +433,8 @@ def add_arcade_binding_name(self, hash: bytes, name: str):
         cursor.execute(
             f'update {cursor.table_name} '
             f'set names = json_array_append(names, "$", %s) '
-            f'where hash = %s',
-            (name, hash)
+            f'where hash = %s and type = %s and id = %s',
+            (name, hash, type, self.id)
         )
     return _get_arcade(hash)
 
@@ -448,14 +453,19 @@ def remove_arcade_binding_name(self, hash: bytes, name: str):
     :param name: 要移除的自定义名称
     :raises AssertionError: 绑定名称不存在，或未绑定此机厅
     """
+    if isinstance(self, Group):
+        type = 'group'
+    else:
+        type = 'private'
+
     assert name in self.get_arcade_binding_names(), f'没有绑定别名为 {name} 的机厅.'
     assert hash in self.get_arcade_binding_hashes(), f'没有绑定这个机厅: {hash.hex()}'
     with ARCADES_BIND_TABLE as cursor:
         cursor.execute(
             f'update {cursor.table_name} '
             f'set names = json_remove(names, json_unquote(json_search(names, "one", %s))) '
-            f'where hash = %s',
-            (name, hash)
+            f'where hash = %s and type = %s and id = %s',
+            (name, hash, type, self.id)
         )
     return _get_arcade(hash)
 

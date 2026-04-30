@@ -41,7 +41,7 @@ def arcade(message: MESSAGE, session: Session, args):
                         [TextMessage(text)]
                     ) for text in ['已绑定以下机厅'] + [
                         (
-                            ','.join(names) if names else
+                            f'{names}' if names else
                             '未设置别名'
                         ) +
                         (
