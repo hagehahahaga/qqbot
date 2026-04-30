@@ -4,7 +4,7 @@ from typing import Optional, Literal
 from abstract.bases.exceptions import CommandCancel
 from abstract.bases.log import LOG
 from abstract.target import User
-from abstract.bases.custom_thread import CustomThreadGroup
+from abstract.bases.custom_thread import CustomThread, CustomThreadGroup
 from abstract.session import SESSION_MANAGER
 from abstract.message import GroupMessage, AtMessage, TextMessage
 from abstract.bases.config import CONFIG
@@ -116,7 +116,7 @@ class BaseGame(abc.ABC):
             return
 
         from abstract.bot import BOT
-        threading.Thread(target=BOT.router, args=(message_got.data,), daemon=True).start()
+        CustomThread(target=BOT.router, args=(message_got.data,), daemon=True).start()
 
     def start(self, message: GroupMessage):
         self.status = 'RUNNING'

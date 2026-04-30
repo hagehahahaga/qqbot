@@ -5,6 +5,7 @@ from types import FrameType
 
 from abstract.bases.exceptions import *
 from abstract.bases.log import LOG
+from abstract.bases.custom_thread import CustomThread
 from abstract.target import User
 from abstract.message import MESSAGE, TextMessage, MESSAGE_PART, ReplyMessage
 
@@ -23,8 +24,8 @@ class Session:
         self.pipe = queue.Queue()
         self.getting = False
         self.running_command: Optional[abstract.command.Command] = None
-        self.running_thread: Optional[abstract.bases.custom_thread.CustomThread] = None
-        threading.Thread(target=self.auto_free, daemon=True).start()
+        self.running_thread: Optional[CustomThread] = None
+        CustomThread(target=self.auto_free, daemon=True).start()
 
     def __enter__(self):
         self.lock.acquire()

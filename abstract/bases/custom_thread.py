@@ -1,5 +1,6 @@
 from abstract.bases.importer import threading, sys, dispatch, itertools
 from typing import Optional, Any, Callable, Literal, Iterable
+from types import TracebackType
 
 from abstract.bases.exceptions import CommandCancel
 
@@ -10,6 +11,7 @@ class CustomThread(threading.Thread):
         self.status: Literal['IDLE', 'RUNNING', 'COMPLETED', 'CANCELLING', 'CANCELLED', 'ERROR'] = 'IDLE'
         self._result: Optional[Any] = None
         self._exception: Optional[Exception] = None
+        self._traceback: Optional[TracebackType] = None
         self.callback: set[Callable] = set()
 
     def _trace(self, frame: Any, event: str, arg: Any) -> Optional[Callable]:
@@ -33,7 +35,7 @@ class CustomThread(threading.Thread):
         if self.is_alive():
             raise TimeoutError('Thread did not finish within the specified timeout.')
         if self._exception:
-            raise self._exception
+            raise self._exception.with_traceback(self._traceback)
         return self._result
 
     def register_callback(self, function: Callable) -> None:
@@ -58,14 +60,15 @@ class CustomThread(threading.Thread):
         self.status = 'RUNNING'
         try:
             original_trace = sys.gettrace()
-            sys.settrace(self._trace)  # 只对当前线程设置跟踪，而不是全局所有线程
+            sys.settrace(self._trace)
             self._result = self._target(*self._args, **self._kwargs)
             self.status = 'COMPLETED'
         except CommandCancel as e:
-            self._exception = e  # 正确存储 CommandCancel 异常
+            self._exception = e
             self.status = 'CANCELLED'
         except Exception as e:
             self._exception = e
+            self._traceback = e.__traceback__
             self.status = 'ERROR'
             raise
         finally:
