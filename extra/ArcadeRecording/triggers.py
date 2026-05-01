@@ -116,6 +116,9 @@ def update_arcade_num(message: MESSAGE, session: Session):
     if num > 255:
         message.reply_text('开玩笑呢? 怎么可能这么多人?')
         return
+    if num < 0:
+        message.reply_text(f'现在才{result}个人. 负数人数是有棍母吗?')
+        return
 
     with session:
         timeout = 10
