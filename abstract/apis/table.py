@@ -1,4 +1,5 @@
-from abstract.bases.importer import functools, threading, pymysql, dispatch
+from abstract.bases.importer import functools, threading, pymysql, dispatch, time
+
 
 from abstract.bases.config import CONFIG
 from abstract.bases.log import LOG
@@ -142,7 +143,12 @@ DEFAULT = Default()
 NULL = Null()
 
 LOG.INF('Connecting to MySQL database...')
-sql_db = pymysql.connect(**CONFIG['sql_config'])
+while True:
+    try:
+        sql_db = pymysql.connect(**CONFIG['sql_config'])
+        break
+    except pymysql.MySQLError as e:
+        time.sleep(1)
 LOG.INF(f'Connected to MySQL database: {sql_db.get_server_info()} at {sql_db.host}:{sql_db.port}')
 LOG.INF('Loading database tables...')
 USER_TABLE = Table(sql_db, 'qq_users')
