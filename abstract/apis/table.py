@@ -148,6 +148,7 @@ while True:
         sql_db = pymysql.connect(**CONFIG['sql_config'])
         break
     except pymysql.MySQLError as e:
+        LOG.WAR(f'MySQL error: {e}')
         time.sleep(1)
 LOG.INF(f'Connected to MySQL database: {sql_db.get_server_info()} at {sql_db.host}:{sql_db.port}')
 LOG.INF('Loading database tables...')
