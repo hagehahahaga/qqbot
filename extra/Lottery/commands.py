@@ -8,7 +8,7 @@ from abstract.session import Session
 @COMMAND_GROUP.register_command(('lottery', '彩票', '抽奖'), info='5个韭菜盒子购买一个韭菜盒子彩票')
 @cost(5)
 def lottery(message: MESSAGE, session: Session):
-    if data.next_time > time.time():
+    if data.time > time.time():
         raise CommandCancel('接盘侠还未赶来...')
 
     data.pool += 5
@@ -33,7 +33,7 @@ def lottery(message: MESSAGE, session: Session):
             message.reply_text('未中奖...')
 
     if data.pool < 0:
-        data.next_time = time.time() + 5 * 60
+        data.time = time.time() + 5 * 60
         data.pool = 0
         message.reply_text('彩票店破产跑路了! 接盘侠预计在 5 分钟后赶来.')
         return
