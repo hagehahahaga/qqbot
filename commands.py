@@ -307,42 +307,6 @@ def sign(message: MESSAGE, session: Session):
     message.reply_text(f'今日签到获得韭菜盒子: {points}个.')
 
 
-@COMMAND_GROUP.register_command(('lottery', '彩票', '抽奖'), info='5个韭菜盒子购买一个韭菜盒子彩票')
-@cost(5)
-def lottery(message: MESSAGE, session: Session):
-    from abstract.bases.importer import random
-    if CONFIG["next_lottery_time"] > time.strftime('%Y%m%d%H%M%S'):
-        raise CommandCancel('接盘侠还未赶来...')
-
-    CONFIG['lottery_pool'] += 5
-    match random.randint(1, 100):
-        case score if score <= 1:
-            message.reply_text(f'特大奖来袭! 奖池清空, +{CONFIG["lottery_pool"]}. 无语, 典型的特大男人思维.')
-            message.sender.add_points(CONFIG["lottery_pool"])
-            CONFIG["lottery_pool"] = 20
-        case score if score <= 10:
-            message.reply_text('大奖. +15')
-            message.sender.add_points(20)
-            CONFIG['lottery_pool'] -= 20
-        case score if score <= 20:
-            message.reply_text('小奖. +5')
-            message.sender.add_points(10)
-            CONFIG['lottery_pool'] -= 10
-        case score if score <= 50:
-            message.reply_text('不亏. +0')
-            message.sender.add_points(5)
-            CONFIG['lottery_pool'] -= 5
-        case _:
-            message.reply_text('未中奖...')
-
-    if CONFIG["lottery_pool"] < 0:
-        CONFIG["next_lottery_time"] = (time.strftime('%Y%m%d%H') + str(time.localtime().tm_min + 5) +
-                                       time.strftime('%S'))
-        CONFIG["lottery_pool"] = 0
-        message.reply_text('彩票店破产跑路了! 接盘侠预计在 5 分钟后赶来.')
-    message.reply_text(f'当前奖池: {CONFIG["lottery_pool"]}个.')
-
-
 @COMMAND_GROUP.register_command(('notice', '提醒'), 1, '提醒系统')
 def notice(message: MESSAGE, session: Session, args):
     match type(message):

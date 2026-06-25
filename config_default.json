@@ -27,8 +27,6 @@
       "ascii2d_proxy": null
     }
   },
-  "lottery_pool": 0,
-  "next_lottery_time": "00000000000000",
   "log_level": "INF",
   "ai": {
     "api_key": "",

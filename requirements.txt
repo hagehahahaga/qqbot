@@ -12,3 +12,4 @@ requests
 plum-dispatch
 gitpython
 coredumpy
+persistedstate
