@@ -28,7 +28,6 @@ def main():
     while True:
         try:
             login_info = FRAME_SERVER.get_login_info()
-            assert login_info['user_id'] == BOT.id
         except (requests.ConnectionError, KeyError):
             time.sleep(1)
             continue

@@ -10,7 +10,9 @@
     "database": ""
   },
   "bot_config": {
-    "id": 0,
+    "available_ids": [
+      0
+    ],
     "must_at": false,
     "command_prefixes": [
       ""
@@ -21,42 +23,28 @@
   },
   "commands_configs": {
     "random_pic": {
-      "default_tags": ""
+      "default_tags": "tag=萝莉|少女&tag=白丝|黑丝"
     },
     "pic_searching": {
-      "ascii2d_proxy": null
+      "ascii2d_proxy": ""
+    },
+    "chat_ai": {
+      "api_key": "",
+      "base_url": "",
+      "characters": {
+        "": {
+          "vision": false,
+          "r18": false,
+          "prompts": [
+            {
+              "role": "system",
+              "content": ""
+            }
+          ]
+        }
+      }
     }
   },
   "log_level": "INF",
-  "ai": {
-    "api_key": "",
-    "base_url": "",
-    "characters": {
-      "": {
-        "vision": false,
-        "r18": false,
-        "prompts": [
-          {
-            "role": "system",
-            "content": ""
-          }
-        ]
-      }
-    }
-  },
-  "vits_url": {
-    "tts": "",
-    "svc": "",
-    "speakers": {
-      "": {
-        "tts": "",
-        "svc": ""
-      }
-    }
-  },
-  "weather_api": {
-    "api_host": "",
-    "api_key": ""
-  },
   "zh_font_path": "C:/Windows/Fonts/msyh.ttc"
 }
