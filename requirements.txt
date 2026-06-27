@@ -13,3 +13,4 @@ plum-dispatch
 gitpython
 coredumpy
 persistedstate
+pydantic-string-url

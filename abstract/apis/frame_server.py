@@ -332,5 +332,5 @@ class OneBotHttpServer(FrameServer):
 
 
 LOG.INF('Loading Frame Server API...')
-FRAME_SERVER = OneBotHttpServer(**CONFIG['frame_server_config'])
+FRAME_SERVER = OneBotHttpServer(**CONFIG.frame_server_config.model_dump())
 LOG.INF(f'Frame Server API loaded: {FRAME_SERVER.host}')

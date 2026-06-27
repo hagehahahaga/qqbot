@@ -60,7 +60,7 @@ class _LogManager:
             (
                     self.path.parent / f'{time.strftime("%Y%m%d %H%M%S")}.err'
             ).write_text(error)
-            for id in CONFIG['operators']:
+            for id in CONFIG.bot_config.operators:
                 PrivateMessage(
                     error,
                     User(id)
@@ -85,6 +85,6 @@ class _LogManager:
         return cls._Log(path / f'{time.strftime("%Y%m%d %H%M%S")}.log', print_level=print_level, write_level=write_level)
 
 
-LOG = _LogManager(write_level=CONFIG.get('log_level', 'INF'))
+LOG = _LogManager(write_level=CONFIG.log_level)
 LOGS_HISTORY = []
 LOGS_UPDATE_QUEUE = queue.Queue()

@@ -8,6 +8,7 @@ from abstract.apis.table import USER_TABLE, GROUP_OPTION_TABLE, GAME_DATA_TABLE
 
 class User:
     role: Literal["member", "admin", "owner", "operator"]
+    init_tables = {USER_TABLE, GAME_DATA_TABLE}
     """
     用户角色:
     - member: 普通成员
@@ -21,10 +22,9 @@ class User:
         self.id = data['user_id']
         self.name = data['nickname']
         self.role = data.get('role', 'member')
-        if self.id in CONFIG.get('operators', []):
+        if self.id in CONFIG.bot_config.operators:
             self.role = 'operator'
-        init_tables = {USER_TABLE, GAME_DATA_TABLE}
-        for table in init_tables:
+        for table in self.init_tables:
             if not table.find_exists('id', self.id):
                 table.add(f'{self.id}' + ', DEFAULT' * (table.get_len() - 1))
 

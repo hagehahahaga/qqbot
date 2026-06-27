@@ -2,12 +2,13 @@ import threading, requests, functools
 
 from abstract.bases.exceptions import CommandCancel
 from abstract.bases.log import LOG
-from abstract.bases.config import CONFIG
+
+from .config import CONFIG
 
 
 class Speaker:
-    TTS_URL = CONFIG.get('vits', {}).get('tts', '').removesuffix('/')
-    SVC_URL = CONFIG.get('vits', {}).get('svc', '').removesuffix('/')
+    TTS_URL = CONFIG.tts_url.removesuffix('/')
+    SVC_URL = CONFIG.svc_url.removesuffix('/')
     TTS_LOCK = threading.Lock()
     SVC_LOCK = threading.Lock()
 
@@ -91,7 +92,7 @@ class SpeakerManager(dict):
 
 LOG.INF('Loading VITS speaker modules...')
 SPEAKER_MANAGER = SpeakerManager(
-    CONFIG.get("vits", {}).get("speakers", [])
+    CONFIG.speakers
 )
 LOG.INF(
     f'Loaded {len(SPEAKER_MANAGER)} VITS speaker modules:'

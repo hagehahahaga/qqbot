@@ -1,7 +1,5 @@
 from abstract.bases.importer import abc, base64, pathlib, requests, dispatch, Iterable, typing, PIL, io, local_time, \
     at_night
-from abstract.bases.importer import SENTINEL, datetime
-from typing import Optional
 
 from abstract.bases.config import CONFIG
 from abstract.target import User, Group
@@ -148,7 +146,7 @@ class TextImageMessage(ImageMessage):
             text_color = (0, 0, 0)
 
         # 设置字体
-        font_path = CONFIG['zh_font_path']
+        font_path = CONFIG.zh_font_path
         font_size = 24
         font = PIL.ImageFont.truetype(font_path, font_size)
 
@@ -318,6 +316,18 @@ class BaseMessage(abc.ABC):
         FRAME_SERVER.delete_message(self.message_id)
         LOG.DEB(f'Deleted message {self}')
 
+    @classmethod
+    def register_func(cls, func):
+        assert not hasattr(cls, func.__name__), f"注册失败!方法 {func.__name__} 已存在，覆盖需要使用override函数."
+        setattr(cls, func.__name__, func)
+        return func
+
+    @classmethod
+    def override(cls, func):
+        assert hasattr(cls, func.__name__), f"注册失败! 原方法 {func.__name__} 不存在, 创建需要使用register_func函数."
+        setattr(cls, func.__name__, func)
+        return func
+
 
 class PrivateMessage(BaseMessage):
     send_api = FRAME_SERVER.send_private_msg
@@ -325,7 +335,7 @@ class PrivateMessage(BaseMessage):
     @dispatch
     def __init__(self, data: dict):
         super().__init__(data)
-        self.target: User = User(CONFIG['bot_config']['id'])
+        self.target = _BOT
 
     @dispatch
     def __init__(self, text: str | None, target: User):
@@ -339,7 +349,7 @@ class PrivateMessage(BaseMessage):
             messages = [messages]
         self.messages = messages
         self.target = target
-        self.sender = User(CONFIG['bot_config']['id'])
+        self.sender = _BOT
 
     @dispatch
     def reply(self, message: list[NodeMessage]) -> MESSAGE:
@@ -401,7 +411,7 @@ class GroupMessage(BaseMessage):
             messages = [messages]
         self.messages = messages
         self.target = target
-        self.sender = User(CONFIG['bot_config']['id'])
+        self.sender = _BOT
 
     @dispatch
     def reply(self, message: list[NodeMessage]) -> MESSAGE:
@@ -498,3 +508,6 @@ def split_when(inpu, condition) -> typing.Generator[list[MESSAGE_PART] | MESSAGE
 
     if output:
         yield output
+
+
+_BOT = User(FRAME_SERVER.get_login_info()['user_id'])

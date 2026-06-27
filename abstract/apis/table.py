@@ -145,7 +145,7 @@ NULL = Null()
 LOG.INF('Connecting to MySQL database...')
 while True:
     try:
-        sql_db = pymysql.connect(**CONFIG['sql_config'])
+        sql_db = pymysql.connect(**CONFIG.sql_config.model_dump())
         break
     except pymysql.MySQLError as e:
         LOG.WAR(f'MySQL error: {e}')

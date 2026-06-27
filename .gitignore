@@ -2657,3 +2657,6 @@ __pycache__/
 /test napcat/
 /extra/MaimaiDXStatus/test/config.json
 /dumps/
+/.langgraph_api/
+/extra/VITS/config.json
+/extra/Weather/config.json

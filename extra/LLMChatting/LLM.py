@@ -149,10 +149,10 @@ class LLM:
 LOG.INF('Loading LLM modules...')
 CHAT_AGENTS = {
     name: LLM(
-        openai.OpenAI(base_url=CONFIG['ai']['base_url'], api_key=CONFIG['ai']['api_key']),
+        openai.OpenAI(base_url=CONFIG.commands_configs.chat_ai.base_url, api_key=CONFIG.commands_configs.chat_ai.api_key),
         AI_MESSAGES_TABLE,
         name,
-        **CONFIG['ai']['characters'][name]
-    ) for name in CONFIG['ai']['characters']
+        **CONFIG.commands_configs.chat_ai.characters[name].model_dump()
+    ) for name in CONFIG.commands_configs.chat_ai.characters
 }
 LOG.INF(f'Loaded {len(CHAT_AGENTS)} LLMs: {", ".join(CHAT_AGENTS.keys())}')

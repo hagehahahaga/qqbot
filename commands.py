@@ -62,7 +62,7 @@ def pic_searching(message: MESSAGE, session: Session, image: list[ImageMessage])
     if not input_url:
         raise CommandCancel('获取图片失败!')
     apis = [
-        (Ascii2D(bovw=True, proxies=CONFIG['commands_configs']['pic_searching'].get('ascii2d_proxy'), verify_ssl=False), 1),
+        (Ascii2D(bovw=True, proxies=CONFIG.commands_configs.pic_searching.ascii2d_proxy, verify_ssl=False), 1),
         (SauceNAO(api_key='bd4378a4695ff0145d32d950bdbe890a46387082'), 0),
         (BaiDu(), 0),
         (Yandex(), 0),
@@ -100,7 +100,7 @@ def random_pic(message: MESSAGE, session: Session, args):
             url='https://api.lolicon.app/setu/v2?' +
                 (
                     args[0] if args else
-                    CONFIG.get('commands_configs', {}).get('random_pic', {}).get('default_tags', '')
+                    CONFIG.commands_configs.random_pic.default_tags
                 ) +
                 '&size=regular&size=original&'
                 'excludeAI=true&'

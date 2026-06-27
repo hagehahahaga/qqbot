@@ -1,5 +1,5 @@
 from abstract.bases.exceptions import CommandCancel
-from abstract.bases.importer import operator, LAST_COMMIT, psutil, platform, json
+from abstract.bases.importer import operator, LAST_COMMIT, psutil, platform, json, time
 from typing import Callable
 
 import abstract
@@ -33,18 +33,27 @@ class Bot:
             frame_server: abstract.apis.frame_server.FrameServer,
             session_manager: abstract.session.SessionManager,
             command_group: abstract.command.CommandGroup,
-            id: int,
+            available_ids: list[int],
             must_at=True,
             command_prefixes=('', )
     ):
         self.frame_server = frame_server
         self.session_manager = session_manager
         self.command_group = command_group.set_prefixes(command_prefixes)
-        self.id = id
+        self.available_ids = available_ids
         self.must_at = must_at
         self.services: dict[str, Service] = {}
         self.triggers: list[tuple[Callable[[MESSAGE], bool], Callable]] = []
         self.help_text = {}
+        while True:
+            try:
+                self.id = frame_server.get_login_info()['user_id']
+                assert self.id in available_ids, 'It seems you have logged wrong account?'
+            except requests.ConnectionError, KeyError:
+                LOG.WAR('Frame server connection failed, retrying...')
+                time.sleep(1)
+                continue
+            break
 
     def register_service(self, service_name: str, loop_delay: int | float, auto_restart=False):
         """
@@ -211,7 +220,7 @@ class Bot:
             case 'notify':
                 match data['sub_type']:
                     case 'poke':
-                        if data['target_id'] != CONFIG['bot_config']['id']:
+                        if data['target_id'] not in CONFIG.bot_config.available_ids:
                             return
                         if group_id := data.get('group_id'):
                             self.frame_server.poke(data['user_id'], group_id)
@@ -229,7 +238,7 @@ class Bot:
 
 
 LOG.INF('Initializing bot...')
-BOT = Bot(FRAME_SERVER, SESSION_MANAGER, COMMAND_GROUP, **CONFIG['bot_config'])
+BOT = Bot(FRAME_SERVER, SESSION_MANAGER, COMMAND_GROUP, **CONFIG.bot_config.model_dump(exclude={'operators'}))
 LOG.INF('Bot initialized successfully.')
 
 

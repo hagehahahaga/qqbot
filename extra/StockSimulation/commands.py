@@ -1,7 +1,7 @@
 import time
 
 import abstract
-from abstract.bases.config import CONFIG
+from abstract.bot import BOT
 from abstract.command import COMMAND_GROUP
 from abstract.message import MESSAGE
 from abstract.session import Session
@@ -18,7 +18,7 @@ def stock(message: MESSAGE, session: Session, args):
     commission = message.sender.get_commission()
     trade = message.sender.get_trade()
     STOCK_TABLE.set(
-        'id', CONFIG["robot_id"], 'commission_time', f"'{time.strftime('%Y-%m-%d %H:%M:%S')}'"
+        'id', BOT.id, 'commission_time', f"'{time.strftime('%Y-%m-%d %H:%M:%S')}'"
     )
     if str(commission['time']).split(' ')[0] < date and commission['type'] != 'none':
         message.sender.cancel_commission()

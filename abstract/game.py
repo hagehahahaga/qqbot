@@ -1,4 +1,6 @@
-from abstract.bases.importer import abc, itertools, threading
+import operator
+
+from abstract.bases.importer import abc, itertools
 from typing import Optional, Literal
 
 from abstract.bases.exceptions import CommandCancel
@@ -62,7 +64,7 @@ class BaseGame(abc.ABC):
             assert len(set(t.id for t in targets)) == len(targets), '邀请列表中存在重复用户.'
             assert not message.sender.in_game_blacklists(targets), '你邀请的玩家中有将你拉黑的用户.'
             assert self.members[0] not in targets, '不能邀请房主自己加入游戏.'
-            assert User(CONFIG['bot_config']['id']) not in targets, '不能邀请bot本体加入游戏.'
+            assert not set(CONFIG.bot_config.available_ids) & set(map(operator.attrgetter('id'), targets)), '不能邀请bot本体加入游戏.'
             invite_message = message.reply(
                 *(AtMessage(target) for target in targets),
                 TextMessage(' '),

@@ -24,7 +24,7 @@ def chat(message: GroupMessage, session: Session):
                     for message_part in part:
                         match type(message_part):
                             case abstract.message.AtMessage:
-                                if message_part.target.id == CONFIG["robot_id"]:
+                                if message_part.target.id in CONFIG.bot_config.available_ids:
                                     continue
                                 text += message_part.target.__str__()
                             case abstract.message.TextMessage:

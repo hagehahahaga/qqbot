@@ -1,9 +1,10 @@
 import abc, pathlib, cairosvg, io, requests
 from PIL import Image
 
-from abstract.bases.config import CONFIG
 from abstract.bases.log import LOG
 from .exceptions import CityNotFound
+
+from .config import CONFIG
 
 
 class WeatherAPI(abc.ABC):
@@ -173,5 +174,5 @@ class QWeatherAPI(WeatherAPI):
 
 
 LOG.INF('Loading weather API...')
-WEATHER_API = QWeatherAPI(**CONFIG['weather_api'])
+WEATHER_API = QWeatherAPI(**CONFIG.model_dump())
 LOG.INF('Weather API loaded successfully.')
