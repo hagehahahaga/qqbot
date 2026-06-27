@@ -3,7 +3,7 @@ import threading, requests, functools
 from abstract.bases.exceptions import CommandCancel
 from abstract.bases.log import LOG
 
-from .config import CONFIG
+from .config import CONFIG, _Config
 
 
 class Speaker:
@@ -12,7 +12,7 @@ class Speaker:
     TTS_LOCK = threading.Lock()
     SVC_LOCK = threading.Lock()
 
-    def __init__(self, name: str, supports: dict[str, str]):
+    def __init__(self, name: str, supports: _Config._Speaker):
         self.name = name
         self.supports = supports
 
@@ -22,7 +22,7 @@ class Speaker:
             @functools.wraps(func)
             def wrapper(self, *args, **kwargs) -> bytes:
                 # 检查支持的功能类型
-                assert type in self.supports, f'此Speaker不支持{type}功能.'
+                assert type in self.supports.keys(), f'此Speaker不支持{type}功能.'
                 
                 try:
                     # 调用原始函数
@@ -55,7 +55,7 @@ class Speaker:
             return requests.post(
                 self.TTS_URL + '/voiceChangeModel',
                 data={
-                    'speaker': self.supports['tts'],
+                    'speaker': self.supports.tts_name,
                     'text': text
                 }
             )
@@ -69,7 +69,7 @@ class Speaker:
                     'audio': audio
                 },
                 data={
-                    'speaker': self.supports['svc'],
+                    'speaker': self.supports.svc_name,
                     'pitch': pitch
                 }
             )

@@ -510,4 +510,4 @@ def split_when(inpu, condition) -> typing.Generator[list[MESSAGE_PART] | MESSAGE
         yield output
 
 
-_BOT = User(FRAME_SERVER.get_login_info()['user_id'])
+_BOT = User(FRAME_SERVER.login_id)

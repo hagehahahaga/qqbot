@@ -3,8 +3,8 @@
   "svc_url": "",
   "speakers": {
     "": {
-      "tts": "",
-      "svc": ""
+      "tts_name": "",
+      "svc_name": ""
     }
   }
 }

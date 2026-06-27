@@ -2660,3 +2660,4 @@ __pycache__/
 /.langgraph_api/
 /extra/VITS/config.json
 /extra/Weather/config.json
+/extra/Lottery/data.yaml

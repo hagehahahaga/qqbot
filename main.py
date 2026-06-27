@@ -25,14 +25,6 @@ BOT.register_help_text('help_text.json')
 
 
 def main():
-    while True:
-        try:
-            login_info = FRAME_SERVER.get_login_info()
-        except (requests.ConnectionError, KeyError):
-            time.sleep(1)
-            continue
-        break
-
     opt = dict(getopt.getopt(sys.argv[1:], 'p', ['post'])[0])
     if '-p' in opt or '--post' in opt:
         for group_id in map(

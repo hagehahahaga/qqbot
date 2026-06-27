@@ -1,4 +1,4 @@
-from abstract.bases.importer import time
+from abstract.bases.importer import time, datetime
 
 from abstract.apis.table import *
 from abstract.bases.exceptions import *

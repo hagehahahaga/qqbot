@@ -1,4 +1,4 @@
-from abstract.bases.importer import abc, requests, dispatch, base64
+from abstract.bases.importer import abc, requests, dispatch, base64, time
 
 from abstract.bases.exceptions import *
 from abstract.bases.config import CONFIG
@@ -9,6 +9,14 @@ class FrameServer(abc.ABC):
     def __init__(self, host: str, token: str):
         self.host = host.removesuffix('/')
         self.token = token
+        while True:
+            try:
+                self.login_id = self.get_login_info()['user_id']
+            except (requests.ConnectionError, KeyError):
+                LOG.WAR('Frame server connection failed, retrying...')
+                time.sleep(1)
+                continue
+            break
 
     @abc.abstractmethod
     def get_msg(self, message_id: int) -> dict: ...

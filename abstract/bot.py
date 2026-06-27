@@ -45,15 +45,8 @@ class Bot:
         self.services: dict[str, Service] = {}
         self.triggers: list[tuple[Callable[[MESSAGE], bool], Callable]] = []
         self.help_text = {}
-        while True:
-            try:
-                self.id = frame_server.get_login_info()['user_id']
-                assert self.id in available_ids, 'It seems you have logged wrong account?'
-            except requests.ConnectionError, KeyError:
-                LOG.WAR('Frame server connection failed, retrying...')
-                time.sleep(1)
-                continue
-            break
+        self.id = FRAME_SERVER.login_id
+        assert self.id in available_ids, 'It seems you have logged wrong account?'
 
     def register_service(self, service_name: str, loop_delay: int | float, auto_restart=False):
         """
