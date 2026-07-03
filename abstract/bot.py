@@ -203,6 +203,10 @@ class Bot:
                     Group(data['group_id'])
                 ).send()
             case 'group_increase':
+                if data['user_id'] == BOT.id:
+                    GroupMessage('大家好啊, 我是说的道理~', Group(data['group_id'])).send()
+                    return
+                
                 GroupMessage(
                     [
                         AtMessage(User(data['user_id'])),
@@ -227,7 +231,6 @@ class Bot:
                 PrivateMessage('输入 help 查看帮助.', User(data['user_id'])).send()
             case 'group' if data['sub_type'] == 'invite':
                 self.frame_server.set_group_add_request(data['flag'], True)
-                GroupMessage('大家好啊, 我是说的道理~', Group(data['group_id'])).send()
 
 
 LOG.INF('Initializing bot...')

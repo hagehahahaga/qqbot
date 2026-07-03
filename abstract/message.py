@@ -264,7 +264,7 @@ class BaseMessage(abc.ABC):
                         )
                     )
                 case 'json':
-                    ...
+                    continue
                 case final:
                     raise ValueError(f'Uncased message type {final}!')
             self.messages.extend(message_part)
