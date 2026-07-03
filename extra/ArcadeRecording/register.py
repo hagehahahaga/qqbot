@@ -361,6 +361,9 @@ def bind_arcade(self, hash: bytes):
     :raises AssertionError: 机厅已绑定、或机厅不存在
     """
     if isinstance(self, Group):
+        assert not ARCADES_TABLE.find_exists(
+            ('group_id', 'hash'), (self.id, hash)
+        ), '不能绑定本群机厅.'
         type = 'group'
     else:
         type = 'private'
