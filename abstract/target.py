@@ -8,7 +8,7 @@ from abstract.apis.table import USER_TABLE, GROUP_OPTION_TABLE, GAME_DATA_TABLE
 
 class User:
     role: Literal["member", "admin", "owner", "operator"]
-    init_tables = {USER_TABLE, GAME_DATA_TABLE}
+    init_tables = [USER_TABLE, GAME_DATA_TABLE]
     """
     用户角色:
     - member: 普通成员
