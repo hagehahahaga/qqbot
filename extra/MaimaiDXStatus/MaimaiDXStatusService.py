@@ -29,7 +29,7 @@ class MaimaiDXStatusService:
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.0.0'
                     },
                     timeout=60
-                ).json()['heartbeatList'].items()
+                ).json()['heartbeatList'].items() if id in MaimaiDXNode.NAME_MAPPING
             }
         except Exception:
             self.ready = False
@@ -207,21 +207,24 @@ class MaimaiDXStatusService:
 class MaimaiDXNode:
     NAME_MAPPING = {
     '1': '舞萌DX状态',
-    '4': 'NET服务器 [上海联通代理]',
-    '5': '游戏标题服务器 [上海联通代理]',
-    '6': '游戏标题服务器 [上海电信代理]',
+
     '7': '游戏标题服务器 [上海移动代理]',
-    '8': '二维码服务器 [上海联通代理]',
-    '9': '二维码服务器 [上海电信代理]',
     '10': '二维码服务器 [上海移动代理]',
-    '11': 'ALL.NET机台管理服务器 [上海联通代理]',
-    '12': 'ALL.NET机台管理服务器 [上海电信代理]',
     '13': 'ALL.NET机台管理服务器 [上海移动代理]',
-    '14': '会员服务器 [上海电信代理]',
     '15': '会员服务器 [上海移动代理]',
+    '35': '舞萌公众号 成绩NET [上海移动代理]',
+
+    '6': '游戏标题服务器 [上海电信代理]',
+    '9': '二维码服务器 [上海电信代理]',
+    '12': 'ALL.NET机台管理服务器 [上海电信代理]',
+    '14': '会员服务器 [上海电信代理]',
+    '34': '舞萌公众号 成绩NET [上海电信代理]',
+
+    '5': '游戏标题服务器 [上海联通代理]',
+    '8': '二维码服务器 [上海联通代理]',
+    '11': 'ALL.NET机台管理服务器 [上海联通代理]',
     '16': '会员服务器 [上海联通代理]',
-    '17': 'NET服务器 [上海电信代理]',
-    '18': 'NET服务器 [上海移动代理]'
+    '36': '舞萌公众号 成绩NET [上海联通代理]',
 }
 
     def __init__(self, id: str, data: list[dict]):
