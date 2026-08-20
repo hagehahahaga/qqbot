@@ -170,7 +170,7 @@ class User:
     def in_game_blacklist(self, target: User) -> bool:
         return bool(
             GAME_DATA_TABLE.get(
-                f'where id = {target.id}', attr=f'json_contains(black_list, {self.id})'
+                f'where id = {target.id}', attr=f'json_contains(black_list, \'{self.id}\')'
             )[0]
         )
 
