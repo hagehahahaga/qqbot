@@ -45,11 +45,13 @@ class Session:
             get_time = top_pipe_get_frame.f_locals['get_time']
         except KeyError:
             get_time = local_time()
-        if get_time + datetime.timedelta(seconds=timeout) < local_time():
-            raise CommandCancel('未继续输入.')
-        timeout = (local_time() + datetime.timedelta(seconds=timeout) - get_time).total_seconds()
+        if timeout is not None:
+            if get_time + datetime.timedelta(seconds=timeout) < local_time():
+                raise CommandCancel('未继续输入.')
+            timeout = (local_time() + datetime.timedelta(seconds=timeout) - get_time).total_seconds()
         if inform:
-            notice_message = message.reply_text(f'正在等待输入{timeout}秒...发送"cancel"以取消.')
+            timeout_text = f'{timeout}秒' if timeout is not None else '无限期'
+            notice_message = message.reply_text(f'正在等待输入{timeout_text}...发送"cancel"以取消.')
         try:
             self.getting = True
             result: MESSAGE = self.pipe.get(timeout=timeout)
