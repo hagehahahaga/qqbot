@@ -38,6 +38,9 @@ class Command:
                 LOG.ERR(error)
                 message.reply_text(f'错误: {error}. 哥我错啦——')
                 raise
+            finally:
+                session.running_command = None
+                session.running_thread = None
         self.func = decorated
         self.command_names = command_names
         self.type = type

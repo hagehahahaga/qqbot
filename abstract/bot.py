@@ -98,14 +98,15 @@ class Bot:
         message = Message(data)
         LOG.INF(f'{message.sender} said to {message.target}: {message.data["raw_message"]}')
 
-        # 获取session
+        # 获取(或按需创建)发送者对应的 session
         session = self.session_manager.get_session(message.sender)
 
         if session.getting:
-            session.pipe_put(message)
-            return
+            if session.pipe_put(message):
+                return
 
-        # 获取指令名
+        # 解析指令名与参数: 取首条文本部件的参数列表, 首个为指令名, 其余为 args
+        # 无文本部件(如纯@/纯图片)时触发 IndexError, 视为空指令名
         try:
             args = message.get_parts_by_type(TextMessage)[0].to_args()
             command_name, args = args[0], args[1:]
@@ -132,30 +133,30 @@ class Bot:
                         raise
 
         # 处理进行中的命令
-        if session.lock.locked():
+        if session.running_command:
             session.handle(message, command)
             return
 
-        # command为None: 群消息中指令前缀不匹配(如必须"!"前缀但用户没加)
-        # 在must_at=True的群聊中, 用户@了机器人但指令格式不对, 提示未输入指令
+        # command is None: need_prefix=True(群聊)且 command_name 未命中任一已配置前缀
+        #   - command_prefixes 含空串('')时永不为 None(任何名字都"匹配"空前缀)
+        #   - must_at=False 时未@bot 的群消息也能到达此处, 此时静默返回
         if command is None:
             if isinstance(message, GroupMessage) and self.must_at:
                 message.reply_text('你好像没有输入指令?')
             return
 
-        # command为空字符串: 用户@了机器人但文本部分为空(如只发了"@bot")
+        # command == '': 消息无文本部件(如仅 @bot 或纯图片), 提示未输入指令
         if command == '':
             message.reply_text('你好像没有输入指令?')
             return
 
-        # command为字符串: 输入了不存在的指令名
+        # command 为非空 str: 前缀匹配但指令名不存在(未识别), 提示检查输入
         if isinstance(command, str):
             message.reply_text(f'{command}不是一个可识别的指令, 检查输入.')
             return
 
         with session:
             LOG.INF(f'{message.sender} used {command_name}')
-            session.command = command
 
             match command.type:
                 case 0:

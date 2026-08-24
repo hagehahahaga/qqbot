@@ -1,14 +1,15 @@
 import operator
+from abc import abstractmethod, ABC
 
-from abstract.bases.importer import abc, itertools
-from typing import Optional, Literal
+from abstract.bases.importer import itertools
+from typing import Optional, Literal, Callable, Any
 
-from abstract.bases.exceptions import CommandCancel
+from abstract.bases.exceptions import CommandCancel, SessionTransfer
 from abstract.bases.log import LOG
 from abstract.target import User
 from abstract.bases.custom_thread import CustomThread, CustomThreadGroup
 from abstract.session import SESSION_MANAGER
-from abstract.message import GroupMessage, AtMessage, TextMessage
+from abstract.message import GroupMessage, AtMessage, TextMessage, MESSAGE
 from abstract.bases.config import CONFIG
 
 
@@ -16,7 +17,7 @@ class GameOver(BaseException):
     pass
 
 
-class BaseGame(abc.ABC):
+class BaseGame(ABC):
     NAME: str
     NEEDED_MEMBER_NUM: int
     STARTING_TEXT: str
@@ -88,7 +89,11 @@ class BaseGame(abc.ABC):
             self._game_manager.free_game(self)
             raise CommandCancel('有用户未接受游戏邀请, 游戏取消.')
 
-    @abc.abstractmethod
+    @abstractmethod
+    def _handle_condition(self, message: MESSAGE) -> bool:
+        ...
+
+    @abstractmethod
     def handle(self, message: GroupMessage):
         pass
 
@@ -97,7 +102,7 @@ class BaseGame(abc.ABC):
         with session:
             while self.status == 'RUNNING':
                 try:
-                    message_got = session.pipe_get(message, False, None)
+                    message_got = session.pipe_get(message, False, None, self._handle_condition)
                     if self.status != 'RUNNING':
                         continue
                     self.handle(message_got)
@@ -107,15 +112,15 @@ class BaseGame(abc.ABC):
                     return
                 except GameOver:
                     return
+                except SessionTransfer:
+                    session.__exit__()
+                    session.acquire_event.wait()
+                    session.__enter__()
                 except Exception as error:
                     message.reply_text(f'游戏出现错误: {error}')
                     LOG.ERR(error)
                     self.cancel(message)
                     return
-
-        if session.getting:
-            session.pipe_put(message_got)
-            return
 
         from abstract.bot import BOT
         CustomThread(target=BOT.router, args=(message_got.data,), daemon=True).start()

@@ -177,6 +177,17 @@ class FrameServer(abc.ABC):
     :type message_id: int
     """
 
+    @abc.abstractmethod
+    def get_group_member_list(self, group_id: int) -> list[dict]:
+        """
+        获取群人员列表
+
+        :param group_id: 群ID
+
+        :return: 人员列表
+        :rtype: list[dict]
+        """
+
 
 class OneBotHttpServer(FrameServer):
     """
@@ -339,6 +350,14 @@ class OneBotHttpServer(FrameServer):
         ).json()['data'].get('messages', [])
 
 
+    def get_group_member_list(self, group_id: int) -> list[dict]:
+        return requests.get(
+            headers=self.headers,
+            url=self.host + '/get_group_member_list',
+            params={
+                'group_id': group_id
+            }
+        ).json()['data']
 LOG.INF('Loading Frame Server API...')
 FRAME_SERVER = OneBotHttpServer(**CONFIG.frame_server_config.model_dump())
 LOG.INF(f'Frame Server API loaded: {FRAME_SERVER.host}')

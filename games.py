@@ -3,7 +3,7 @@ from abstract.bases import PIL_FONT
 from typing import Optional
 
 from abstract.game import BaseGame, GameManager, GAME_MANAGER
-from abstract.message import GroupMessage, TextMessage, ImageMessage, AtMessage
+from abstract.message import GroupMessage, TextMessage, ImageMessage, AtMessage, MESSAGE
 from abstract.target import User
 
 
@@ -77,19 +77,23 @@ class TicTacToe(BaseGame):
         message.reply(ImageMessage(self._render_board()))
         super().start(message)
 
-    def handle(self, message: GroupMessage):
+    def _handle_condition(self, message: MESSAGE) -> bool:
         text = message.get_parts_by_type(TextMessage)
         if not text:
-            return
+            return False
         args = text[0].to_args()
         if not args:
-            return
+            return False
         position = args[0]
         if not position.isdigit():
-            return
+            return False
         position = int(position)
         if not position in range(1, 10):
-            return
+            return False
+        return True
+
+    def handle(self, message: GroupMessage):
+        position = int(message.get_parts_by_type(TextMessage)[0].to_args()[0])
         if message.sender != self.current_player:
             message.reply_text('现在不是你的回合.')
             return
@@ -256,16 +260,20 @@ class Gomoku(BaseGame):
         message.reply(ImageMessage(self._render_board()))
         super().start(message)
 
-    def handle(self, message: GroupMessage):
+    def _handle_condition(self, message: MESSAGE) -> bool:
         text = message.get_parts_by_type(TextMessage)
         if not text:
-            return
+            return False
 
         args = text[0].to_args()
         if not args:
-            return
+            return False
         if not all(arg.isdigit() for arg in args):
-            return
+            return False
+        return True
+
+    def handle(self, message: GroupMessage):
+        args = message.get_parts_by_type(TextMessage)[0].to_args()
 
         if message.sender != self.current_player:
             message.reply_text('现在不是你的回合.')

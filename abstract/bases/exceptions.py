@@ -66,3 +66,7 @@ class CommandCancel(BaseException):
 
     def __repr__(self):
         return f'<{self.__class__.__name__} {self.text}> at {hex(id(self))}'
+
+
+class SessionTransfer(BaseException):
+    ...

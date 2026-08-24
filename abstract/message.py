@@ -1,4 +1,6 @@
-from abstract.bases.importer import abc, base64, pathlib, requests, dispatch, Iterable, typing, PIL, io, at_night, SENTINEL
+from typing import Generator, Optional
+
+from abstract.bases.importer import abc, base64, pathlib, requests, dispatch, Iterable, PIL, io, at_night, SENTINEL, datetime
 
 from abstract.bases.config import CONFIG
 from abstract.target import User, Group
@@ -307,7 +309,7 @@ class BaseMessage(abc.ABC):
             )
         )
 
-    def split_when(self, condition) -> typing.Generator[list[MESSAGE_PART] | MESSAGE_PART]:
+    def split_when(self, condition) -> Generator[list[MESSAGE_PART] | MESSAGE_PART]:
         for out in split_when(self.messages, condition):
             yield out
 
@@ -494,7 +496,7 @@ def get_message(message_id):
     )
 
 
-def split_when(inpu, condition) -> typing.Generator[list[MESSAGE_PART] | MESSAGE_PART]:
+def split_when(inpu, condition) -> Generator[list[MESSAGE_PART] | MESSAGE_PART]:
     output = []
     for part in inpu:
         if condition(part):

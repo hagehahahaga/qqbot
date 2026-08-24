@@ -38,8 +38,8 @@ class User:
     def __repr__(self):
         return f'<{self.__class__.__name__} {self.name}(user_id: {self.id})> at {hex(id(self))}'
 
-    def __eq__(self, other):
-        return isinstance(other, self.__class__) and self.id == other.id
+    def __eq__(self, value: object) -> bool:
+        return isinstance(value, self.__class__) and self.id == value.id
 
     @classmethod
     def register_func(cls, func):
@@ -177,6 +177,9 @@ class User:
     def in_game_blacklists(self, targets: list[User]) -> bool:
         return any(self.in_game_blacklist(target) for target in targets)
 
+    def in_group(self, group: Group):
+        return group.has_member(self)
+
 
 class Group:
     def __init__(self, id):
@@ -185,14 +188,25 @@ class Group:
         if not GROUP_OPTION_TABLE.find_exists('id', self.id):
             GROUP_OPTION_TABLE.add(str(self.id) + ',default' * (GROUP_OPTION_TABLE.get_len() - 1))
 
+    def get_members(self) -> list[User]:
+        return list(
+            map(
+                lambda a: User(a),
+                FRAME_SERVER.get_group_member_list(self.id)
+            )
+        )
+
+    def has_member(self, user: User):
+        return user in self.get_members()
+
     def __str__(self):
         return f'{self.name}({self.id})'
 
     def __repr__(self):
         return f'<{self.__class__.__name__} {self.name}(group_id: {self.id})> at {hex(id(self))}'
 
-    def __eq__(self, other):
-        return isinstance(other, self.__class__) and self.id == other.id
+    def __eq__(self, value: object) -> bool:
+        return isinstance(value, self.__class__) and self.id == value.id
 
     @classmethod
     def register_func(cls, func):
