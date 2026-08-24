@@ -125,7 +125,7 @@ class Session:
             timeout = None
 
         if inform:
-            timeout_text = f'{timeout}秒' if timeout is not None else '无限期'
+            timeout_text = f'{int(timeout)}秒' if timeout is not None else '无限期'
             notice_message = message.reply_text(f'正在等待输入{timeout_text}...发送"cancel"以取消.')
 
         try:
