@@ -1,6 +1,7 @@
-from pydantic import BaseModel, ConfigDict, model_validator, Field, FilePath
+from pydantic import BaseModel, ConfigDict, model_validator, Field, FilePath, IPvAnyAddress, computed_field
+from typing import Optional, Literal, Annotated
+
 from pydantic_string_url import HttpUrl
-from typing import Optional, Literal
 
 from .importer import json, pathlib
 
@@ -27,7 +28,9 @@ class BaseConfig(ConfiguredBaseModel):
 
 class _Config(BaseConfig):
     class _FrameServerConfig(BaseModel):
-        host: HttpUrl
+        mode: Literal['ws', 'http']
+        host: IPvAnyAddress
+        port: Annotated[int, Field(gt=0, lt=65536)]
         token: str
 
     class _SqlConfig(ConfiguredBaseModel):

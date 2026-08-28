@@ -1,3 +1,4 @@
+from abstract.apis.receiver import MESSAGE_RECEIVER
 from abstract.bases.exceptions import CommandCancel
 from abstract.bases.importer import operator, LAST_COMMIT, psutil, platform, json, time
 from typing import Callable
@@ -9,7 +10,7 @@ from abstract.message import *
 from abstract.service import Service
 from abstract.session import SESSION_MANAGER, Session
 from abstract.target import User, Group
-from abstract.apis.frame_server import FRAME_SERVER
+from abstract.apis.frame_server import ONEBOT_SERVER
 from abstract.apis.table import GROUP_OPTION_TABLE
 from abstract.bases.log import LOG
 
@@ -30,7 +31,7 @@ class Bot:
     )
     def __init__(
             self,
-            frame_server: abstract.apis.frame_server.FrameServer,
+            frame_server: abstract.apis.frame_server.BaseOneBotServer,
             session_manager: abstract.session.SessionManager,
             command_group: abstract.command.CommandGroup,
             available_ids: list[int],
@@ -45,8 +46,9 @@ class Bot:
         self.services: dict[str, Service] = {}
         self.triggers: list[tuple[Callable[[MESSAGE], bool], Callable]] = []
         self.help_text = {}
-        self.id = FRAME_SERVER.login_id
+        self.id = ONEBOT_SERVER.login_id
         assert self.id in available_ids, 'It seems you have logged wrong account?'
+        MESSAGE_RECEIVER.register_callback(self.router)
 
     def register_service(self, service_name: str, loop_delay: int | float, auto_restart=False):
         """
@@ -221,9 +223,9 @@ class Bot:
                         if data['target_id'] not in CONFIG.bot_config.available_ids:
                             return
                         if group_id := data.get('group_id'):
-                            self.frame_server.poke(data['user_id'], group_id)
+                            self.frame_server.send_poke(data['user_id'], group_id)
                         else:
-                            self.frame_server.poke(data['user_id'])
+                            self.frame_server.send_poke(data['user_id'])
 
     def request_handler(self, data: dict):
         match data['request_type']:
@@ -235,7 +237,7 @@ class Bot:
 
 
 LOG.INF('Initializing bot...')
-BOT = Bot(FRAME_SERVER, SESSION_MANAGER, COMMAND_GROUP, **CONFIG.bot_config.model_dump(exclude={'operators'}))
+BOT = Bot(ONEBOT_SERVER, SESSION_MANAGER, COMMAND_GROUP, **CONFIG.bot_config.model_dump(exclude={'operators'}))
 LOG.INF('Bot initialized successfully.')
 
 

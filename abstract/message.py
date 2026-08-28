@@ -4,7 +4,7 @@ from abstract.bases.importer import abc, base64, pathlib, requests, dispatch, It
 
 from abstract.bases.config import CONFIG
 from abstract.target import User, Group
-from abstract.apis.frame_server import FRAME_SERVER
+from abstract.apis.frame_server import ONEBOT_SERVER
 from abstract.bases.log import LOG
 
 
@@ -40,7 +40,7 @@ class ReplyMessage(BaseMessagePart):
 
     def get_reply_message(self):
         return Message(
-            FRAME_SERVER.get_msg(
+            ONEBOT_SERVER.get_msg(
                 self.id
             )
         )
@@ -254,14 +254,14 @@ class BaseMessage(abc.ABC):
                     message_part = [ImageMessage(url=url)]
                 case 'record':
                     message_part = [RecordMessage(
-                        FRAME_SERVER.get_record(message_part['data']['file'])
+                        ONEBOT_SERVER.get_record(message_part['data']['file'])
                     )]
                 case 'face':
                     message_part = [FaceMessage(message_part['data']['id'])]
                 case 'forward':
                     message_part = map(
                         lambda a: Message(a).get_node(),
-                        FRAME_SERVER.get_forward_msg(
+                        ONEBOT_SERVER.get_forward_msg(
                             message_part['data']['id']
                         )
                     )
@@ -314,7 +314,7 @@ class BaseMessage(abc.ABC):
             yield out
 
     def delete(self):
-        FRAME_SERVER.delete_message(self.message_id)
+        ONEBOT_SERVER.delete_msg(self.message_id)
         LOG.DEB(f'Deleted message {self}')
 
     @classmethod
@@ -331,7 +331,7 @@ class BaseMessage(abc.ABC):
 
 
 class PrivateMessage(BaseMessage):
-    send_api = FRAME_SERVER.send_private_msg
+    send_api = ONEBOT_SERVER.send_private_msg
 
     @dispatch
     def __init__(self, data: dict):
@@ -393,7 +393,7 @@ class PrivateMessage(BaseMessage):
 
 
 class GroupMessage(BaseMessage):
-    send_api = FRAME_SERVER.send_group_msg
+    send_api = ONEBOT_SERVER.send_group_msg
 
     @dispatch
     def __init__(self, data: dict):
@@ -490,7 +490,7 @@ MESSAGE = PrivateMessage | GroupMessage
 
 def get_message(message_id):
     return Message(
-        FRAME_SERVER.get_msg(
+        ONEBOT_SERVER.get_msg(
             message_id
         )
     )
@@ -511,4 +511,4 @@ def split_when(inpu, condition) -> Generator[list[MESSAGE_PART] | MESSAGE_PART]:
         yield output
 
 
-_BOT = User(FRAME_SERVER.login_id)
+_BOT = User(ONEBOT_SERVER.login_id)

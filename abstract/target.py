@@ -2,7 +2,7 @@ from abstract.bases.importer import time, dispatch, decimal, json
 from typing import Literal
 
 from abstract.bases.config import CONFIG
-from abstract.apis.frame_server import FRAME_SERVER
+from abstract.apis.frame_server import ONEBOT_SERVER
 from abstract.apis.table import USER_TABLE, GROUP_OPTION_TABLE, GAME_DATA_TABLE
 
 
@@ -30,7 +30,7 @@ class User:
 
     @dispatch
     def __init__(self, id: int | str):
-        self.__init__(FRAME_SERVER.get_stranger_info(id))
+        self.__init__(ONEBOT_SERVER.get_stranger_info(id))
 
     def __str__(self):
         return f'{self.name}({self.id})'
@@ -184,7 +184,7 @@ class User:
 class Group:
     def __init__(self, id):
         self.id = id
-        self.name = FRAME_SERVER.get_group_info(id)['group_name']
+        self.name = ONEBOT_SERVER.get_group_info(id)['group_name']
         if not GROUP_OPTION_TABLE.find_exists('id', self.id):
             GROUP_OPTION_TABLE.add(str(self.id) + ',default' * (GROUP_OPTION_TABLE.get_len() - 1))
 
@@ -192,7 +192,7 @@ class Group:
         return list(
             map(
                 lambda a: User(a),
-                FRAME_SERVER.get_group_member_list(self.id)
+                ONEBOT_SERVER.get_group_member_list(self.id)
             )
         )
 

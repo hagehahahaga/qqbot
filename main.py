@@ -1,13 +1,13 @@
-from abstract.bases.importer import getopt, sys, requests, time
+from abstract.bases.importer import getopt, sys
 from abstract.bases.custom_thread import CustomThread
 
-from abstract.apis.frame_server import FRAME_SERVER
+from abstract.apis.frame_server import ONEBOT_SERVER
 from abstract.bot import BOT
 from abstract.bases.exceptions import *
 from abstract.bases.log import LOG
 from abstract.message import GroupMessage, TextImageMessage
 from abstract.target import Group
-from web import FRAME_CLIENT
+from abstract.apis.receiver import MESSAGE_RECEIVER
 
 
 import commands
@@ -29,7 +29,7 @@ def main():
     if '-p' in opt or '--post' in opt:
         for group_id in map(
                 lambda a: a['group_id'],
-                FRAME_SERVER.get_group_list()
+                ONEBOT_SERVER.get_group_list()
         ):
             try:
                 GroupMessage(
@@ -45,4 +45,4 @@ def main():
 
 if __name__ == '__main__':
     CustomThread(target=main).start()
-    FRAME_CLIENT.start()
+    MESSAGE_RECEIVER.start()

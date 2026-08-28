@@ -14,3 +14,5 @@ gitpython
 coredumpy
 persistedstate
 pydantic-string-url
+websockets
+pydantic

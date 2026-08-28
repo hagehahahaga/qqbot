@@ -6,11 +6,29 @@ from abstract.bases.exceptions import CommandCancel
 
 
 class CustomThread(threading.Thread):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        group=None,
+        target=None,
+        name=None,
+        args=(),
+        kwargs=None,
+        *,
+        daemon=None,
+        context=None
+    ):
+        super().__init__(
+            group,
+            target,
+            name,
+            args,
+            kwargs,
+            daemon=daemon,
+            context=context
+        )
         self.status: Literal['IDLE', 'RUNNING', 'COMPLETED', 'CANCELLING', 'CANCELLED', 'ERROR'] = 'IDLE'
         self._result: Optional[Any] = None
-        self._exception: Optional[Exception] = None
+        self._exception: Optional[BaseException] = None
         self._traceback: Optional[TracebackType] = None
         self.callback: set[Callable] = set()
 
@@ -19,7 +37,7 @@ class CustomThread(threading.Thread):
             raise CommandCancel('用户取消.')
         return self._trace
 
-    def get_result(self, timeout=None) -> Any:
+    def get_result(self, timeout: Optional[float] = None) -> Any:
         """
         Wait for the thread to finish and return the result.
         If the thread raises an exception, it will be re-raised here.
@@ -58,15 +76,15 @@ class CustomThread(threading.Thread):
 
     def run(self) -> None:
         self.status = 'RUNNING'
+        original_trace = sys.gettrace()
         try:
-            original_trace = sys.gettrace()
             sys.settrace(self._trace)
             self._result = self._target(*self._args, **self._kwargs)
             self.status = 'COMPLETED'
         except CommandCancel as e:
             self._exception = e
             self.status = 'CANCELLED'
-        except Exception as e:
+        except BaseException as e:
             self._exception = e
             self._traceback = e.__traceback__
             self.status = 'ERROR'
