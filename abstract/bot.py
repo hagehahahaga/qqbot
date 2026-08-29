@@ -178,7 +178,8 @@ class Bot:
 
                 case {'needed_type': needed_type}:
                     command(
-                        message, session,
+                        message,
+                        session,
                         session.pipe_get_by_type(message, needed_type, command.type.get('needed_num', 1))
                     )
 
