@@ -35,7 +35,7 @@ class Session:
     def _lock_checker(func):
         def wrapper(self: Session, *args, **kwargs):
             assert self.is_locked, 'Can NOT access without with statement.'
-            func(self, *args, **kwargs)
+            return func(self, *args, **kwargs)
         return wrapper
 
     def pipe_put(self, message: MESSAGE):
