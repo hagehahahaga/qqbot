@@ -2,7 +2,7 @@ import operator
 from abc import abstractmethod, ABC
 
 from abstract.bases.importer import itertools
-from typing import Optional, Literal, Callable, Any
+from typing import Optional, Literal
 
 from abstract.bases.exceptions import CommandCancel, SessionTransfer
 from abstract.bases.log import LOG
@@ -58,12 +58,11 @@ class BaseGame(ABC):
             self.add_member(target)
         return True
 
-    def invite_member(self, message: GroupMessage, targets: list[User]):
+    def invite_member(self, message: GroupMessage, targets: set[User]):
         try:
             assert len(targets) == self.NEEDED_MEMBER_NUM - 1, f'需要 {self.NEEDED_MEMBER_NUM - 1} 名玩家, 但提供了 {len(targets)} 名玩家.'
             assert self.status == 'IDLE', '游戏进行中或已完成.'
-            assert len(set(t.id for t in targets)) == len(targets), '邀请列表中存在重复用户.'
-            assert not message.sender.in_game_blacklists(targets), '你邀请的玩家中有将你拉黑的用户.'
+            assert not any(message.sender in target.game_blacklist for target in targets), '你邀请的玩家中有将你拉黑的用户.'
             assert self.members[0] not in targets, '不能邀请房主自己加入游戏.'
             assert not set(CONFIG.bot_config.available_ids) & set(map(operator.attrgetter('id'), targets)), '不能邀请bot本体加入游戏.'
             invite_message = message.reply(
