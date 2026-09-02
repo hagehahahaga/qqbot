@@ -1,57 +1,56 @@
-from abstract.target import *
+import time
+
+from abstract.target import User
 
 from .tables import STOCK_TABLE
 
+
 @User.register_func
-def get_stocks(self):  # 股票数操作
+def get_stocks(self: User):  # 股票数操作
     return STOCK_TABLE.get(f'where id = {self.id}', attr='stocks')[0]
 
 @User.register_func
-def add_stocks(self, d):
+def add_stocks(self: User, d):
     STOCK_TABLE.set('id', self.id, 'stocks', self.get_stocks() + d)
 
 @User.register_func
-def get_stocks_bought(self):  # 当日购入股票数操作
+def get_stocks_bought(self: User):  # 当日购入股票数操作
     return STOCK_TABLE.get(f'where id = {self.id}', attr='stocks_bought')[0]
 
 @User.register_func
-def add_stocks_bought(self, d):
+def add_stocks_bought(self: User, d):
     assert d > 0
     STOCK_TABLE.set('id', self.id, 'stocks_bought', self.get_stocks_bought() + d)
 
 @User.register_func
-def store_stocks_bought(self):
+def store_stocks_bought(self: User):
     self.add_stocks(self.get_stocks_bought())
     STOCK_TABLE.set('id', self.id, 'stocks_bought', 0)
 
 @User.register_func
-def get_points_sold(self) -> int:  # 当日收益操作
+def get_points_sold(self: User) -> int:  # 当日收益操作
     return STOCK_TABLE.get(f'where id = {self.id}', attr='points_sold')[0]
 
 @User.register_func
-def add_points_sold(self, d):
+def add_points_sold(self: User, d):
     STOCK_TABLE.set('id', self.id, 'points_sold', self.get_points_sold() + d)
 
 @User.register_func
-def store_points_sold(self):
-    self.add_points(self.get_points_sold())
+def store_points_sold(self: User):
+    self.points += self.get_points_sold()
     STOCK_TABLE.set('id', self.id, 'points_sold', 0)
 
 @User.register_func
-def get_commission(self) -> dict:  # 交易委托操作
+def get_commission(self: User) -> dict:  # 交易委托操作
     result = STOCK_TABLE.get(
-        f'where id = {self.id}',
-        attr='(commission_type, commission_price, commission_num, commission_time)'
+        f'where id = {self.id}', attr='(commission_type, commission_price, commission_num, commission_time)'
     )
     return {
-        'type': result[0],
-        'price': result[1],
-        'num': result[2],
-        'time': result[3],
+        'type': result[0], 'price': result[1], 'num': result[2], 'time': result[3],
     }
 
 @User.register_func
-def reset_commission(self):
+def reset_commission(self: User):
     STOCK_TABLE.set(
         'id', self.id, 'commission_type', 'default'
     ).set(
@@ -65,7 +64,7 @@ def reset_commission(self):
     )
 
 @User.register_func
-def set_commission(self, type, price, num):
+def set_commission(self: User, type: str, price: int, num: int):
     assert price >= 0 and num > 0
     match type:
         case 'buy':
@@ -75,7 +74,7 @@ def set_commission(self, type, price, num):
             self.add_points_sold(-points)
             self.add_points_sold_using(points)
             if delta > 0:
-                self.add_points(-delta)
+                self.points -= delta
                 self.add_points_sold(delta)
         case 'sell':
             self.add_stocks(-num)
@@ -89,12 +88,11 @@ def set_commission(self, type, price, num):
     ).set(
         'id', self.id, 'commission_num', num
     ).set(
-        'id', self.id, 'commission_time',
-        f"'{time.strftime('%Y-%m-%d %H:%M:%S')}'"
+        'id', self.id, 'commission_time', f"'{time.strftime('%Y-%m-%d %H:%M:%S')}'"
     )
 
 @User.register_func
-def cancel_commission(self):
+def cancel_commission(self: User):
     commission = self.get_commission()
     match commission['type']:
         case 'buy':
@@ -106,7 +104,7 @@ def cancel_commission(self):
     self.reset_commission()
 
 @User.register_func
-def achieve_commission(self, price, num):
+def achieve_commission(self: User, price, num):
     commission = self.get_commission()
     result_num = commission['num'] - num
     match commission['type']:
@@ -124,37 +122,33 @@ def achieve_commission(self, price, num):
         self.reset_commission()
 
 @User.register_func
-def get_points_sold_using(self):  # 用于撤销/完成交易委托时计算
+def get_points_sold_using(self: User):  # 用于撤销/完成交易委托时计算
     return STOCK_TABLE.get(f'where id = {self.id}', attr='points_sold_using')[0]
 
 @User.register_func
-def set_points_sold_using(self, num):
+def set_points_sold_using(self: User, num):
     assert num >= 0
     STOCK_TABLE.set('id', self.id, 'points_sold_using', num)
 
 @User.register_func
-def add_points_sold_using(self, d):
+def add_points_sold_using(self: User, d):
     STOCK_TABLE.set('id', self.id, 'points_sold_using', self.get_points_sold_using() + d)
 
 @User.register_func
-def get_trade(self) -> dict:  # 最后一次交易时间操作
+def get_trade(self: User) -> dict:  # 最后一次交易时间操作
     result = STOCK_TABLE.get(
-        f'where id = {self.id}',
-        attr='(trade_price, trade_num, trade_time)'
+        f'where id = {self.id}', attr='(trade_price, trade_num, trade_time)'
     )
     return {
-        'price': result[0],
-        'num': result[1],
-        'time': result[2],
+        'price': result[0], 'num': result[1], 'time': result[2],
     }
 
 @User.register_func
-def update_trade(self, price, num):
+def update_trade(self: User, price, num):
     STOCK_TABLE.set(
         'id', self.id, 'trade_price', price
     ).set(
         'id', self.id, 'trade_num', num
     ).set(
-        'id', self.id, 'trade_time',
-        f"'{time.strftime('%Y-%m-%d %H:%M:%S')}'"
+        'id', self.id, 'trade_time', f"'{time.strftime('%Y-%m-%d %H:%M:%S')}'"
     )

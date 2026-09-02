@@ -144,5 +144,5 @@ def update_arcade_num(message: MESSAGE, session: Session):
         except CommandCancel:
             ...
 
-    message.update_arcade_num(arcade, num)
+    message.target.update_arcade_num(arcade, num, message.sender)
     message.reply_text('记录已提交.')

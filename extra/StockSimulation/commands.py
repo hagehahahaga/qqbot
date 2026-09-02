@@ -93,7 +93,7 @@ def stock(message: MESSAGE, session: Session, args):
 
     match action:
         case 'buy':
-            if price * num > message.sender.get_points() + message.sender.get_points_sold():
+            if price * num > message.sender.points + message.sender.get_points_sold():
                 message.reply_text('流动资金不足!')
                 return
         case 'sell':
