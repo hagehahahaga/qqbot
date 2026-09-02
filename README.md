@@ -23,23 +23,28 @@ extra 组件是独立的功能模块，通过标准的注册接口集成到机�
 
 ### 数据存储
 
-项目使用 MariaDB 数据库，通过 `abstract.apis.table` 模块提供抽象的表操作接口。用户数据、群组设置和游戏状态等均持久化存储。
+项目使用 MySQL 数据库，通过 `abstract.apis.table` 模块提供抽象的表操作接口。用户数据、群组设置和游戏状态等均持久化存储。
 
 ## 组件间交互逻辑
 
 ### 消息处理流程
 
 1. 机器人接收到消息后，获取该消息发送者的 session。
-2. 如果 session 处于等待输入状态（`session.getting`），将消息传递给管道的接收端，跳过后续处理。
-3. 尝试从消息文本中解析指令名。
+2. 如果 session 处于等待输入状态（`session.getting`），将消息投递到输入管道（`pipe_put`）并返回。若已设置 `put_condition` 且消息不满足过滤条件，则投递 `SessionTransfer` 让锁信号，通知持锁的 `pipe_get` 主动释放锁以让渡给更高优先级的交互。
+3. 从消息首条文本部件解析指令名与参数（无文本部件时视为空指令名）。
 4. 如果是群消息且开启了 `must_at` 模式，检查消息是否 @ 了机器人，若无则忽略。
 5. 如果解析结果不是有效的 `Command` 对象（即未识别为指令），按注册顺序检查触发器条件。首个匹配的触发器执行其响应函数后立即返回，不再继续匹配。
-6. 如果 session 存在进行中的命令（`lock.locked()`），由 session 处理该消息。
-7. 若指令为 `None`（群消息中未加指令前缀），或为空字符串（仅 @ 机器人无文本），提示"你好像没有输入指令?"。
-8. 若指令为不存在的指令名（字符串），提示该指令不可识别。
-9. 匹配到有效命令时，执行对应的命令函数。
-10. 后台服务独立运行，定时执行任务，不受消息流影响。
-11. 游戏系统通过命令或触发器启动，管理独立的游戏会话。
+6. 如果 session 存在进行中的命令（`running_command`），由 session 处理该消息（如输入 "cancel" 取消当前命令）。
+7. 若指令为 `None`（群聊且 `must_at` 时未命中任何命令前缀），提示"你好像没有输入指令?"。
+8. 若指令为空字符串（消息无文本部件，如仅 @ 机器人或纯图片），提示"你好像没有输入指令?"。
+9. 若指令为不存在的指令名（字符串），提示该指令不可识别。
+10. 匹配到有效命令时，在 `with session:` 持锁上下文内按命令类型执行：
+    - 类型 `0`：无参数；
+    - 类型 `1`：字符串参数；
+    - 类型 `2`：消息部件参数（按 `@bot + 文本` 或纯文本结构匹配）；
+    - 字典类型：通过 `session.pipe_get_by_type` 收集指定数量的特定消息部件。
+11. 后台服务独立运行，定时执行任务，不受消息流影响。
+12. 游戏系统通过命令或触发器启动，管理独立的游戏会话。
 
 ### 组件注册顺序
 
@@ -374,7 +379,7 @@ extra 组件可通过 `abstract.apis.table` 模块访问数据库表：
 from abstract.apis.table import USER_TABLE, GROUP_OPTION_TABLE
 
 # 查询用户数据
-user_data = USER_TABLE.get(f'where id = {user_id}', attr='points, sign_in_date')
+user_data = USER_TABLE.get(f'where id = {user_id}', attr='points, sign_date')
 
 # 更新群组选项
 GROUP_OPTION_TABLE.set('id', group_id, 'weather_notice', 1)
@@ -436,6 +441,9 @@ LOG.ERR('错误日志')
 | `BOT` | `Bot` | 机器人实例，用于注册服务、触发器 |
 | `COMMAND_GROUP` | `CommandGroup` | 命令组，用于注册命令 |
 | `GAME_MANAGER` | `GameManager` | 游戏管理器，用于注册游戏 |
+| `SESSION_MANAGER` | `SessionManager` | 会话管理器 |
+| `ONEBOT_SERVER` | `BaseOneBotServer` | OneBot 服务器（HTTP/WS 双模式） |
+| `BOT_USER` | `User` | 机器人自身用户对象 |
 | `USER_TABLE` | `Table` | 用户数据表 |
 | `GROUP_OPTION_TABLE` | `Table` | 群组选项表 |
 
@@ -483,22 +491,28 @@ LOG.ERR('错误日志')
 
 #### Session 类
 
-管理命令会话状态，主要属性与方法：
+管理命令会话状态与输入管道，主要属性与方法：
 
-- `user`: 发起命令的用户（User 对象）
-- `group`: 命令所在的群组（Group 对象，私聊时为 None）
-- `data`: 会话数据字典
-- `end()`: 结束会话
+- `pipe`: 消息输入管道（queue.Queue）
+- `getting`: 是否正在等待输入
+- `running_command`: 当前运行中的命令
+- `running_thread`: 当前运行命令的线程
+- `pipe_put(message)`: 向管道投递消息
+- `pipe_get(message, inform=True, timeout=30, condition=SENTINEL)`: 阻塞等待用户输入，支持超时（`None` 为无限期）、`condition` 过滤与 `SessionTransfer` 让锁信号
+- `pipe_get_by_type(message, needed_type, num=1)`: 收集指定数量的特定类型消息部件
 
 #### User 类
 
 代表用户，主要属性与方法：
 
 - `id`: 用户 ID
-- `points`: 用户点数
+- `name` / `role`: 用户昵称与角色（member/admin/owner/operator）
+- `points`: 用户点数（property，支持读写）
+- `sign_date`: 最近签到日期（property）
+- `update_sign_date()`: 更新签到日期
 - `game_data`: 游戏数据字典
-- `sign_in(date)`: 签到
-- `is_signed_in(date)`: 检查是否已签到
+- `game_blacklist`: 游戏黑名单（`set[User]`，支持 `|=` / `-=`）
+- `register_func` / `override`: 动态扩展 / 重写方法
 
 #### Group 类
 
@@ -687,7 +701,7 @@ def daily_reminder():
 **解决方案**:
 - 检查 `@authorize` 装饰器设置的权限等级。
 - 确认用户具有足够权限。
-- 使用 `User` 类的 `authority` 属性检查用户权限。
+- 使用 `User` 类的 `role` 属性检查用户权限（member/admin/owner/operator）。
 
 ### 5. 消息发送失败
 
@@ -714,5 +728,5 @@ def daily_reminder():
 
 ---
 
-*文档版本: 1.1*
-*最后更新: 2026-04-30*
+*文档版本: 1.2*
+*最后更新: 2026-09-03*
