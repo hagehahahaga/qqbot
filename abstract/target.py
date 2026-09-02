@@ -1,4 +1,7 @@
-from abstract.bases.importer import time, dispatch, decimal, json
+import datetime
+from datetime import UTC
+
+from abstract.bases.importer import dispatch, json, local_time
 from typing import Literal
 
 from abstract.bases.config import CONFIG
@@ -41,6 +44,9 @@ class User:
     def __eq__(self, value: object) -> bool:
         return isinstance(value, self.__class__) and self.id == value.id
 
+    def __hash__(self) -> int:
+        return hash(self.id)
+
     @classmethod
     def register_func(cls, func):
         assert not hasattr(cls, func.__name__), f"注册失败!方法 {func.__name__} 已存在，覆盖需要使用override函数."
@@ -53,22 +59,29 @@ class User:
         setattr(cls, func.__name__, func)
         return func
 
-    def get_points(self) -> int:  # 韭菜盒子数操作
-        return USER_TABLE.get(f'where id = {self.id}', attr='points')[0]
+    @property
+    def points(self) -> int:
+        return int(USER_TABLE.get(f'where id = {self.id}', attr='points')[0])
 
-    def add_points(self, d):
+    @points.setter
+    def points(self, value: int):
         USER_TABLE.set(
             'id',
             self.id,
             'points',
-            USER_TABLE.get(f'where id = {self.id}', attr='points')[0] + decimal.Decimal(d)
+            value
         )
 
-    def get_sign_date(self):  # 最后一次签到日期操作
+    @property
+    def sign_date(self) -> datetime.date:
         return USER_TABLE.get(f'where id = {self.id}', attr='sign_date')[0]
 
+    @sign_date.setter
+    def sign_date(self, value: datetime.date):
+        USER_TABLE.set('id', self.id, 'sign_date', value)
+
     def update_sign_date(self):
-        USER_TABLE.set('id', self.id, 'sign_date', time.strftime("%Y-%m-%d"))
+        USER_TABLE.set('id', self.id, 'sign_date', local_time().astimezone(UTC).date())
 
     def game_data_exist(self, game: str) -> bool:
         return bool(
@@ -78,6 +91,8 @@ class User:
         )
 
     def game_data_init(self, game: str):
+        from abstract.game import GAME_MANAGER
+        assert game in GAME_MANAGER, f'未知的游戏 {game}.'
         with GAME_DATA_TABLE as cursor:
             cursor.execute(
                 f'update {cursor.table_name} '
@@ -142,43 +157,22 @@ class User:
                 f'where id = {self.id}'
             )
 
-    def add_game_blacklist(self, target: User):
-        assert target != self, "不能拉黑你自己."
-        with GAME_DATA_TABLE as cursor:
-            cursor.execute(
-                f'update {cursor.table_name} '
-                f'set black_list = json_array_append(black_list, "$", {target.id}) '
-                f'where id = {self.id}'
+    @property
+    def game_blacklist(self) -> set[User]:
+        return set(
+            User(user_id) for user_id in json.loads(
+                GAME_DATA_TABLE.get(
+                    f'where id = {self.id}', attr='black_list'
+                )[0]
             )
-
-    def remove_game_blacklist(self, target: User):
-        assert target.in_game_blacklist(self), "你未将对方拉黑."
-        with GAME_DATA_TABLE as cursor:
-            cursor.execute(
-                f'update {cursor.table_name} '
-                f'set black_list = json_remove(black_list, json_search(black_list, "one", {target.id}))) '
-                f'where id = {self.id}'
-            )
-
-    def get_game_blacklist(self) -> list[User]:
-        return json.loads(
-            GAME_DATA_TABLE.get(
-                f'where id = {self.id}', attr='black_list'
-            )[0]
         )
 
-    def in_game_blacklist(self, target: User) -> bool:
-        return bool(
-            GAME_DATA_TABLE.get(
-                f'where id = {target.id}', attr=f'json_contains(black_list, \'{self.id}\')'
-            )[0]
-        )
-
-    def in_game_blacklists(self, targets: list[User]) -> bool:
-        return any(self.in_game_blacklist(target) for target in targets)
-
-    def in_group(self, group: Group):
-        return group.has_member(self)
+    @game_blacklist.setter
+    def game_blacklist(self, value: set[User]):
+        value = [
+            user.id for user in value
+        ]
+        GAME_DATA_TABLE.set('id', self.id, 'black_list', json.dumps(value))
 
 
 class Group:
@@ -188,16 +182,11 @@ class Group:
         if not GROUP_OPTION_TABLE.find_exists('id', self.id):
             GROUP_OPTION_TABLE.add(str(self.id) + ',default' * (GROUP_OPTION_TABLE.get_len() - 1))
 
-    def get_members(self) -> list[User]:
-        return list(
-            map(
-                lambda a: User(a),
-                ONEBOT_SERVER.get_group_member_list(self.id)
-            )
+    @property
+    def members(self) -> set[User]:
+        return set(
+            User(user_id) for user_id in ONEBOT_SERVER.get_group_member_list(self.id)
         )
-
-    def has_member(self, user: User):
-        return user in self.get_members()
 
     def __str__(self):
         return f'{self.name}({self.id})'
@@ -207,6 +196,9 @@ class Group:
 
     def __eq__(self, value: object) -> bool:
         return isinstance(value, self.__class__) and self.id == value.id
+
+    def __contains__(self, value: User) -> bool:
+        return value in self.members
 
     @classmethod
     def register_func(cls, func):
