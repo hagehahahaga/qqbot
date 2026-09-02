@@ -136,7 +136,7 @@ class Session:
 
             if result.target != message.target:
                 if isinstance(message, GroupMessage):
-                    assert message.target.has_member(message.sender)
+                    assert result.sender in message.target.members, f'{result.sender}已退群.'
                 result.reply_text(f'你现在有进行中的输入请求, 请在对应会话中处理: {message.target}')
                 result = self._pipe_get(message, inform=False)
         except queue.Empty:
@@ -232,37 +232,33 @@ class Session:
 
 
 class SessionManager(dict):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-    def get(self, key: int | str, default: None = None, /) -> Session | None:
+    def get(self, key: User, default: None = None, /) -> Session | None:
         return super().get(key, default)
 
-    def _new_session(self, user: int | str | User):
-        if isinstance(user, User):
-            user = user.id
+    def _new_session(self, user: User):
         assert not self.get(user), 'The session has already existed!'
         session = Session()
         self[user] = session
         CustomThread(target=self.auto_free, args=(user, ), daemon=True).start()
         return session
 
-    def get_session(self, user: int | str | User) -> Session:
-        if isinstance(user, User):
-            user = user.id
+    def get_session(self, user: User) -> Session:
         if session := self.get(user):
             return session
         return self._new_session(user)
 
-    def auto_free(self, id: int | str):
+    def auto_free(self, target: User):
         while True:
             for i in range(30):
                 time.sleep(1)
-                if self[id].is_locked:
+                if self[target].is_locked:
                     break
             else:
-                self.pop(id)
-                LOG.DEB(f'Session of {id} auto freed.')
+                self.pop(target)
+                LOG.DEB(f'Session of {target} auto freed.')
                 return
 
 
