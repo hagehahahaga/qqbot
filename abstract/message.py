@@ -1,6 +1,6 @@
-from typing import Generator, Optional
+from typing import Generator
 
-from abstract.bases.importer import abc, base64, pathlib, requests, dispatch, Iterable, PIL, io, at_night, SENTINEL, datetime
+from abstract.bases.importer import abc, base64, pathlib, requests, dispatch, Iterable, PIL, io, at_night
 
 from abstract.bases.config import CONFIG
 from abstract.target import User, Group
@@ -336,7 +336,7 @@ class PrivateMessage(BaseMessage):
     @dispatch
     def __init__(self, data: dict):
         super().__init__(data)
-        self.target = _BOT
+        self.target = BOT_USER
 
     @dispatch
     def __init__(self, text: str | None, target: User):
@@ -350,7 +350,7 @@ class PrivateMessage(BaseMessage):
             messages = [messages]
         self.messages = messages
         self.target = target
-        self.sender = _BOT
+        self.sender = BOT_USER
 
     @dispatch
     def reply(self, message: list[NodeMessage]) -> MESSAGE:
@@ -360,14 +360,10 @@ class PrivateMessage(BaseMessage):
         ).send()
 
     @dispatch
-    def reply(self, message: RecordMessage) -> MESSAGE | None:
-        try:
-            return PrivateMessage(
-                message,
-                self.sender
-            ).send()
-        except (requests.exceptions.InvalidURL, KeyError):
-            return None
+    def reply(self, message: RecordMessage) -> MESSAGE:
+        return PrivateMessage(
+            message, self.sender
+        ).send()
 
     @dispatch
     def reply(self, messages: list | MESSAGE_PART) -> MESSAGE:
@@ -412,7 +408,7 @@ class GroupMessage(BaseMessage):
             messages = [messages]
         self.messages = messages
         self.target = target
-        self.sender = _BOT
+        self.sender = BOT_USER
 
     @dispatch
     def reply(self, message: list[NodeMessage]) -> MESSAGE:
@@ -422,19 +418,13 @@ class GroupMessage(BaseMessage):
         ).send()
 
     @dispatch
-    def reply(self, message: RecordMessage) -> MESSAGE | None:
-        try:
-            return GroupMessage(
-                message,
-                self.target
-            ).send()
-        except (requests.exceptions.InvalidURL, KeyError):
-            return None
+    def reply(self, message: RecordMessage) -> MESSAGE:
+        return GroupMessage(
+            message, self.target
+        ).send()
 
     @dispatch
-    def reply(self, messages: list | MESSAGE_PART) -> MESSAGE:
-        if not type(messages) is list:
-            messages = [messages]
+    def reply(self, messages: list[MESSAGE_PART]) -> MESSAGE:
         return GroupMessage(
             [
                 ReplyMessage(
@@ -456,16 +446,6 @@ class GroupMessage(BaseMessage):
             list(messages)
         )
 
-    def update_arcade_num(self, name: str, num: Optional[int], time: Optional[datetime.datetime] = SENTINEL):
-        """
-        更新当前群组中指定机厅的数量
-        
-        :param name: 机厅名称或别名
-        :param num: 机厅数量，可为None表示未记录
-        :param time: 更新时间，默认为当前时间
-        """
-        self.target.update_arcade_num(name, num, self.sender, time)
-
 
 class Message:
     @dispatch
@@ -475,6 +455,8 @@ class Message:
                 return PrivateMessage(data)
             case 'group':
                 return GroupMessage(data)
+            case others:
+                raise ValueError(f'Unknown message type {others}.')
 
     @dispatch
     def __new__(cls, message: list | MESSAGE_PART, target: User | Group):
@@ -511,4 +493,4 @@ def split_when(inpu, condition) -> Generator[list[MESSAGE_PART] | MESSAGE_PART]:
         yield output
 
 
-_BOT = User(ONEBOT_SERVER.login_id)
+BOT_USER = User(ONEBOT_SERVER.login_id)
