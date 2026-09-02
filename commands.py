@@ -1,4 +1,6 @@
-from abstract.bases.importer import itertools, time, numpy, pymysql, json
+from datetime import UTC
+
+from abstract.bases.importer import itertools, time, numpy, pymysql, json, local_time
 
 from PicImageSearch.sync import *
 
@@ -76,14 +78,12 @@ def pic_searching(message: MESSAGE, session: Session, image: list[ImageMessage])
         thread_group.join()
     except CommandCancel:
         thread_group.stop()
-        completed = thread_group.completed_thread_count
-        cost = int(completed / len(apis) * 100) / 100 * 2
-        if completed and cost < 1:
+        completed_count = thread_group.completed_thread_count
+        cost = int(completed_count / len(apis) * 2)
+        if completed_count and cost < 1:
             cost = 1
         if cost:
-            message.sender.add_points(
-                cost
-            )
+            message.sender.points -= cost
             message.reply_text(f'部分搜索已完成, 消耗了 {cost} 个韭菜盒子.')
         raise
 
@@ -243,7 +243,7 @@ def option_private(message: MESSAGE, session: Session, args):
 @COMMAND_GROUP.register_command(('points', '点数', '韭菜盒子'), info='查询韭菜盒子数')
 def points(message: MESSAGE, session: Session):
     message.reply_text(
-        f'你当前的韭菜盒子数为: {message.sender.get_points()}.'
+        f'你当前的韭菜盒子数为: {message.sender.points}.'
     )
 
 
@@ -261,17 +261,17 @@ def transfer(message: MESSAGE, session: Session, args):
                 case [AtMessage(target=recipients), TextMessage(), AtMessage(target=target)]:
                     if message.sender.role != 'operator':
                         raise CommandCancel('只有操作员可以从其他用户账户转账!')
-                    if recipients.get_points() < num:
+                    if recipients.points < num:
                         raise CommandCancel('转账人余额不足!')
-                    recipients.add_points(-num)
-                    target.add_points(num)
+                    recipients.points -= num
+                    target.points += num
 
                 case [AtMessage(target=target)]:
                     if message.sender.role != 'operator':
-                        if message.sender.get_points() < num:
+                        if message.sender.points < num:
                             raise CommandCancel('您的余额不足!')
-                        message.sender.add_points(-num)
-                    target.add_points(num)
+                        message.sender.points -= num
+                    target.points += num
 
                 case final:
                     message.reply_text(f'匹配 {final} 失败, 检查输入.')
@@ -290,21 +290,21 @@ def transfer(message: MESSAGE, session: Session, args):
 @COMMAND_GROUP.register_command(('sign', '签到'), info='签到获取韭菜盒子')
 def sign(message: MESSAGE, session: Session):
     from abstract.bases.importer import random
-    if message.sender.get_sign_date().strftime('%Y%m%d') == time.strftime('%Y%m%d'):
+    if message.sender.sign_date == local_time().astimezone(UTC).date():
         message.reply_text('今日已签到过了!')
         return
-    points = random.randint(5, 9)
+    bonus = random.randint(5, 9)
     match random.randint(1, 100):
         case score if score <= 1:
             message.reply_text('大奖. +10')
-            points += 10
+            bonus += 10
         case score if score <= 10:
             message.reply_text('小奖. +3')
-            points += 3
+            bonus += 3
 
-    message.sender.add_points(points)
+    message.sender.points += bonus
     message.sender.update_sign_date()
-    message.reply_text(f'今日签到获得韭菜盒子: {points}个.')
+    message.reply_text(f'今日签到获得韭菜盒子: {bonus}个.')
 
 
 @COMMAND_GROUP.register_command(('notice', '提醒'), 1, '提醒系统')

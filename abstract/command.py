@@ -137,7 +137,7 @@ def cost(cost: int):
         @functools.wraps(func)
         def decorated(*args, **kwargs):
             message = args[0]
-            assert message.sender.get_points() >= cost, (
+            assert message.sender.points >= cost, (
                 f'韭菜盒子不足!'
                 f'\n我早上本来应该吃 {cost} 个韭菜盒子, 饱饱的.'
                 f'\n那我缺的这个这个营养这一块的, 谁给我补啊?'
@@ -145,7 +145,7 @@ def cost(cost: int):
 
             result = func(*args, **kwargs)
 
-            message.sender.add_points(-cost)
+            message.sender.points -= cost
             message.reply_text(f'本次请求消耗 {cost} 个韭菜盒子, 贼jb好吃.')
             return result
 
