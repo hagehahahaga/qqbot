@@ -326,25 +326,35 @@ def game_menu(message: MESSAGE, session: Session):
         case ['start', game_name]:
             assert game_name in GAME_MANAGER, f'游戏 {game_name} 不存在, 使用 "game list" 查看可用游戏.'
             game_type = GAME_MANAGER[game_name]
-            targets = [
+            targets = {
                 part.target for part in session.pipe_get_by_type(message, AtMessage, game_type.NEEDED_MEMBER_NUM - 1)
-            ]
+            }
 
             game = GAME_MANAGER.get_game(message.sender, game_type)
             game.invite_member(message, targets)
             game.start(message)
         case ['blacklist', 'add']:
-            target = message.get_parts_by_type(AtMessage)[:1]
-            assert target, '请@需要拉黑的用户.'
-            message.sender.add_game_blacklist(message.sender)
-            message.reply_text(f'已将用户 {target} 加入游戏黑名单.')
+            targets = [part.target for part in message.get_parts_by_type(AtMessage)]
+            if BOT.must_at and BOT_USER in targets:
+                targets.remove(BOT_USER)
+            targets = set(targets)
+            assert targets, '请@需要拉黑的用户.'
+            assert message.sender not in targets, "不能拉黑你自己."
+            message.sender.game_blacklist |= targets
+            message.reply_text(f'已将用户 {targets} 加入游戏黑名单.')
         case ['blacklist', 'remove']:
-            target = message.get_parts_by_type(AtMessage)[:1]
-            assert target, '请@需要移除拉黑的用户.'
-            message.sender.remove_game_blacklist(message.sender)
-            message.reply_text(f'已将用户 {target} 从游戏黑名单移除.')
+            targets = [part.target for part in message.get_parts_by_type(AtMessage)]
+            if BOT.must_at and BOT_USER in targets:
+                targets.remove(BOT_USER)
+            targets = set(targets)
+            assert targets, '请@需要移除拉黑的用户.'
+            not_in = targets - message.sender.game_blacklist
+            message.sender.game_blacklist -= targets
+            message.reply_text(f'已将用户 {targets} 从游戏黑名单移除.')
+            if not_in:
+                message.reply_text(f'用户 {not_in} 不在游戏黑名单中, 无法移除')
         case ['blacklist']:
-            blacklists = message.sender.get_game_blacklist()
+            blacklists = message.sender.game_blacklist
             if not blacklists:
                 message.reply_text('你的游戏黑名单为空.')
                 return
