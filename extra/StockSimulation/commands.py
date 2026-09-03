@@ -12,11 +12,9 @@ from .tables import STOCK_TABLE
 
 @COMMAND_GROUP.register_command(('stock', '股票'), 1, '股票系统')
 def stock(message: MESSAGE, session: Session, args):
-    if not STOCK_TABLE.find_exists('id', message.sender.id):
-        STOCK_TABLE.add(f'{message.sender.id}' + ', DEFAULT' * (STOCK_TABLE.get_len() - 1))
     date = time.strftime('%Y-%m-%d')
-    commission = message.sender.get_commission()
-    trade = message.sender.get_trade()
+    commission = message.sender.commission
+    trade = message.sender.trade
     STOCK_TABLE.set(
         'id', BOT.id, 'commission_time', f"'{time.strftime('%Y-%m-%d %H:%M:%S')}'"
     )
@@ -26,8 +24,8 @@ def stock(message: MESSAGE, session: Session, args):
     if str(trade['time']).split(' ')[0] < date:
         message.reply_text(
             '\n昨日收益:\n'
-            f'  韭菜盒子收入: {message.sender.get_points_sold()}'
-            f'  股票收入: {message.sender.get_stocks_bought()}'
+            f'  韭菜盒子收入: {message.sender.points_sold}'
+            f'  股票收入: {message.sender.stocks_bought}'
         )
         message.sender.store_points_sold()
         message.sender.store_stocks_bought()
@@ -41,21 +39,21 @@ def stock(message: MESSAGE, session: Session, args):
                 case []:
                     message.reply_text(
                         '\n当前状态:\n'
-                        f'  持有股票: {message.sender.get_stocks()}\n'
-                        f'  今日股票购入: {message.sender.get_stocks_bought()}\n'
-                        f'  今日收益: {message.sender.get_points_sold()}\n'
+                        f'  持有股票: {message.sender.stocks}\n'
+                        f'  今日股票购入: {message.sender.stocks_bought}\n'
+                        f'  今日收益: {message.sender.points_sold}\n'
                         f'  最后一次交易时间: {trade["time"]}\n'
                         f'  最后一次交易价格: {trade["price"]}\n'
                         f'  最后一次交易数量: {trade["num"]}'
                     )
                 case ['stock']:
-                    trade = User(STOCK_TABLE.get('ORDER BY trade_time desc', attr='id')[0]).get_trade()
+                    trade = User(STOCK_TABLE.get('ORDER BY trade_time desc', attr='id')[0]).trade
                     message.reply_text(
                         '\n当前股市状态:\n'
                         f'  最后一次交易价格: {trade["price"]}\n'
                     )
                 case ['commission']:
-                    commission = message.sender.get_commission()
+                    commission = message.sender.commission
                     if commission['type'] == 'none':
                         message.reply_text('当前没有交易委托中')
                         return
@@ -93,11 +91,11 @@ def stock(message: MESSAGE, session: Session, args):
 
     match action:
         case 'buy':
-            if price * num > message.sender.points + message.sender.get_points_sold():
+            if price * num > message.sender.points + message.sender.points_sold:
                 message.reply_text('流动资金不足!')
                 return
         case 'sell':
-            if num > message.sender.get_stocks():
+            if num > message.sender.stocks:
                 message.reply_text('可卖出股票不足!')
                 return
 
@@ -109,7 +107,7 @@ def stock(message: MESSAGE, session: Session, args):
             attr='id'
     )[0]:
         target = User(target_id)
-        target_commission = target.get_commission()
+        target_commission = target.commission
         if num < target_commission['num']:
             deal_num = num
         else:
