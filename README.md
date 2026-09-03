@@ -246,11 +246,13 @@ extra 组件可以通过装饰器动态扩展 `User` 和 `Group` 类的方法：
 ```python
 from abstract.target import User
 
-@User.register_func
+
+@User.register_attr
 def get_weather_history(self, days=7):
     """获取用户的历史天气记录（示例扩展方法）"""
     # 通过 self 访问用户数据
     pass
+
 
 # 使用扩展方法
 user.get_weather_history(3)
@@ -343,17 +345,19 @@ def example_response(message, session):
 
 ### 6. 方法扩展 (`register.py`)
 
-方法扩展文件应使用 `User.register_func` 或 `Group.register_func` 装饰器扩展功能：
+方法扩展文件应使用 `User.register_attr` 或 `Group.register_attr` 装饰器扩展功能：
 
 ```python
 from abstract.target import User, Group
 
-@User.register_func
+
+@User.register_attr
 def custom_user_method(self, param):
     # 扩展方法实现
     return f"User {self.id}: {param}"
 
-@Group.register_func  
+
+@Group.register_attr
 def custom_group_method(self, param):
     # 扩展方法实现
     return f"Group {self.id}: {param}"
@@ -467,8 +471,8 @@ LOG.ERR('错误日志')
 | `@BOT.register_service` | `abstract.bot` | 注册服务 |
 | `@BOT.register_trigger` | `abstract.bot` | 注册触发器 |
 | `@GAME_MANAGER.register_game` | `abstract.game` | 注册游戏 |
-| `@User.register_func` | `abstract.target` | 扩展 User 方法 |
-| `@Group.register_func` | `abstract.target` | 扩展 Group 方法 |
+| `@User.register_attr` | `abstract.target` | 扩展 User 方法 |
+| `@Group.register_attr` | `abstract.target` | 扩展 Group 方法 |
 | `@cost` | `abstract.command` | 设置命令消耗点数 |
 | `@group_only` | `abstract.command` | 限制命令仅群聊使用 |
 | `@private_only` | `abstract.command` | 限制命令仅私聊使用 |
@@ -512,7 +516,7 @@ LOG.ERR('错误日志')
 - `update_sign_date()`: 更新签到日期
 - `game_data`: 游戏数据字典
 - `game_blacklist`: 游戏黑名单（`set[User]`，支持 `|=` / `-=`）
-- `register_func` / `override`: 动态扩展 / 重写方法
+- `register_attr` / `override`: 动态扩展 / 重写方法
 
 #### Group 类
 
@@ -621,18 +625,18 @@ def morning_response(message, session):
 from abstract.apis.table import USER_TABLE
 from abstract.target import User
 
+
 def update_user_points(user_id, delta):
     """更新用户点数"""
     user = User(user_id)
     user.points += delta
-    
+
     # 使用上下文管理器执行自定义 SQL
     with USER_TABLE as cursor:
         cursor.execute(
             f'update {cursor.table_name} '
             f'set points = points + %s '
-            f'where id = %s',
-            (delta, user_id)
+            f'where id = %s', (delta, user_id)
         )
 ```
 
@@ -643,26 +647,26 @@ from abstract.bot import BOT
 import time
 import datetime
 
+
 @BOT.register_service('daily_reminder', 0, auto_restart=True)
 def daily_reminder():
     """每天8点发送提醒"""
     while True:
         now = datetime.datetime.now()
-        
+
         # 计算到第二天8点的等待时间
         target_time = now.replace(hour=8, minute=0, second=0, microsecond=0)
         if target_time <= now:
             target_time += datetime.timedelta(days=1)
-        
+
         wait_seconds = (target_time - now).total_seconds()
         time.sleep(wait_seconds)
-        
+
         # 发送提醒
         from abstract.message import GroupMessage, TextMessage
         from abstract.target import Group
-        
-        # 这里需要实现具体的提醒逻辑
-        # GroupMessage(TextMessage('每日提醒！'), Group(group_id)).send()
+
+        # 这里需要实现具体的提醒逻辑  # GroupMessage(TextMessage('每日提醒！'), Group(group_id)).send()
 ```
 
 ## 常见问题与解决方案

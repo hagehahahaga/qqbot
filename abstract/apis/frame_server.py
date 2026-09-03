@@ -33,10 +33,10 @@ class BaseOneBotServer(abc.ABC):
     发送群消息
     
     :param message: 信息
-    :type message: Base.GroupMessage
+    :type message: abstract.message.GroupMessage
     
     :return: 消息目标
-    :rtype: Base.Group
+    :rtype: abstract.target.Group
     """
 
     @abc.abstractmethod
@@ -45,10 +45,10 @@ class BaseOneBotServer(abc.ABC):
     发送私聊消息
     
     :param message: 信息
-    :type message: Base.PrivateMessage
+    :type message: abstract.message.PrivateMessage
     
     :return: 消息目标
-    :rtype: Base.User
+    :rtype: abstract.target.User
     """
 
     @abc.abstractmethod
