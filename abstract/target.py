@@ -10,21 +10,15 @@ from abstract.apis.table import USER_TABLE, GROUP_OPTION_TABLE, GAME_DATA_TABLE
 
 
 class User:
-    role: Literal["member", "admin", "owner", "operator"]
+    # 构造 User 时需确保已存在记录的数据表, 缺失则自动补一行
     init_tables = [USER_TABLE, GAME_DATA_TABLE]
-    """
-    用户角色:
-    - member: 普通成员
-    - admin: 群管理员
-    - owner: 群主
-    - operator: Bot操作员（最高权限）
-    """
-    
+
     @dispatch
     def __init__(self, data: dict):
         self.id = data['user_id']
         self.name = data['nickname']
-        self.role = data.get('role', 'member')
+        # 角色: member 普通成员 / admin 群管理员 / owner 群主 / operator Bot操作员(最高权限)
+        self.role: Literal["member", "admin", "owner", "operator"] = data.get('role', 'member')
         if self.id in CONFIG.bot_config.operators:
             self.role = 'operator'
         for table in self.init_tables:
@@ -48,14 +42,8 @@ class User:
         return hash(self.id)
 
     @classmethod
-    def register_func(cls, func):
+    def register_attr(cls, func):
         assert not hasattr(cls, func.__name__), f"注册失败!方法 {func.__name__} 已存在，覆盖需要使用override函数."
-        setattr(cls, func.__name__, func)
-        return func
-
-    @classmethod
-    def override(cls, func):
-        assert hasattr(cls, func.__name__), f"注册失败! 原方法 {func.__name__} 不存在, 创建需要使用register_func函数."
         setattr(cls, func.__name__, func)
         return func
 
@@ -176,7 +164,7 @@ class User:
 
 
 class Group:
-    def __init__(self, id):
+    def __init__(self, id: int):
         self.id = id
         self.name = ONEBOT_SERVER.get_group_info(id)['group_name']
         if not GROUP_OPTION_TABLE.find_exists('id', self.id):
@@ -201,13 +189,7 @@ class Group:
         return value in self.members
 
     @classmethod
-    def register_func(cls, func):
+    def register_attr(cls, func):
         assert not hasattr(cls, func.__name__), f"注册失败!方法 {func.__name__} 已存在，覆盖需要使用override函数."
-        setattr(cls, func.__name__, func)
-        return func
-
-    @classmethod
-    def override(cls, func):
-        assert hasattr(cls, func.__name__), f"注册失败! 原方法 {func.__name__} 不存在, 创建需要使用register_func函数."
         setattr(cls, func.__name__, func)
         return func
