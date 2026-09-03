@@ -20,6 +20,7 @@ def arcade(message: MESSAGE, session: Session, args):
             try:
                 hash = bytes.fromhex(hash)
             except ValueError:
+                hash: str
                 arcade = target.get_binding_arcade(hash)
                 target.unbind_arcade(
                     arcade['hash']
@@ -30,7 +31,7 @@ def arcade(message: MESSAGE, session: Session, args):
             message.reply_text(f'已解绑群聊 {arcade["group"]} 的机厅 {arcade["name"]}.')
 
         case ['binding', 'list']:
-            binding_arcades = target.get_binding_arcades()
+            binding_arcades = target.binding_arcades
             if not binding_arcades:
                 message.reply_text('没有绑定机厅.')
                 return
@@ -73,7 +74,7 @@ def arcade_group(message: MESSAGE, session: Session, args):
         case []:
             abstract.bot.help(message, session, ['arcade'])
         case ['list']:
-            result = message.target.get_arcades()
+            result = message.target.arcades
             if not result:
                 message.reply_text('此群还没有设置机厅.')
                 return

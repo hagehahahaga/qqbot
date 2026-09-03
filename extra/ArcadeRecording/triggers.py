@@ -48,7 +48,7 @@ def get_arcade_num(message: MESSAGE, session: Session):
     if not text:
         if isinstance(target, Group):
             arcade(message, SESSION_MANAGER.get_session(message.sender), ['list'])
-        if target.get_arcade_binding_hashes():
+        if target.arcade_binding_hashes:
             arcade(message, SESSION_MANAGER.get_session(message.sender), ['binding','list'])
         return
 

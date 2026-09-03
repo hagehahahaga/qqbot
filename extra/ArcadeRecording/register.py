@@ -1,5 +1,6 @@
+import datetime
 import json
-import operator, itertools, datetime
+import operator, itertools
 from typing import Optional
 
 from abstract.bases.importer import today_7am, SENTINEL
@@ -22,9 +23,8 @@ def _reset_arcade_num(hash: bytes):
         assert cursor.execute(
             f'update {cursor.table_name} '
             f'set num = NULL, update_time = NULL, update_user_id = NULL '
-            f'where hash = %s',
-            (hash,)
-        ), f'没有 {hash.hex()} 这个机厅'
+            f'where hash = %s', (hash,), ), f'没有 {hash.hex()} 这个机厅'
+
 
 def _get_arcade(hash: bytes) -> dict:
     """
@@ -51,9 +51,7 @@ def _get_arcade(hash: bytes) -> dict:
     with ARCADES_TABLE as cursor:
         cursor.execute(
             f'select * from {cursor.table_name} '
-            'where hash = %s',
-            (hash,)
-        )
+            'where hash = %s', (hash,), )
         result = cursor.fetchone()
     assert result, f'没有 {hash.hex()} 这个机厅.'
     hash, group_id, name, subnames, _, num, update_time, update_user_id = result
@@ -74,7 +72,8 @@ def _get_arcade(hash: bytes) -> dict:
         'hash': hash
     }
 
-def _get_arcade_num(hash: bytes) -> tuple:
+
+def _get_arcade_num(hash: bytes) -> tuple[int, datetime.datetime, User]:
     """
     获取指定机厅的数量、更新时间和更新用户
 
@@ -87,8 +86,9 @@ def _get_arcade_num(hash: bytes) -> tuple:
     return result['num'], result['update_time'], result['update_user']
 
 
-@Group.register_func
-def get_arcades(self) -> dict:
+@Group.register_attr
+@property
+def arcades(self) -> dict:
     """
     获取群组的所有机厅信息，自动处理过期数据
 
@@ -108,9 +108,7 @@ def get_arcades(self) -> dict:
         - hash: 机厅哈希标识（bytes类型）
     """
     result = ARCADES_TABLE.get_all(
-        f'where group_id = {self.id}',
-        attr='hash'
-    )
+        f'where group_id = {self.id}', attr='hash', )
     response = {}
     for hash, in result:
         arcade = _get_arcade(hash)
@@ -118,7 +116,8 @@ def get_arcades(self) -> dict:
 
     return response
 
-@Group.register_func
+
+@Group.register_attr
 def add_arcade(self, name: str):
     """
     向群组添加一个新的机厅
@@ -132,16 +131,15 @@ def add_arcade(self, name: str):
     :raises AssertionError: name格式不符合要求，或名称重复
     """
     assert json.dumps(name, ensure_ascii=False) == f'"{name}"', '机厅名不符合要求.'
-    assert name not in self.get_arcade_names(), '有重复命名.'
-    assert name not in self.get_arcade_binding_names(), '有重复命名.'
+    assert name not in self.arcade_names, '有重复命名.'
+    assert name not in self.arcade_binding_names, '有重复命名.'
     with ARCADES_TABLE as cursor:
         cursor.execute(
             f'insert into {cursor.table_name} (group_id, name)'
-            f'values (%s, %s)',
-            (self.id, name)
-        )
+            f'values (%s, %s)', (self.id, name), )
 
-@Group.register_func
+
+@Group.register_attr
 def remove_arcade(self, name: str):
     """
     从群组中移除一个机厅
@@ -154,7 +152,7 @@ def remove_arcade(self, name: str):
     :param name: 机厅主名称（不能使用别名）
     :raises AssertionError: 使用了别名、机厅不存在、或机厅还有未移除的别名
     """
-    arcades = self.get_arcades()
+    arcades = self.arcades
     assert name not in itertools.chain(*map(operator.itemgetter('subnames'), arcades.values())), '安全起见移除不能使用机厅别名.'
     assert name in arcades, f'{name} 未在此群设置.'
     assert not arcades[name]['subnames'], '安全起见移除机厅需要先移除机厅所有别名.'
@@ -163,11 +161,10 @@ def remove_arcade(self, name: str):
         cursor.execute(
             f'delete from {cursor.table_name} '
             f'where group_id = %s '
-            f'and name = %s',
-            (self.id, name)
-        )
+            f'and name = %s', (self.id, name), )
 
-@Group.register_func
+
+@Group.register_attr
 def get_arcade_hash(self, name: str) -> bytes:
     """
     获取机厅的哈希标识
@@ -183,14 +180,13 @@ def get_arcade_hash(self, name: str) -> bytes:
     with ARCADES_TABLE as cursor:
         cursor.execute(
             f'select hash from {cursor.table_name} '
-            f'where group_id = %s and json_contains(names, json_quote(%s))',
-            (self.id, name)
-        )
+            f'where group_id = %s and json_contains(names, json_quote(%s))', (self.id, name), )
         result = cursor.fetchone()
     assert result, f'没有 {name} 这个机厅'
     return result[0]
 
-@Group.register_func
+
+@Group.register_attr
 def add_arcade_subname(self, name: str, subname: str):
     """
     为机厅添加一个别名
@@ -205,17 +201,16 @@ def add_arcade_subname(self, name: str, subname: str):
     :raises AssertionError: 别名格式不符合要求、名称重复、或机厅不存在
     """
     assert json.dumps(subname, ensure_ascii=False) == f'"{subname}"', '别名不符合要求.'
-    assert subname not in self.get_arcade_names(), '有重复命名.'
-    assert subname not in self.get_arcade_binding_names(), '有重复命名.'
+    assert subname not in self.arcade_names, '有重复命名.'
+    assert subname not in self.arcade_binding_names, '有重复命名.'
     with ARCADES_TABLE as cursor:
         cursor.execute(
             f'update {cursor.table_name} '
             f'set subnames = json_array_append(subnames, "$", %s) '
-            f'where group_id = %s and name = %s',
-            (subname, self.id, name)
-        )
+            f'where group_id = %s and name = %s', (subname, self.id, name), )
 
-@Group.register_func
+
+@Group.register_attr
 def remove_arcade_subname(self, name: str, subname: str):
     """
     移除机厅的一个别名
@@ -229,19 +224,19 @@ def remove_arcade_subname(self, name: str, subname: str):
     :param subname: 要移除的别名
     :raises AssertionError: 机厅不存在，或机厅没有该别名
     """
-    arcades = self.get_arcades()
+    arcades = self.arcades
     assert name in arcades, f'{name} 未在此群设置.'
     with ARCADES_TABLE as cursor:
         result = cursor.execute(
             f'update {cursor.table_name} '
             f'set subnames = json_remove(subnames, json_unquote(json_search(subnames, "one", %s))) '
-            f'where group_id = %s and name = %s',
-            (subname, self.id, name)
-        )
+            f'where group_id = %s and name = %s', (subname, self.id, name), )
         assert result, f'{name} 没有别名 {subname}.'
 
-@Group.register_func
-def get_arcade_names(self) -> list[str]:
+
+@Group.register_attr
+@property
+def arcade_names(self) -> list[str]:
     """
     获取群组所有机厅的名称和别名列表
 
@@ -254,15 +249,11 @@ def get_arcade_names(self) -> list[str]:
     return list(
         itertools.chain(
             *map(
-                json.loads,
-                itertools.chain(
-                    *ARCADES_TABLE.get_all(f'where group_id = {self.id}', attr='names')
-                )
-            )
-        )
-    )
+                json.loads, itertools.chain(
+                    *ARCADES_TABLE.get_all(f'where group_id = {self.id}', attr='names'), ), ), ), )
 
-@Group.register_func
+
+@Group.register_attr
 def update_arcade_num(self, name: str, num: Optional[int], user: User, time: Optional[datetime.datetime] = SENTINEL):
     """
     更新指定机厅的数量、更新时间和更新用户
@@ -286,10 +277,10 @@ def update_arcade_num(self, name: str, num: Optional[int], user: User, time: Opt
             f'update {cursor.table_name} '
             f'set num = %s, update_time = %s, update_user_id = %s '
             f'where group_id = %s and json_contains(names, json_quote(%s))',
-            (num, time.astimezone(datetime.UTC), user.id, self.id, name)
-        ), f'没有 {name} 这个机厅.'
+            (num, time.astimezone(datetime.UTC), user.id, self.id, name), ), f'没有 {name} 这个机厅.'
 
-@User.register_func
+
+@User.register_attr
 def update_arcade_num(self, group: Group, name: str, num: Optional[int], time: Optional[datetime.datetime] = SENTINEL):
     """
     更新指定群组中指定机厅的数量（User接口）
@@ -306,7 +297,8 @@ def update_arcade_num(self, group: Group, name: str, num: Optional[int], time: O
     """
     group.update_arcade_num(name, num, self, time)
 
-@Group.register_func
+
+@Group.register_attr
 def get_arcade_num(self, name: str) -> tuple:
     """
     获取指定机厅的数量、更新时间和更新用户，自动处理过期数据
@@ -336,17 +328,16 @@ def get_arcade_num(self, name: str) -> tuple:
         cursor.execute(
             f'select hash '
             f'from {cursor.table_name} '
-            f'where group_id = %s and json_contains(names, JSON_QUOTE(%s))',
-            (self.id, name)
-        )
+            f'where group_id = %s and json_contains(names, JSON_QUOTE(%s))', (self.id, name), )
         result = cursor.fetchone()
 
     assert result, f'未在此群设置 {name} 这个机厅或别名'
 
     return _get_arcade_num(result[0])
 
-@Group.register_func
-@User.register_func
+
+@Group.register_attr
+@User.register_attr
 def bind_arcade(self, hash: bytes):
     """
     绑定一个机厅到当前用户或群组
@@ -362,24 +353,22 @@ def bind_arcade(self, hash: bytes):
     """
     if isinstance(self, Group):
         assert not ARCADES_TABLE.find_exists(
-            ('group_id', 'hash'), (self.id, hash)
-        ), '不能绑定本群机厅.'
+            ('group_id', 'hash'), (self.id, hash), ), '不能绑定本群机厅.'
         type = 'group'
     else:
         type = 'private'
 
     assert not ARCADES_BIND_TABLE.find_exists(
-        ('type', 'id', 'hash'), (type, self.id, hash)
-    ), '已绑定此机厅.'
+        ('type', 'id', 'hash'), (type, self.id, hash), ), '已绑定此机厅.'
     assert ARCADES_TABLE.find_exists(
-        'hash', hash
-    ), '此机厅不存在.'
+        'hash', hash, ), '此机厅不存在.'
 
     ARCADES_BIND_TABLE.add(type, self.id, hash, json.dumps([]))
     return _get_arcade(hash)
 
-@Group.register_func
-@User.register_func
+
+@Group.register_attr
+@User.register_attr
 def unbind_arcade(self, hash: bytes):
     """
     解绑当前用户或群组的一个机厅绑定
@@ -396,17 +385,17 @@ def unbind_arcade(self, hash: bytes):
         type = 'group'
     else:
         type = 'private'
-    
-    assert hash not in self.get_arcade_binding_names(), '解绑应该用hash而不是别名.'
+
+    assert hash not in self.arcade_binding_names, '解绑应该用hash而不是别名.'
     assert ARCADES_BIND_TABLE.find_exists(
-        ('type', 'id', 'hash'), (type, self.id, hash)
-    ), f'未绑定 {hash.hex()} 这个机厅.'
+        ('type', 'id', 'hash'), (type, self.id, hash), ), f'未绑定 {hash.hex()} 这个机厅.'
 
     ARCADES_BIND_TABLE.delete(('type', 'id', 'hash'), (type, self.id, hash))
     return _get_arcade(hash)
 
-@Group.register_func
-@User.register_func
+
+@Group.register_attr
+@User.register_attr
 def add_arcade_binding_name(self, hash: bytes, name: str):
     """
     为绑定的机厅添加一个自定义名称
@@ -429,20 +418,19 @@ def add_arcade_binding_name(self, hash: bytes, name: str):
 
     assert json.dumps(name, ensure_ascii=False) == f'"{name}"', '别名不符合要求.'
     if isinstance(self, Group):
-        assert name not in self.get_arcade_names(), '有重复命名.'
-    assert name not in self.get_arcade_binding_names(), '有重复命名.'
-    assert hash in self.get_arcade_binding_hashes(), f'没有绑定这个机厅: {hash.hex()}'
+        assert name not in self.arcade_names, '有重复命名.'
+    assert name not in self.arcade_binding_names, '有重复命名.'
+    assert hash in self.arcade_binding_hashes, f'没有绑定这个机厅: {hash.hex()}'
     with ARCADES_BIND_TABLE as cursor:
         cursor.execute(
             f'update {cursor.table_name} '
             f'set names = json_array_append(names, "$", %s) '
-            f'where hash = %s and type = %s and id = %s',
-            (name, hash, type, self.id)
-        )
+            f'where hash = %s and type = %s and id = %s', (name, hash, type, self.id), )
     return _get_arcade(hash)
 
-@Group.register_func
-@User.register_func
+
+@Group.register_attr
+@User.register_attr
 def remove_arcade_binding_name(self, hash: bytes, name: str):
     """
     移除绑定机厅的一个自定义名称
@@ -461,20 +449,20 @@ def remove_arcade_binding_name(self, hash: bytes, name: str):
     else:
         type = 'private'
 
-    assert name in self.get_arcade_binding_names(), f'没有绑定别名为 {name} 的机厅.'
-    assert hash in self.get_arcade_binding_hashes(), f'没有绑定这个机厅: {hash.hex()}'
+    assert name in self.arcade_binding_names, f'没有绑定别名为 {name} 的机厅.'
+    assert hash in self.arcade_binding_hashes, f'没有绑定这个机厅: {hash.hex()}'
     with ARCADES_BIND_TABLE as cursor:
         cursor.execute(
             f'update {cursor.table_name} '
             f'set names = json_remove(names, json_unquote(json_search(names, "one", %s))) '
-            f'where hash = %s and type = %s and id = %s',
-            (name, hash, type, self.id)
-        )
+            f'where hash = %s and type = %s and id = %s', (name, hash, type, self.id), )
     return _get_arcade(hash)
 
-@Group.register_func
-@User.register_func
-def get_arcade_binding_hashes(self) -> list[bytes]:
+
+@Group.register_attr
+@User.register_attr
+@property
+def arcade_binding_hashes(self) -> list[bytes]:
     """
     获取当前用户或群组所有已绑定机厅的哈希列表
 
@@ -491,22 +479,19 @@ def get_arcade_binding_hashes(self) -> list[bytes]:
 
     return list(
         map(
-            operator.itemgetter(0),
-            ARCADES_BIND_TABLE.get_all(
-                f'where type = {type!r}', f'and id = {self.id}',
-                attr='hash'
-            )
-        )
-    )
+            operator.itemgetter(0), ARCADES_BIND_TABLE.get_all(
+                f'where type = {type!r}', f'and id = {self.id}', attr='hash', ), ), )
 
-@Group.register_func
-@User.register_func
-def get_binding_arcades(self) -> dict:
+
+@Group.register_attr
+@User.register_attr
+@property
+def binding_arcades(self) -> dict:
     """
     获取当前用户或群组所有已绑定机厅的详细信息
 
     功能说明：
-    - 通过get_arcade_binding_hashes获取所有绑定hash
+    - 通过arcade_binding_hashes获取所有绑定hash
     - 对每个hash调用_get_arcade获取完整信息（含过期数据处理）
     - 以机厅名称为键组织返回字典
 
@@ -524,7 +509,7 @@ def get_binding_arcades(self) -> dict:
     else:
         type = 'private'
 
-    hashes = self.get_arcade_binding_hashes()
+    hashes = self.arcade_binding_hashes
     response = {}
     for hash in hashes:
         arcade = _get_arcade(hash)
@@ -532,15 +517,14 @@ def get_binding_arcades(self) -> dict:
             cursor.execute(
                 f'select names '
                 f'from {cursor.table_name} '
-                f'where hash = %s and type = %s and id = %s',
-                (hash, type, self.id)
-            )
+                f'where hash = %s and type = %s and id = %s', (hash, type, self.id), )
             names = tuple(json.loads(cursor.fetchone()[0]))
         response[names] = arcade
     return response
 
-@Group.register_func
-@User.register_func
+
+@Group.register_attr
+@User.register_attr
 def get_binding_arcade(self, name: str) -> dict:
     """
     获取当前用户或群组中匹配指定名称的所有绑定及其机厅信息
@@ -573,18 +557,18 @@ def get_binding_arcade(self, name: str) -> dict:
             f'from {cursor.table_name} '
             'where type = %s '
             'and id = %s '
-            'and json_contains(names, JSON_QUOTE(%s))',
-            (type, self.id, name)
-        )
+            'and json_contains(names, JSON_QUOTE(%s))', (type, self.id, name), )
         result = cursor.fetchone()
 
     assert result, f'未在此群绑定 {name} 这个机厅或别名.'
 
     return _get_arcade(result[0])
 
-@Group.register_func
-@User.register_func
-def get_arcade_binding_names(self) -> list[str]:
+
+@Group.register_attr
+@User.register_attr
+@property
+def arcade_binding_names(self) -> list[str]:
     """
     获取当前用户或群组所有已绑定机厅的自定义名称列表
 
@@ -603,21 +587,14 @@ def get_arcade_binding_names(self) -> list[str]:
     return list(
         itertools.chain(
             *map(
-                json.loads,
-                itertools.chain(
+                json.loads, itertools.chain(
                     *ARCADES_BIND_TABLE.get_all(
-                        f'where type = {type!r}',
-                        f' and id = {self.id}',
-                        attr='names'
-                    )
-                )
-            )
-        )
-    )
+                        f'where type = {type!r}', f' and id = {self.id}', attr='names', ), ), ), ), )
 
-@Group.register_func
-@User.register_func
-def get_arcade_binding_num(self, name: str) -> tuple:
+
+@Group.register_attr
+@User.register_attr
+def get_arcade_binding_num(self, name: str) -> tuple[int, datetime.datetime, User]:
     """
     获取指定绑定机厅的数量、更新时间和更新用户，自动处理过期数据
 
@@ -647,9 +624,7 @@ def get_arcade_binding_num(self, name: str) -> tuple:
         cursor.execute(
             f'select hash '
             f'from {cursor.table_name} '
-            f'where type = %s and id = %s and json_contains(names, JSON_QUOTE(%s))',
-            (type, self.id, name)
-        )
+            f'where type = %s and id = %s and json_contains(names, JSON_QUOTE(%s))', (type, self.id, name), )
         result = cursor.fetchone()
 
     assert result, f'未在此群绑定 {name} 这个机厅或别名.'
