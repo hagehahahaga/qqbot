@@ -5,7 +5,7 @@
 /dumps/
 /.langgraph_api/
 
-# 主配置（保留 config_default.json 作为模板）
+# 主配置
 /config.json
 
 # Python
@@ -15,6 +15,9 @@ __pycache__/
 
 # IDE
 /.idea/
+
+# 自动生成
+/abstract/target.pyi
 
 # 第三方目录（不入库）
 /test napcat/
