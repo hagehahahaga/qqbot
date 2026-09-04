@@ -6,7 +6,7 @@ from abstract.session import Session
 
 @COMMAND_GROUP.register_command(('lottery', '彩票', '抽奖'), info='5个韭菜盒子购买一个韭菜盒子彩票')
 def lottery(message: MESSAGE, session: Session):
-    assert data.time > time.time(), '彩票店接盘侠还未赶来...'
+    assert data.time < time.time(), '彩票店接盘侠还未赶来...'
 
     match random.randint(1, 100):
         case score if score <= 1:
