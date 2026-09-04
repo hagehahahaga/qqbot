@@ -30,11 +30,12 @@ def chat(message: GroupMessage, session: Session):
                             case abstract.message.TextMessage:
                                 parts: list = message_part.to_args()
                                 for prefix in COMMAND_GROUP.command_prefixes:
-                                    if parts[0].startswith(prefix) and parts[0][1:] == 'ai':
+                                    if parts[0].startswith(prefix) and parts[0][1:] == 'chat':
                                         parts = parts[2:]
+                                        break
                                 text += ' '.join(parts)
                             case final:
-                                raise TypeError(f'Unsupported type {final} for function "ai"!')
+                                raise TypeError(f'Unsupported type {final} for function "chat"!')
                     output.append(
                         {
                             'type': 'text',
