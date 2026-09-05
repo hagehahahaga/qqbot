@@ -258,7 +258,7 @@ def transfer(message: MESSAGE, session: Session, args):
             except ValueError:
                 raise CommandCancel('输入的额度无法转换为数字!')
             match args:
-                case [AtMessage(target=recipients), TextMessage(), AtMessage(target=target)]:
+                case [AtMessage(target=recipients), *_, AtMessage(target=target)]:
                     if message.sender.role != 'operator':
                         raise CommandCancel('只有操作员可以从其他用户账户转账!')
                     if recipients.points < num:
