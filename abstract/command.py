@@ -132,7 +132,7 @@ def ask_for_wait(func):
     return decorated
 
 
-def cost(cost: int):
+def cost(cost: int, *, inform=True):
     def decorator(func):
         @functools.wraps(func)
         def decorated(*args, **kwargs):
@@ -146,7 +146,8 @@ def cost(cost: int):
             result = func(*args, **kwargs)
 
             message.sender.points -= cost
-            message.reply_text(f'本次请求消耗 {cost} 个韭菜盒子, 贼jb好吃.')
+            if inform:
+                message.reply_text(f'本次请求消耗 {cost} 个韭菜盒子, 贼jb好吃.')
             return result
 
         return decorated
