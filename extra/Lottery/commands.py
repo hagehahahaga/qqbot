@@ -1,31 +1,33 @@
 import time, persistedstate, pathlib, random
 
-from abstract.command import COMMAND_GROUP
+from abstract.command import COMMAND_GROUP, cost
 from abstract.message import MESSAGE
 from abstract.session import Session
 
 @COMMAND_GROUP.register_command(('lottery', '彩票', '抽奖'), info='5个韭菜盒子购买一个韭菜盒子彩票')
+@cost(5)
 def lottery(message: MESSAGE, session: Session):
     assert data.time < time.time(), '彩票店接盘侠还未赶来...'
 
+    data.pool += 5
     match random.randint(1, 100):
         case score if score <= 1:
             message.reply_text(f'恐怖! 特大奖来袭! 奖池清空, +{data.pool - 5}. 无语, 典型的特大男人思维.')
-            message.sender.points += data.pool - 5
+            message.sender.points += data.pool
             data.pool = 20
         case score if score <= 10:
             message.reply_text('大奖. +15')
-            message.sender.points += 15
-            data.pool -= 15
+            message.sender.points += 20
+            data.pool -= 20
         case score if score <= 20:
             message.reply_text('小奖. +5')
+            message.sender.points += 10
+            data.pool -= 10
+        case score if score <= 50:
             message.sender.points += 5
             data.pool -= 5
-        case score if score <= 50:
             message.reply_text('不亏. +0')
         case _:
-            message.sender.points -= 5
-            data.pool += 5
             message.reply_text('未中奖...')
 
     if data.pool < 0:
