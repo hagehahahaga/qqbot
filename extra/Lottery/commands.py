@@ -12,21 +12,21 @@ def lottery(message: MESSAGE, session: Session):
     data.pool += 5
     match random.randint(1, 100):
         case score if score <= 1:
-            message.reply_text(f'恐怖! 特大奖来袭! 奖池清空, +{data.pool - 5}. 无语, 典型的特大男人思维.')
+            message.reply_text(f'恐怖! 特大奖来袭! 奖池清空, 一共{data.pool}个韭菜盒子. 无语, 典型的特大思维.')
             message.sender.points += data.pool
-            data.pool = 20
+            data.pool = 50
         case score if score <= 10:
-            message.reply_text('大奖. +15')
-            message.sender.points += 20
-            data.pool -= 20
+            message.reply_text('50个韭菜盒子, 大奖.')
+            message.sender.points += 50
+            data.pool -= 50
         case score if score <= 20:
-            message.reply_text('小奖. +5')
+            message.reply_text('10个韭菜盒子, 小奖.')
             message.sender.points += 10
             data.pool -= 10
         case score if score <= 50:
             message.sender.points += 5
             data.pool -= 5
-            message.reply_text('不亏. +0')
+            message.reply_text('5个韭菜盒子, 不亏.')
         case _:
             message.reply_text('未中奖...')
 
