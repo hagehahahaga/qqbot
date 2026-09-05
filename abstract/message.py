@@ -247,6 +247,9 @@ class BaseMessage(abc.ABC):
                         target=User(int(message_part['data']['qq']))
                     )]
                 case 'text':
+                    if self.messages and isinstance(self.messages[-1], TextMessage):
+                        self.messages[-1].text += message_part['data']['text']
+                        continue
                     message_part = [TextMessage(message_part['data']['text'])]
                 case 'image':
                     url = '/'.join(['http:'] + message_part['data']['url'].split('/')[1:])
