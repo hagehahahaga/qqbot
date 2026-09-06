@@ -184,7 +184,7 @@ class Bot:
 
     def notice_handler(self, data: dict):
         match data['notice_type']:
-            case 'group_recall' if GROUP_OPTION_TABLE.get(f'where id = {data["group_id"]}', attr='recall_catch')[0]:
+            case 'group_recall' if Group(data["group_id"]).recall_catch:
                 if data['user_id'] == BOT.id:
                     return
                 GroupMessage(

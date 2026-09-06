@@ -78,7 +78,7 @@ def chat(message: GroupMessage, session: Session):
         return output
 
     character: LLM = CHAT_AGENTS[message.get_parts_by_type(TextMessage)[0].to_args()[1]]
-    assert not character.r18 or GROUP_OPTION_TABLE.get(f'where id = {message.target.id}', attr='r18')[0] > 0, \
+    assert not character.r18 or message.target.r18 > 0, \
         '你所在的群聊的r18设置为0'
     message.reply_text(
         character.chat(session, format(message))

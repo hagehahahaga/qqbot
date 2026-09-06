@@ -148,7 +148,7 @@ def random_pic(message: MESSAGE, session: Session, args):
             worker()
 
     if isinstance(message, GroupMessage):
-        r18 = GROUP_OPTION_TABLE.get(f'where id = {message.target.id}', attr='r18')[0]
+        r18 = message.target.r18
     else:
         r18 = 0
     retry_times = 0
@@ -217,7 +217,7 @@ def option_private(message: MESSAGE, session: Session, args):
         case []:
             abstract.bot.help(message, session, ['set'])
         case [key, value]:
-            assert key in ('todo_notice',), f'没有权限访问{key}.'
+            assert key in User.registered_options, f'没有权限访问{key}.'
             try:
                 USER_TABLE.set('id', message.sender.id, key, value)
             except Exception as error:
@@ -230,7 +230,7 @@ def option_private(message: MESSAGE, session: Session, args):
             else:
                 message.reply_text(f'{key}已设置为{value}')
         case [key]:
-            assert key in ('todo_notice',), f'没有权限访问{key}.'
+            assert key in User.registered_options, f'没有权限访问{key}.'
             try:
                 message.reply_text(f'设置项 {key} 值为 {USER_TABLE.get(f"where id = {message.sender.id}", attr=key)[0]}')
             except Exception as error:

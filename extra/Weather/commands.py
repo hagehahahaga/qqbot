@@ -28,7 +28,7 @@ def weather(message: MESSAGE, session: Session, args):
 
     notice_message = None
     if not city_name:
-        city_name = GROUP_OPTION_TABLE.get(f'where id = {message.target.id}', attr='city')[0]
+        city_name = message.target.city
         if not city_name:
             raise CommandCancel('未设置默认城市, 在命令后添加城市名, 或让管理员设置默认城市.')
         notice_message = message.reply_text(f'未指定城市, 将使用群默认城市 {city_name}.')
