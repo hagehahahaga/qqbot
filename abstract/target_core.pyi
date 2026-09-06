@@ -1,5 +1,5 @@
 import datetime
-from typing import Callable, Any, Literal, overload, ClassVar, Protocol
+from typing import Callable, Any, Literal, overload, ClassVar, Protocol, Optional
 
 from abstract.apis.table import Table
 
@@ -7,12 +7,13 @@ from abstract.apis.table import Table
 class Registerable(Protocol):
     """可注册为类属性的对象：必须拥有 __name__ 并实现描述符协议。"""
     __name__: str
-    def __get__(self, instance: Any, owner: Any) -> Any: ...
+    def __get__(self, instance: Any, owner: type | None = None) -> Any: ...
 
 
 class User:
     role: Literal["member", "admin", "owner", "operator"]
     init_tables: ClassVar[list[Table]]
+    registered_options: list[str]
     id: int
     name: str
     """
@@ -39,6 +40,9 @@ class User:
 
     @classmethod
     def register_attr[T: Registerable](cls, func: T) -> T: ...
+
+    @classmethod
+    def register_option(cls, option_name: str) -> property: ...
 
     @property
     def points(self) -> int: ...
@@ -81,6 +85,7 @@ class User:
 class Group:
     id: int
     name: str
+    registered_options: list[str]
     def __init__(self, id: int) -> None: ...
 
     @property
@@ -96,3 +101,36 @@ class Group:
 
     @classmethod
     def register_attr[T: Registerable](cls, func: T) -> T: ...
+
+    @classmethod
+    def register_option(cls, option_name: str) -> property: ...
+
+    @property
+    def trusted(self) -> bool: ...
+
+    @trusted.setter
+    def trusted(self, value: bool): ...
+
+    @property
+    def r18(self) -> bool: ...
+
+    @r18.setter
+    def r18(self, value: bool): ...
+
+    @property
+    def recall_catch(self) -> bool: ...
+
+    @recall_catch.setter
+    def recall_catch(self, value: bool): ...
+
+    @property
+    def city(self) -> Optional[str]: ...
+
+    @city.setter
+    def city(self, value: Optional[str]): ...
+
+    @property
+    def night_disturb(self) -> bool: ...
+
+    @night_disturb.setter
+    def night_disturb(self, value: bool): ...

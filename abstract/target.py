@@ -12,6 +12,7 @@ from abstract.apis.table import USER_TABLE, GROUP_OPTION_TABLE, GAME_DATA_TABLE
 class User:
     # 构造 User 时需确保已存在记录的数据表, 缺失则自动补一行
     init_tables = [USER_TABLE, GAME_DATA_TABLE]
+    registered_options: list[str] = []
 
     @dispatch
     def __init__(self, data: dict):
@@ -46,6 +47,22 @@ class User:
         assert not hasattr(cls, func.__name__), f"注册失败!方法 {func.__name__} 已存在，覆盖需要使用override函数."
         setattr(cls, func.__name__, func)
         return func
+
+    @classmethod
+    def register_option(cls, option_name: str) -> property:
+        assert USER_TABLE.have_key(option_name), f'The table {USER_TABLE.name} has no column {option_name}. Have you forgot to init.sql?'
+        @property
+        def option(self):
+            return USER_TABLE.get(f'where id = {self.id}', attr=option_name)[0]
+
+        @option.setter
+        def option(self, value):
+            USER_TABLE.set('id', self.id, option_name, value)
+
+        option.__name__ = option_name
+
+        cls.registered_options.append(option_name)
+        return cls.register_attr(option)  # type: ignore[arg-type]
 
     @property
     def points(self) -> int:
@@ -164,6 +181,7 @@ class User:
 
 
 class Group:
+    registered_options: list[str] = []
     def __init__(self, id: int):
         self.id = id
         self.name = ONEBOT_SERVER.get_group_info(id)['group_name']
@@ -193,3 +211,22 @@ class Group:
         assert not hasattr(cls, func.__name__), f"注册失败!方法 {func.__name__} 已存在，覆盖需要使用override函数."
         setattr(cls, func.__name__, func)
         return func
+
+    @classmethod
+    def register_option(cls, option_name: str) -> property:
+        assert GROUP_OPTION_TABLE.have_key(option_name), f'The table {GROUP_OPTION_TABLE.name} has no column {option_name}. Have you forgot to init.sql?'
+        @property
+        def option(self):
+            return GROUP_OPTION_TABLE.get(f'where id = {self.id}', attr=option_name)[0]
+
+        @option.setter
+        def option(self, value):
+            GROUP_OPTION_TABLE.set('id', self.id, option_name, value)
+
+        option.__name__ = option_name
+        cls.registered_options.append(option_name)
+        return cls.register_attr(option)  # type: ignore[arg-type]
+
+
+for option in ('trusted', 'r18', 'recall_catch', 'city', 'night_disturb'):
+    Group.register_option(option)
