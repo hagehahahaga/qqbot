@@ -20,6 +20,7 @@ class Session:
         self.running_thread: Optional[CustomThread] = None
         self.deadline: Optional[int | float] = None
         self.put_condition: Optional[Callable[[MESSAGE], bool]] = None
+        self.borrowing = False
 
     def __enter__(self):
         self.lock.acquire()
@@ -32,7 +33,7 @@ class Session:
         self.lock.release()
 
     @staticmethod
-    def _lock_checker(func):
+    def _lock_checker[T](func: T) -> T:
         def wrapper(self: Session, *args, **kwargs):
             assert self.is_locked, 'Can NOT access without with statement.'
             return func(self, *args, **kwargs)
@@ -204,6 +205,12 @@ class Session:
                 notice_message.delete()
 
         return output[:num]
+
+    @_lock_checker
+    def defer(self):
+        self.__exit__()
+        self.acquire_event.wait()
+        self.__enter__()
 
     def handle(self, message: MESSAGE, command):
         from abstract.command import Command

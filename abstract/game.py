@@ -94,7 +94,7 @@ class BaseGame(ABC):
 
     @abstractmethod
     def handle(self, message: GroupMessage):
-        pass
+        ...
 
     def runner(self, message: GroupMessage, target: User):
         session = SESSION_MANAGER.get_session(target)
@@ -112,9 +112,7 @@ class BaseGame(ABC):
                 except GameOver:
                     return
                 except SessionTransfer:
-                    session.__exit__()
-                    session.acquire_event.wait()
-                    session.__enter__()
+                    session.defer()
                 except Exception as error:
                     message.reply_text(f'游戏出现错误: {error}')
                     LOG.ERR(error)
