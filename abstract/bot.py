@@ -115,7 +115,7 @@ class Bot:
         except IndexError:
             command_name, args = '', []
 
-        command = self.command_group.match(command_name, need_prefix=isinstance(message, GroupMessage))
+        command = self.command_group.match(command_name, need_prefix=isinstance(message, GroupMessage) and not self.must_at)
 
         if isinstance(message, GroupMessage):
             if self.must_at and self.id not in map(
