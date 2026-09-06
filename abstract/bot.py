@@ -129,7 +129,6 @@ class Bot:
                 if condition(message):
                     try:
                         func(message, session)
-                        return
                     except Exception as e:
                         LOG.ERR(e)
                         raise
