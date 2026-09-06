@@ -141,7 +141,7 @@ class QWeatherAPI(WeatherAPI):
         try:
             # 1. 调用你的API获取SVG二进制数据（替换为实际API调用）
             svg_bytes = (
-                    pathlib.Path().cwd() / 'abstract' / 'apis' / 'weather_icons' / f'{icon}.svg'
+                    pathlib.Path(__file__).parent / 'weather_icons' / f'{icon}.svg'
             ).read_bytes()
 
             # 2. 转换SVG为PNG
