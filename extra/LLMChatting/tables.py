@@ -1,3 +1,3 @@
-from abstract.apis.table import Table, sql_db
+from abstract.apis.table import Table, _con
 
-AI_MESSAGES_TABLE = Table(sql_db, 'ai_messages')
+AI_MESSAGES_TABLE = Table(_con, 'ai_messages')

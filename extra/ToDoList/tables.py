@@ -1,3 +1,3 @@
-from abstract.apis.table import Table, sql_db
+from abstract.apis.table import Table, _con
 
-TODOLIST_TABLE = Table(sql_db, 'todo_list')
+TODOLIST_TABLE = Table(_con, 'todo_list')

@@ -8,19 +8,19 @@ from abstract.bases.log import LOG
 class Table:
     LOCK = threading.Lock()
 
-    def __init__(self, db: pymysql.Connection, name: str):
-        self.db = db
-        self._cursor = db.cursor()
+    def __init__(self, _con: pymysql.Connection, name: str):
+        self._con = _con
+        self._cursor = _con.cursor()
         self._cursor.table_name = name
         self.name = name
 
     def __enter__(self):
         self.LOCK.acquire()
-        self.db.ping()
+        self._con.ping()
         return self._cursor
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.db.commit()
+        self._con.commit()
         self.LOCK.release()
 
     @staticmethod
@@ -48,12 +48,27 @@ class Table:
         return self
 
     @_with_lock
+    def have_key(self, key: str):
+        return bool(self._cursor.execute(
+            f"select * from information_schema.columns "
+            f"where TABLE_SCHEMA = %s "
+            f"and table_name = %s "
+            f"and COLUMN_NAME = %s",
+            (self._con.db, self.name, key)
+        ))
+
+    @_with_lock
     def get_len(self):
         return self._cursor.execute(f'SHOW COLUMNS FROM {self.name}')
 
     @_with_lock
     def exists(self):
-        return bool(self._cursor.execute(f"select * from information_schema.tables where table_name = '{self.name}'"))
+        return bool(self._cursor.execute(
+            f"select * from information_schema.tables "
+            f"where TABLE_SCHEMA = %s "
+            f"and table_name = %s",
+            (self._con.db, self.name)
+        ))
 
     @_with_lock
     def get(self, *conditions: str, attr: str = '*'):
@@ -68,23 +83,23 @@ class Table:
 
     @_with_lock
     def set(self, key, value, attr, target):
-        self._cursor.execute(f"UPDATE {self.name} SET `{attr}` = %s WHERE {key} = %s", (target, value))
+        self._cursor.execute(f"UPDATE {self.name} SET `{attr}` = %s WHERE `{key}` = %s", (target, value))
         return self
 
-    @dispatch
     @_with_lock
+    @dispatch
     def add(self, *args):
         self._cursor.execute(f"INSERT INTO {self.name} VALUES ({','.join(['%s'] * len(args))})", args)
         return self
 
-    @dispatch
     @_with_lock
+    @dispatch
     def add(self, args: tuple):
         self._cursor.execute(f"INSERT INTO {self.name} VALUES ({','.join(['%s'] * len(args))})", args)
         return self
 
-    @dispatch
     @_with_lock
+    @dispatch
     def add(self, arg: str):
         self._cursor.execute(f"INSERT INTO {self.name} VALUES ({arg})")
 
@@ -145,17 +160,17 @@ NULL = Null()
 LOG.INF('Connecting to MySQL database...')
 while True:
     try:
-        sql_db = pymysql.connect(**CONFIG.sql_config.model_dump())
+        _con = pymysql.connect(**CONFIG.sql_config.model_dump())
         break
     except pymysql.MySQLError as e:
         LOG.WAR(f'MySQL error: {e}')
         time.sleep(1)
-LOG.INF(f'Connected to MySQL database: {sql_db.get_server_info()} at {sql_db.host}:{sql_db.port}')
+LOG.INF(f'Connected to MySQL database: {_con.get_server_info()} at {_con.host}:{_con.port}')
 LOG.INF('Loading database tables...')
-USER_TABLE = Table(sql_db, 'qq_users')
-GROUP_OPTION_TABLE = Table(sql_db, 'group_options')
-NOTICE_SCHEDULE_TABLE = Table(sql_db, 'notice_schedule')
-GAME_DATA_TABLE = Table(sql_db, 'game_data')
+USER_TABLE = Table(_con, 'qq_users')
+GROUP_OPTION_TABLE = Table(_con, 'group_options')
+NOTICE_SCHEDULE_TABLE = Table(_con, 'notice_schedule')
+GAME_DATA_TABLE = Table(_con, 'game_data')
 LOG.INF(
     'Loaded database tables:\n' +
     ',\n'.join(
