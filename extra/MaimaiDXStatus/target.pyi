@@ -1,0 +1,6 @@
+class Group:
+    @property
+    def maimai_notice(self) -> bool: ...
+
+    @maimai_notice.setter
+    def maimai_notice(self, value: bool): ...

@@ -43,7 +43,7 @@ def todo_noticer():
                 user
             ).send()
         except PrivateChatFailed:
-            USER_TABLE.set('id', id, 'todo_notice', 0)
+            User(id).todo_notice = False
             LOG.WAR(f'Send to {user} failed.')
 
         except SendFailure as e:

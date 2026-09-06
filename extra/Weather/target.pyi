@@ -1,0 +1,6 @@
+class Group:
+    @property
+    def weather_notice(self) -> bool: ...
+
+    @weather_notice.setter
+    def weather_notice(self, value: bool): ...

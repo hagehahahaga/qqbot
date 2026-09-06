@@ -8,7 +8,8 @@ extra/hint_merge.py
 功能:
 1. 对等性检查: 每个 extra 组件的 target.pyi 中注解的成员(方法/属性),
    必须与 register.py 中实际注册到 User/Group 的成员一致.
-   (注意: 同一个函数可同时注册到多个类, 如 @Group.register_attr 叠加 @User.register_attr)
+   (注意: 同一个函数可同时注册到多个类, 如 @Group.register_attr 叠加 @User.register_attr;
+   注册行为也含 Xxx.register_option('选项名') 动态注册, 如 Group.register_option('maimai_notice'))
 2. 冲突检查: 所有 extra 的 target.pyi 中, 同一类(User/Group)的同一成员名
    不得被多个组件注册.
 3. 合并: 通过检查后, 将各 extra 的 target.pyi 与 abstract/target_core.pyi
@@ -29,6 +30,7 @@ OUTPUT_PYI = ROOT / 'abstract' / 'target.pyi'
 
 TARGET_CLASSES = ('User', 'Group')
 REGISTER_DECORATOR = 'register_attr'  # abstract.target 上实际使用的注册装饰器名
+REGISTER_OPTION = 'register_option'  # 动态注册选项属性的类方法名(如 Group.register_option('maimai_notice'))
 PACKAGE = 'target'  # register.py 中导入 User/Group 的来源模块名(末尾段)
 
 if sys.version_info < (3, 12):
@@ -63,12 +65,15 @@ def _resolve_class(value: ast.AST, aliases: dict[str, str]) -> str | None:
     return None
 
 
-def parse_register_members(reg_path: Path) -> dict[str, set[str]]:
-    """解析 register.py, 返回注册到每个类的成员名集合.
+def parse_register_members(reg_path: Path) -> tuple[dict[str, set[str]], list[str]]:
+    """解析 register.py, 返回 (注册到每个类的成员名集合, 解析问题列表).
 
-    register.py 中形如 @User.register_attr / @Group.register_attr 的装饰器
-    决定注册目标, 同一函数可同时携带多个该类装饰器(注册到多个类).
-    属性的 setter/getter 通过同名 def 携带注册装饰器, 亦由此捕获.
+    注册行为有两种形式:
+    - @User.register_attr / @Group.register_attr 装饰器包裹的 def,
+      同一函数可同时携带多个该类装饰器(注册到多个类),
+      属性的 setter/getter 通过同名 def 携带注册装饰器, 亦由此捕获.
+    - Xxx.register_option('选项名') 直接调用(如 MaimaiDXStatus),
+      选项名必须为字符串字面量才能静态确定, 否则记录问题.
     """
     tree = ast.parse(reg_path.read_text(encoding='utf-8'))
 
@@ -87,6 +92,7 @@ def parse_register_members(reg_path: Path) -> dict[str, set[str]]:
                     aliases[alias.asname] = 'User' if 'User' in alias.name else 'Group'
 
     registered = _init_members()
+    problems: list[str] = []
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             for decorator in node.decorator_list:
@@ -94,7 +100,22 @@ def parse_register_members(reg_path: Path) -> dict[str, set[str]]:
                     cls = _resolve_class(decorator.value, aliases)
                     if cls in TARGET_CLASSES:
                         registered[cls].add(node.name)
-    return registered
+        elif isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+            call = node.value
+            if not (isinstance(call.func, ast.Attribute) and call.func.attr == REGISTER_OPTION):
+                continue
+            cls = _resolve_class(call.func.value, aliases)
+            if cls not in TARGET_CLASSES:
+                continue
+            arg = call.args[0] if call.args else None
+            if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                registered[cls].add(arg.value)
+            else:
+                problems.append(
+                    f'{reg_path.parent.name}: {cls}.{REGISTER_OPTION}() 调用无法确定选项名'
+                    f'(仅支持字符串字面量): {ast.unparse(call)}'
+                )
+    return registered, problems
 
 
 # ---------- 检查 ----------
@@ -240,9 +261,10 @@ def main() -> int:
             continue
 
         pyi_members = parse_pyi_members(pyi_path)
-        reg_members = parse_register_members(reg_path)
+        reg_members, reg_problems = parse_register_members(reg_path)
         components.append((directory.name, pyi_members))
         problems.extend(check_equivalence(directory.name, pyi_members, reg_members))
+        problems.extend(reg_problems)
 
     if not components:
         print('未找到任何含 target.pyi 的 extra 组件.')

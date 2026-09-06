@@ -32,7 +32,7 @@ def _execute_weather_task(
         try:
             # 处理未设置城市的情况
             if not city:
-                GROUP_OPTION_TABLE.set('id', group_id, 'weather_notice', 0)
+                Group(group_id).weather_notice = False
                 try:
                     GroupMessage(
                         f'此群未设置默认天气城市, 已关闭天气提醒服务.',
@@ -46,8 +46,8 @@ def _execute_weather_task(
             try:
                 city_obj = WEATHER_CITY_MANAGER[city]
             except CityNotFound:
-                GROUP_OPTION_TABLE.set('id', group_id, 'weather_notice', 0)
-                GROUP_OPTION_TABLE.set('id', group_id, 'city', None)
+                Group(group_id).weather_notice = False
+                Group(group_id).city = None
                 LOG.WAR(f'City {city} from group {group_id} not found, reset from group options.')
                 try:
                     GroupMessage(
@@ -68,7 +68,7 @@ def _execute_weather_task(
             ).send()
 
         except GroupNotJoined:
-            GROUP_OPTION_TABLE.set('id', group_id, 'weather_notice', 0)
+            Group(group_id).weather_notice = False
             LOG.WAR(f'Group {group_id} not joined, option weather_notice set to 0.')
 
         except SendFailure as e:

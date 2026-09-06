@@ -1,0 +1,6 @@
+class User:
+    @property
+    def todo_notice(self) -> bool: ...
+
+    @todo_notice.setter
+    def todo_notice(self, value: bool): ...

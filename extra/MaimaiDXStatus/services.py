@@ -27,11 +27,11 @@ def maimai_status_noticer():
     case = 'where maimai_notice = 1'
     if at_midnight():
         case += ' and night_disturb = 1'
-    for group_id, city in GROUP_OPTION_TABLE.get_all(case, attr="id, city"):
+    for group_id in GROUP_OPTION_TABLE.get_all(case, attr="id"):
         try:
             GroupMessage(text, Group(int(group_id))).send()
         except GroupNotJoined:
-            GROUP_OPTION_TABLE.set('id', group_id, 'maimai_notice', 0)
+            Group(group_id).maimai_notice = False
             LOG.WAR(f'Group {group_id} not joined, option maimai_notice set to 0.')
 
         except SendFailure as e:
