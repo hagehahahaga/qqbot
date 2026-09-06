@@ -1,7 +1,6 @@
 from abstract.command import COMMAND_GROUP, cost, group_only, ask_for_wait
 from abstract.message import MESSAGE, ImageMessage
 from abstract.session import Session
-from abstract.apis.table import GROUP_OPTION_TABLE
 from abstract.bases.exceptions import CommandCancel
 
 from .weather_city import WEATHER_CITY_MANAGER

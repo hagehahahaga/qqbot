@@ -5,7 +5,6 @@ from abstract.command import COMMAND_GROUP, group_only, cost, ask_for_wait
 from abstract.bases.config import CONFIG
 from abstract.message import GroupMessage, ImageMessage, ReplyMessage, TextMessage
 from abstract.session import Session
-from abstract.apis.table import GROUP_OPTION_TABLE
 
 from .LLM import LLM, CHAT_AGENTS
 

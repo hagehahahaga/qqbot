@@ -11,7 +11,6 @@ from abstract.service import Service
 from abstract.session import SESSION_MANAGER, Session
 from abstract.target import User, Group
 from abstract.apis.frame_server import ONEBOT_SERVER
-from abstract.apis.table import GROUP_OPTION_TABLE
 from abstract.bases.log import LOG
 
 
