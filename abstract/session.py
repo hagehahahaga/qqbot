@@ -78,7 +78,6 @@ class Session:
                     return True
 
                 if not cond_met:
-                    self.pipe.put(SessionTransfer())
                     return False
         self.pipe.put(message)
         return True

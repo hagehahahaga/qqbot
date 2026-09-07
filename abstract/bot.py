@@ -1,5 +1,5 @@
 from abstract.apis.receiver import MESSAGE_RECEIVER
-from abstract.bases.exceptions import CommandCancel
+from abstract.bases.exceptions import CommandCancel, SessionTransfer
 from abstract.bases.importer import operator, LAST_COMMIT, psutil, platform, json, pathlib
 from typing import Callable
 
@@ -102,10 +102,6 @@ class Bot:
         # 获取(或按需创建)发送者对应的 session
         session = self.session_manager.get_session(message.sender)
 
-        if session.getting:
-            if session.pipe_put(message):
-                return
-
         # 解析指令名与参数: 取首条文本部件的参数列表, 首个为指令名, 其余为 args
         # 无文本部件(如纯@/纯图片)时触发 IndexError, 视为空指令名
         try:
@@ -115,6 +111,10 @@ class Bot:
             command_name, args = '', []
 
         command = self.command_group.match(command_name, need_prefix=isinstance(message, GroupMessage) and not self.must_at)
+
+        if session.getting:
+            if session.pipe_put(message):
+                return
 
         if isinstance(message, GroupMessage):
             if self.must_at and self.id not in map(
@@ -133,7 +133,7 @@ class Bot:
                         raise
 
         # 处理进行中的命令
-        if session.running_command:
+        if session.running_command and not session.getting:
             session.handle(message, command)
             return
 
@@ -154,6 +154,9 @@ class Bot:
         if isinstance(command, str):
             message.reply_text(f'{command}不是一个可识别的指令, 检查输入.')
             return
+
+        if session.getting:
+            session.pipe.put(SessionTransfer())
 
         with session:
             LOG.INF(f'{message.sender} used {command_name}')
