@@ -8,7 +8,7 @@ from abstract.bases.exceptions import CommandCancel, SessionTransfer
 from abstract.bases.log import LOG
 from abstract.target import User
 from abstract.bases.custom_thread import CustomThread, CustomThreadGroup
-from abstract.session import SESSION_MANAGER
+from abstract.session import SESSION_MANAGER, InputTimeout, InputCancel
 from abstract.message import GroupMessage, AtMessage, TextMessage, MESSAGE
 from abstract.bases.config import CONFIG
 
@@ -45,9 +45,8 @@ class BaseGame(ABC):
             while reply != 'join':
                 try:
                     reply = session.pipe_get(message, False).get_parts_by_type(TextMessage)
-                except CommandCancel as e:
-                    if e.text in ('用户取消输入.', '未继续输入.'):
-                        self.status = 'INVITE_FAIL'
+                except InputTimeout, InputCancel:
+                    self.status = 'INVITE_FAIL'
                     if self.invite_thread_group.status == 'RUNNING':
                         self.invite_thread_group.stop(0)
                     return False
@@ -58,7 +57,7 @@ class BaseGame(ABC):
             self.add_member(target)
         return True
 
-    def invite_member(self, message: GroupMessage, targets: set[User]):
+    def invite_members(self, message: GroupMessage, targets: set[User]):
         try:
             assert len(targets) == self.NEEDED_MEMBER_NUM - 1, f'需要 {self.NEEDED_MEMBER_NUM - 1} 名玩家, 但提供了 {len(targets)} 名玩家.'
             assert self.status == 'IDLE', '游戏进行中或已完成.'

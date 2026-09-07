@@ -329,7 +329,7 @@ def game_menu(message: MESSAGE, session: Session):
             }
 
             game = GAME_MANAGER.get_game(message.sender, game_type)
-            game.invite_member(message, targets)
+            game.invite_members(message, targets)
             game.start(message)
         case ['blacklist', 'add']:
             targets = [part.target for part in message.get_parts_by_type(AtMessage)]
