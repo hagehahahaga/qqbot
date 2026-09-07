@@ -178,10 +178,14 @@ class Bot:
                     command(message, session, part_args)
 
                 case {'needed_type': needed_type}:
+                    try:
+                        input_parts = session.pipe_get_by_type(message, needed_type, command.type.get('needed_num', 1))
+                    except CommandCancel as e:
+                        message.reply_text(e.__str__())
+                        return
                     command(
                         message,
-                        session,
-                        session.pipe_get_by_type(message, needed_type, command.type.get('needed_num', 1))
+                        session, input_parts
                     )
 
     def notice_handler(self, data: dict):
