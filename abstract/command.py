@@ -7,6 +7,7 @@ from abstract.bases.custom_thread import CustomThread
 from abstract.bases.exceptions import *
 from abstract.bases.log import LOG
 from abstract.message import MESSAGE_PART
+from abstract.session import InputTimeout
 
 
 class Command:

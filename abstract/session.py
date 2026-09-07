@@ -9,6 +9,16 @@ from abstract.target import User
 from abstract.message import MESSAGE, TextMessage, MESSAGE_PART, ReplyMessage, GroupMessage
 
 
+class InputCancel(CommandCancel):
+    def __init__(self):
+        super().__init__('用户取消输入.')
+
+
+class InputTimeout(CommandCancel):
+    def __init__(self):
+        super().__init__('用户未继续输入.')
+
+
 class Session:
     def __init__(self):
         self.lock = threading.Lock()
@@ -62,6 +72,11 @@ class Session:
             except Exception as e:
                 LOG.WAR(f'put_condition raised, fallback to pass-through: {e}')
             else:
+                args = message.get_parts_by_type(TextMessage)
+                if args and args[0].to_args()[0] == 'cancel':
+                    self.pipe.put(message)
+                    return True
+
                 if not cond_met:
                     self.pipe.put(SessionTransfer())
                     return False
@@ -100,7 +115,8 @@ class Session:
         :type condition: Optional[Callable[[MESSAGE], bool]]
         :return: 取到的消息
         :rtype: MESSAGE
-        :raises CommandCancel: 超时、队列为空或用户输入"cancel"时抛出
+        :raises InputTimeout: 用户输入超时时抛出
+        :raises CommandCancel: 用户输入"cancel"时抛出
         :raises SessionTransfer: 收到让锁信号时抛出，由上层处理锁的让渡
         """
         if timeout is None:
@@ -141,7 +157,7 @@ class Session:
                 result.reply_text(f'你现在有进行中的输入请求, 请在对应会话中处理: {message.target}')
                 result = self._pipe_get(message, inform=False)
         except queue.Empty:
-            raise CommandCancel('未继续输入.')
+            raise InputTimeout()
         finally:
             self.getting = False
             if inform:
@@ -150,7 +166,7 @@ class Session:
         try:
             args = result.get_parts_by_type(TextMessage)
             if args and args[0].to_args()[0] == 'cancel':
-                raise CommandCancel('用户取消输入.')
+                raise InputCancel()
         except IndexError:
             ...
 
