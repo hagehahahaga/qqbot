@@ -3,9 +3,9 @@ from typing import Optional
 from abstract.bases.importer import local_time, datetime
 
 from .commands import arcade
-from abstract.bases.exceptions import CommandCancel
+from abstract.bases.exceptions import CommandCancel, SessionTransfer
 from abstract.message import *
-from abstract.session import Session, SESSION_MANAGER
+from abstract.session import Session, SESSION_MANAGER, InputTimeout
 from abstract.bot import BOT
 
 
@@ -126,25 +126,25 @@ def update_arcade_num(message: MESSAGE, session: Session):
 
     with session:
         timeout = 10
-        message.reply_text(f'{arcade} {num}人的记录已寄存. {timeout}秒内发送undo取消提交, 发送push马上提交.')
-        target_time = local_time() + datetime.timedelta(seconds=timeout)
-        try:
-            while local_time() < target_time:
-                message_get = session.pipe_get(
-                    message, False,
-                    (target_time - local_time()).total_seconds()
+        message.reply_text(f'{arcade} {num}人的记录已寄存. {timeout}秒内发送cancel取消提交, 发送push马上提交.')
+        while True:
+            try:
+                session.pipe_get(
+                    message,
+                    False,
+                    timeout,
+                    condition=lambda a: a.messages[0].text == 'push' if a.messages and isinstance(
+                        a.messages[0], TextMessage
+                    ) else False
                 ).get_parts_by_type(TextMessage)
-                if not message_get:
-                    continue
-                text = message_get[0].text
-                match text:
-                    case 'undo':
-                        message.reply_text('记录未提交.')
-                        return
-                    case 'push':
-                        break
-        except CommandCancel:
-            ...
+                break
+            except SessionTransfer:
+                session.defer()
+            except InputTimeout:
+                break
+            except CommandCancel:
+                message.reply_text('记录未提交.')
+                return
 
     message.target.update_arcade_num(arcade, num, message.sender)
     message.reply_text('记录已提交.')
