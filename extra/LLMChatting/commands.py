@@ -3,7 +3,7 @@ import filetype, base64
 import abstract
 from abstract.command import COMMAND_GROUP, group_only, cost, ask_for_wait
 from abstract.bases.config import CONFIG
-from abstract.message import GroupMessage, ImageMessage, ReplyMessage, TextMessage
+from abstract.message import GroupMessage, ImagePart, ReplyPart, TextPart
 from abstract.session import Session
 
 from .LLM import LLM, CHAT_AGENTS
@@ -16,17 +16,17 @@ from .LLM import LLM, CHAT_AGENTS
 def chat(message: GroupMessage, session: Session):
     def format(message: GroupMessage) -> list[dict]:
         output = []
-        for part in message.split_when(lambda a: isinstance(a, ImageMessage | ReplyMessage)):
+        for part in message.split_when(lambda a: isinstance(a, ImagePart | ReplyPart)):
             match type(part):
                 case _ if isinstance(part, list):
                     text = message.sender.__str__() + ': '
                     for message_part in part:
                         match type(message_part):
-                            case abstract.message.AtMessage:
+                            case abstract.message.AtPart:
                                 if message_part.target.id in CONFIG.bot_config.available_ids:
                                     continue
                                 text += message_part.target.__str__()
-                            case abstract.message.TextMessage:
+                            case abstract.message.TextPart:
                                 parts: list = message_part.to_args()
                                 for prefix in COMMAND_GROUP.command_prefixes:
                                     if parts[0].startswith(prefix) and parts[0][1:] == 'chat':
@@ -41,7 +41,7 @@ def chat(message: GroupMessage, session: Session):
                             'text': text
                         }
                     )
-                case abstract.message.ImageMessage:
+                case abstract.message.ImagePart:
                     output.extend(
                         [
                             {
@@ -57,7 +57,7 @@ def chat(message: GroupMessage, session: Session):
                             }
                         ]
                     )
-                case abstract.message.ReplyMessage:
+                case abstract.message.ReplyPart:
                     output.extend(
                         [
                             {
@@ -76,7 +76,7 @@ def chat(message: GroupMessage, session: Session):
 
         return output
 
-    character: LLM = CHAT_AGENTS[message.get_parts_by_type(TextMessage)[0].to_args()[1]]
+    character: LLM = CHAT_AGENTS[message.get_parts_by_type(TextPart)[0].to_args()[1]]
     assert not character.r18 or message.target.r18 > 0, \
         '你所在的群聊的r18设置为0'
     message.reply_text(

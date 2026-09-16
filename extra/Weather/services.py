@@ -5,7 +5,7 @@ from abstract.bases.importer import at_midnight
 from services import get_wait_seconds
 
 from abstract.apis.table import GROUP_OPTION_TABLE
-from abstract.message import GroupMessage, ImageMessage, TextMessage
+from abstract.message import GroupMessage, ImagePart, TextPart
 from abstract.target import Group
 from abstract.bases.exceptions import SendFailure, GroupNotJoined
 from abstract.bases.log import LOG
@@ -93,7 +93,7 @@ def weather_predictor_hourly():
     # 执行任务（传入 hourly 特有的逻辑，先清除缓存）
     _execute_weather_task(
         weather_getter=WeatherCity.get_weather_hourly,
-        message_cls=ImageMessage
+        message_cls=ImagePart
     )
 
 
@@ -112,7 +112,7 @@ def weather_predictor_daily():
     # 执行任务（传入 daily 特有的逻辑，先清除缓存）
     _execute_weather_task(
         weather_getter=WeatherCity.get_weather_day_text,
-        message_cls=TextMessage,
+        message_cls=TextPart,
         delay=1
     )
 
@@ -132,7 +132,7 @@ def weather_today():
     # 执行任务（传入 daily 特有的逻辑，先清除缓存）
     _execute_weather_task(
         weather_getter=WeatherCity.get_weather_day_text,
-        message_cls=TextMessage
+        message_cls=TextPart
     )
 
 
@@ -157,7 +157,7 @@ def weather_predictor_weekly():
     # 执行任务（复用现有逻辑，先清除缓存）
     _execute_weather_task(
         weather_getter=WeatherCity.get_weather_daily,
-        message_cls=ImageMessage
+        message_cls=ImagePart
     )
 
 
@@ -187,5 +187,5 @@ def weather_predictor_minutely():
     # 执行任务（获取分钟级降水变化预报）
     _execute_weather_task(
         weather_getter=WeatherCity.get_minutely_rain_change,
-        message_cls=TextMessage
+        message_cls=TextPart
     )

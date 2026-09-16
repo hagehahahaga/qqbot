@@ -6,7 +6,7 @@ from abstract.bases.exceptions import *
 from abstract.bases.log import LOG
 from abstract.bases.custom_thread import CustomThread
 from abstract.target import User
-from abstract.message import MESSAGE, TextMessage, MESSAGE_PART, ReplyMessage, GroupMessage
+from abstract.message import MESSAGE, TextPart, MESSAGE_PART, ReplyPart, GroupMessage
 
 
 class InputCancel(CommandCancel):
@@ -72,7 +72,7 @@ class Session:
             except Exception as e:
                 LOG.WAR(f'put_condition raised, fallback to pass-through: {e}')
             else:
-                args = message.get_parts_by_type(TextMessage)
+                args = message.get_parts_by_type(TextPart)
                 if args and args[0].to_args()[0] == 'cancel':
                     self.pipe.put(message)
                     return True
@@ -163,7 +163,7 @@ class Session:
                 notice_message.delete()
 
         try:
-            args = result.get_parts_by_type(TextMessage)
+            args = result.get_parts_by_type(TextPart)
             if args and args[0].to_args()[0] == 'cancel':
                 raise InputCancel()
         except IndexError:
@@ -198,8 +198,8 @@ class Session:
         :raises SessionTransfer: 收到让锁信号时由 pipe_get 抛出
         """
         output = message.get_parts_by_type(needed_type)
-        if isinstance(message.messages[0], ReplyMessage):
-            output.extend(message.messages[0].get_reply_message().get_parts_by_type(needed_type))
+        if isinstance(message.parts[0], ReplyPart):
+            output.extend(message.parts[0].get_reply_message().get_parts_by_type(needed_type))
 
         notice_messages: set[MESSAGE] = set()
         try:
@@ -211,8 +211,8 @@ class Session:
                 )
 
                 message_got = self.pipe_get(message)
-                if message_got and isinstance(message_got.messages[0], ReplyMessage):
-                    output.extend(message_got.messages[0].get_reply_message().get_parts_by_type(needed_type))
+                if message_got and isinstance(message_got.parts[0], ReplyPart):
+                    output.extend(message_got.parts[0].get_reply_message().get_parts_by_type(needed_type))
 
                 output.extend(message_got.get_parts_by_type(needed_type))
         finally:

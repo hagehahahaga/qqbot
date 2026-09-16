@@ -412,16 +412,16 @@ with USER_TABLE as cursor:
 使用 `abstract.message` 模块中的消息类发送消息：
 
 ```python
-from abstract.message import GroupMessage, PrivateMessage, TextMessage, ImageMessage
+from abstract.message import GroupMessage, PrivateMessage, TextPart, ImagePart
 
 # 发送群消息
-GroupMessage(TextMessage('文本内容'), Group(group_id)).send()
+GroupMessage(TextPart('文本内容'), Group(group_id)).send()
 
 # 发送图片
-GroupMessage(ImageMessage(image_path), Group(group_id)).send()
+GroupMessage(ImagePart(image_path), Group(group_id)).send()
 
 # 发送私聊消息
-PrivateMessage(TextMessage('私聊内容'), User(user_id)).send()
+PrivateMessage(TextPart('私聊内容'), User(user_id)).send()
 ```
 
 ### 10. 日志记录
@@ -663,7 +663,7 @@ def daily_reminder():
         time.sleep(wait_seconds)
 
         # 发送提醒
-        from abstract.message import GroupMessage, TextMessage
+        from abstract.message import GroupMessage, TextPart
         from abstract.target import Group
 
         # 这里需要实现具体的提醒逻辑  # GroupMessage(TextMessage('每日提醒！'), Group(group_id)).send()

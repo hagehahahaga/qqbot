@@ -8,13 +8,13 @@ from abstract.apis.frame_server import ONEBOT_SERVER
 from abstract.bases.log import LOG
 
 
-class BaseMessagePart(abc.ABC):
+class BasePart(abc.ABC):
     NAME: str
     @abc.abstractmethod
     def get_json(self): ...
 
 
-class RecordMessage(BaseMessagePart):
+class RecordPart(BasePart):
     NAME = '语音消息'
     @dispatch
     def __init__(self, file: pathlib.Path):
@@ -33,7 +33,7 @@ class RecordMessage(BaseMessagePart):
         }
 
 
-class ReplyMessage(BaseMessagePart):
+class ReplyPart(BasePart):
     NAME = '回复消息'
     def __init__(self, id: int):
         self.id = id
@@ -54,7 +54,7 @@ class ReplyMessage(BaseMessagePart):
         }
 
 
-class AtMessage(BaseMessagePart):
+class AtPart(BasePart):
     NAME = '@消息'
     def __init__(self, target: User):
         assert type(target) is User
@@ -72,7 +72,7 @@ class AtMessage(BaseMessagePart):
         return f'<{self.__class__.__name__} @{self.target}>'
 
 
-class TextMessage(BaseMessagePart):
+class TextPart(BasePart):
     NAME = '文本消息'
     def __init__(self, text: str):
         self.text: str = text
@@ -97,7 +97,7 @@ class TextMessage(BaseMessagePart):
         return f'<{self.__class__.__name__} {self.text}>'
 
 
-class ImageMessage(BaseMessagePart):
+class ImagePart(BasePart):
     NAME = '图片消息'
     def __init__(self, data: bytes = None, url: str = None):
         self.data = data
@@ -130,7 +130,7 @@ class ImageMessage(BaseMessagePart):
             }
 
 
-class TextImageMessage(ImageMessage):
+class TextImagePart(ImagePart):
     def __init__(self, text: str | list[str], night: bool = None):
         if night is None:
             night = at_night()
@@ -188,7 +188,7 @@ class TextImageMessage(ImageMessage):
         super().__init__(data=buffer.getvalue())
 
 
-class FaceMessage(BaseMessagePart):
+class FacePart(BasePart):
     NAME = '表情消息'
     def __init__(self, id: str):
         self.id = id
@@ -202,7 +202,7 @@ class FaceMessage(BaseMessagePart):
         }
 
 
-class NodeMessage(BaseMessagePart):
+class NodePart(BasePart):
     NAME = '节点消息'
     def __init__(self, sender: User, content: list['MESSAGE_PART']):
         self.sender = sender
@@ -224,7 +224,7 @@ class NodeMessage(BaseMessagePart):
         }
 
 
-MESSAGE_PART = RecordMessage | ReplyMessage | AtMessage | TextMessage | ImageMessage | NodeMessage
+MESSAGE_PART = RecordPart | ReplyPart | AtPart | TextPart | ImagePart | NodePart
 
 
 class BaseMessage(abc.ABC):
@@ -237,30 +237,30 @@ class BaseMessage(abc.ABC):
             data['sender']
         )
         self.message_id = data['message_id']
-        self.messages = []
+        self.parts = []
         for message_part in data['message']:
             match message_part['type']:
                 case 'reply':
-                    message_part = [ReplyMessage(message_part['data']['id'])]
+                    message_part = [ReplyPart(message_part['data']['id'])]
                 case 'at':
-                    message_part = [AtMessage(
+                    message_part = [AtPart(
                         target=User(int(message_part['data']['qq']))
                     )]
                 case 'text':
-                    if self.messages and isinstance(self.messages[-1], TextMessage):
-                        self.messages[-1].text += message_part['data']['text']
+                    if self.parts and isinstance(self.parts[-1], TextPart):
+                        self.parts[-1].text += message_part['data']['text']
                         continue
-                    message_part = [TextMessage(message_part['data']['text'])]
+                    message_part = [TextPart(message_part['data']['text'])]
                 case 'image':
                     url = '/'.join(['http:'] + message_part['data']['url'].split('/')[1:])
 
-                    message_part = [ImageMessage(url=url)]
+                    message_part = [ImagePart(url=url)]
                 case 'record':
-                    message_part = [RecordMessage(
+                    message_part = [RecordPart(
                         ONEBOT_SERVER.get_record(message_part['data']['file'])
                     )]
                 case 'face':
-                    message_part = [FaceMessage(message_part['data']['id'])]
+                    message_part = [FacePart(message_part['data']['id'])]
                 case 'forward':
                     message_part = map(
                         lambda a: Message(a).get_node(),
@@ -272,7 +272,7 @@ class BaseMessage(abc.ABC):
                     continue
                 case final:
                     raise ValueError(f'Uncased message type {final}!')
-            self.messages.extend(message_part)
+            self.parts.extend(message_part)
 
     def __repr__(self):
         return f'<{self.__class__.__name__} {self.sender} -> {self.target}: {self.get_json()}> at {hex(id(self))}'
@@ -281,12 +281,12 @@ class BaseMessage(abc.ABC):
         return list(
             map(
                 lambda a: a.get_json(),
-                self.messages
+                self.parts
             )
         )
 
     def get_node(self):
-        return NodeMessage(self.sender, self.messages)
+        return NodePart(self.sender, self.parts)
 
     def send(self):
         message = get_message(self.send_api(message=self))
@@ -299,7 +299,7 @@ class BaseMessage(abc.ABC):
 
     def reply_text(self, text: str) -> MESSAGE:
         return self.reply(
-            TextMessage(
+            TextPart(
                 text=text
             )
         )
@@ -308,12 +308,12 @@ class BaseMessage(abc.ABC):
         return list(
             filter(
                 lambda a: isinstance(a, part_type),
-                self.messages
+                self.parts
             )
         )
 
     def split_when(self, condition) -> Generator[list[MESSAGE_PART] | MESSAGE_PART]:
-        for out in split_when(self.messages, condition):
+        for out in split_when(self.parts, condition):
             yield out
 
     def delete(self):
@@ -345,25 +345,25 @@ class PrivateMessage(BaseMessage):
     def __init__(self, text: str | None, target: User):
         if text is None:
             text = 'None'
-        self.__init__([TextMessage(text)], target)
+        self.__init__([TextPart(text)], target)
 
     @dispatch
     def __init__(self, messages: list[MESSAGE_PART] | MESSAGE_PART, target: User):
         if isinstance(messages, MESSAGE_PART):
             messages = [messages]
-        self.messages = messages
+        self.parts = messages
         self.target = target
         self.sender = BOT_USER
 
     @dispatch
-    def reply(self, message: list[NodeMessage]) -> MESSAGE:
+    def reply(self, message: list[NodePart]) -> MESSAGE:
         return PrivateMessage(
             message,
             self.sender
         ).send()
 
     @dispatch
-    def reply(self, message: RecordMessage) -> MESSAGE:
+    def reply(self, message: RecordPart) -> MESSAGE:
         return PrivateMessage(
             message, self.sender
         ).send()
@@ -374,7 +374,7 @@ class PrivateMessage(BaseMessage):
             messages = [messages]
         return PrivateMessage(
             [
-                ReplyMessage(
+                ReplyPart(
                     id=self.message_id
                 ),
             ] + messages,
@@ -403,25 +403,25 @@ class GroupMessage(BaseMessage):
     def __init__(self, text: str | None, target: Group):
         if text is None:
             text = 'None'
-        self.__init__([TextMessage(text)], target)
+        self.__init__([TextPart(text)], target)
 
     @dispatch
     def __init__(self, messages: list[MESSAGE_PART] | MESSAGE_PART, target: Group):
         if isinstance(messages, MESSAGE_PART):
             messages = [messages]
-        self.messages = messages
+        self.parts = messages
         self.target = target
         self.sender = BOT_USER
 
     @dispatch
-    def reply(self, message: list[NodeMessage]) -> MESSAGE:
+    def reply(self, message: list[NodePart]) -> MESSAGE:
         return GroupMessage(
             message,
             self.target
         ).send()
 
     @dispatch
-    def reply(self, message: RecordMessage) -> MESSAGE:
+    def reply(self, message: RecordPart) -> MESSAGE:
         return GroupMessage(
             message, self.target
         ).send()
@@ -430,13 +430,13 @@ class GroupMessage(BaseMessage):
     def reply(self, messages: list[MESSAGE_PART]) -> MESSAGE:
         return GroupMessage(
             [
-                ReplyMessage(
+                ReplyPart(
                     id=self.message_id
                 ),
-                AtMessage(
+                AtPart(
                     target=self.sender
                 ),
-                TextMessage(
+                TextPart(
                     text=' '
                 )
             ] + messages,

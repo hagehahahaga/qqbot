@@ -1,5 +1,5 @@
 from abstract.command import COMMAND_GROUP
-from abstract.message import MESSAGE, TextMessage, AtMessage
+from abstract.message import MESSAGE, TextPart, AtPart
 from abstract.session import Session
 
 from .tables import TODOLIST_TABLE
@@ -23,7 +23,7 @@ def todo(message: MESSAGE, session: Session, args):
 
             message.reply_text('这个待办尚未完成, 确定放弃? 发送"Y"来放弃.')
             response = session.pipe_get(message)
-            response_text = response.get_parts_by_type(TextMessage)
+            response_text = response.get_parts_by_type(TextPart)
             if not response_text:
                 response.reply_text('待办未放弃.')
                 return

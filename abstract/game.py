@@ -9,7 +9,7 @@ from abstract.bases.log import LOG
 from abstract.target import User
 from abstract.bases.custom_thread import CustomThread, CustomThreadGroup
 from abstract.session import SESSION_MANAGER, InputTimeout, InputCancel
-from abstract.message import GroupMessage, AtMessage, TextMessage, MESSAGE
+from abstract.message import GroupMessage, AtPart, TextPart, MESSAGE
 from abstract.bases.config import CONFIG
 
 
@@ -44,7 +44,7 @@ class BaseGame(ABC):
             reply = ''
             while reply != 'join':
                 try:
-                    reply = session.pipe_get(message, False).get_parts_by_type(TextMessage)
+                    reply = session.pipe_get(message, False).get_parts_by_type(TextPart)
                 except InputTimeout, InputCancel:
                     self.status = 'INVITE_FAIL'
                     if self.invite_thread_group.status == 'RUNNING':
@@ -65,9 +65,9 @@ class BaseGame(ABC):
             assert self.members[0] not in targets, '不能邀请房主自己加入游戏.'
             assert not set(CONFIG.bot_config.available_ids) & set(map(operator.attrgetter('id'), targets)), '不能邀请bot本体加入游戏.'
             invite_message = message.reply(
-                *(AtMessage(target) for target in targets),
-                TextMessage(' '),
-                TextMessage(f'你被邀请参加游戏 {self.NAME} , 发送"join"以加入游戏, 发送"cancel"以拒绝邀请.')
+                *(AtPart(target) for target in targets),
+                TextPart(' '),
+                TextPart(f'你被邀请参加游戏 {self.NAME} , 发送"join"以加入游戏, 发送"cancel"以拒绝邀请.')
             )
             self.invite_thread_group = CustomThreadGroup(self._invite, zip(itertools.repeat(invite_message), targets))
             self.status = 'INVITING'

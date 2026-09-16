@@ -14,10 +14,10 @@ from abstract.bases.exceptions import *
 from abstract.apis.table import GROUP_OPTION_TABLE, NOTICE_SCHEDULE_TABLE, USER_TABLE
 
 
-@COMMAND_GROUP.register_command(('search', '搜图', '以图搜图'), {'needed_type': ImageMessage}, '多API同时搜索')
+@COMMAND_GROUP.register_command(('search', '搜图', '以图搜图'), {'needed_type': ImagePart}, '多API同时搜索')
 @cost(2)
 @ask_for_wait
-def pic_searching(message: MESSAGE, session: Session, image: list[ImageMessage]):
+def pic_searching(message: MESSAGE, session: Session, image: list[ImagePart]):
     def pic_search(api, index: int):
         name = api.__class__.__name__
         try:
@@ -48,13 +48,13 @@ def pic_searching(message: MESSAGE, session: Session, image: list[ImageMessage])
             else:
                 message.reply(
                     [
-                        TextMessage(
+                        TextPart(
                             f'{name} 搜索结果:\n'
                             f'作者: {result.author if "author" in dir(result) else "ない"}\n'
                             f'出处: {result.url}\n'
                             f'预览图: {result.thumbnail.removeprefix("http://reverse-proxies.hagehaga.space/")}\n'
                         ),
-                        ImageMessage(
+                        ImagePart(
                             data=thumbnail.content
                         )
                     ]
@@ -130,13 +130,13 @@ def random_pic(message: MESSAGE, session: Session, args):
             image_file.seek(0)
             message.reply(
                 [
-                    TextMessage(
+                    TextPart(
                         text=f'作者: {output["author"]}\n'
                              f'标题: {output["title"]}\n'
                              f'pid: {output["pid"]}\n'
                              f'url: {output["urls"]["original"]}'
                     ),
-                    ImageMessage(
+                    ImagePart(
                         data=image_file.read()
                     )
                 ]
@@ -156,9 +156,9 @@ def random_pic(message: MESSAGE, session: Session, args):
     worker()
 
 
-@COMMAND_GROUP.register_command(('compress', '压缩', '压缩图'), {'needed_type': ImageMessage}, '一键电子包浆')
+@COMMAND_GROUP.register_command(('compress', '压缩', '压缩图'), {'needed_type': ImagePart}, '一键电子包浆')
 @ask_for_wait
-def compress(message: MESSAGE, session: Session, args: list[ImageMessage]):
+def compress(message: MESSAGE, session: Session, args: list[ImagePart]):
     input_image = args[0].image
     if not input_image:
         raise CommandCancel('获取图片失败!')
@@ -168,7 +168,7 @@ def compress(message: MESSAGE, session: Session, args: list[ImageMessage]):
     except PIL.UnidentifiedImageError:
         raise CommandCancel('无法识别的图像格式.')
     image.save(output := io.BytesIO(), 'JPEG', quality=10)
-    message.reply(ImageMessage(data=output.getvalue()))
+    message.reply(ImagePart(data=output.getvalue()))
 
 
 @COMMAND_GROUP.register_command(('option', '设置', '群设置', '群聊设置'), 1, '更改/查询机器人在此群聊的设置')
@@ -252,13 +252,13 @@ def transfer(message: MESSAGE, session: Session, args):
     match args:
         case []:
             return abstract.bot.help(message, session, ['transfer'])
-        case [*args, TextMessage(text=num)]:
+        case [*args, TextPart(text=num)]:
             try:
                 num = int(num)
             except ValueError:
                 raise CommandCancel('输入的额度无法转换为数字!')
             match args:
-                case [AtMessage(target=recipients), *_, AtMessage(target=target)]:
+                case [AtPart(target=recipients), *_, AtPart(target=target)]:
                     if message.sender.role != 'operator':
                         raise CommandCancel('只有操作员可以从其他用户账户转账!')
                     if recipients.points < num:
@@ -266,7 +266,7 @@ def transfer(message: MESSAGE, session: Session, args):
                     recipients.points -= num
                     target.points += num
 
-                case [AtMessage(target=target)]:
+                case [AtPart(target=target)]:
                     if message.sender.role != 'operator':
                         if message.sender.points < num:
                             raise CommandCancel('您的余额不足!')
@@ -279,8 +279,8 @@ def transfer(message: MESSAGE, session: Session, args):
 
             message.reply(
                 [
-                    AtMessage(target=target),
-                    TextMessage(f' 的韭菜盒子增加{num}个!')
+                    AtPart(target=target),
+                    TextPart(f' 的韭菜盒子增加{num}个!')
                 ]
             )
         case final:
@@ -422,7 +422,7 @@ def notice(message: MESSAGE, session: Session, args):
 def say(message: MESSAGE, session: Session):
     from abstract.bases.importer import random
     message.reply(
-        RecordMessage(
+        RecordPart(
             random.choice(
                 list(pathlib.Path('extra/say').iterdir())
             )
@@ -430,10 +430,10 @@ def say(message: MESSAGE, session: Session):
     )
 
 
-@COMMAND_GROUP.register_command(('phantom', '幻影坦克'), {'needed_type': ImageMessage, 'needed_num': 2}, '幻影坦克图片生成')
+@COMMAND_GROUP.register_command(('phantom', '幻影坦克'), {'needed_type': ImagePart, 'needed_num': 2}, '幻影坦克图片生成')
 @cost(2)
 @ask_for_wait
-def phantom_tank(message: MESSAGE, session: Session, args: list[ImageMessage]):
+def phantom_tank(message: MESSAGE, session: Session, args: list[ImagePart]):
     white_image, black_image = args
     black_image_pil = PIL.Image.open(io.BytesIO(black_image.image))
 
@@ -503,7 +503,7 @@ def phantom_tank(message: MESSAGE, session: Session, args: list[ImageMessage]):
     output_bytes = io.BytesIO()
     new_image.save(output_bytes, format='PNG')
     message.reply(
-        ImageMessage(
+        ImagePart(
             data=output_bytes.getvalue()
         )
     )
@@ -555,17 +555,17 @@ def service(message: MESSAGE, session: Session, args):
 
 @COMMAND_GROUP.register_command(('forge', '伪造'), 0, '伪造聊天记录')
 def forge_chat(message: MESSAGE, session: Session):
-    content: list[NodeMessage] = []
+    content: list[NodePart] = []
 
     while True:
         message.reply_text('发送AtMessage | qqid指定发送人, 发送complete结束添加.')
 
-        match session.pipe_get(message).messages:
-            case [AtMessage(target=target)]:
+        match session.pipe_get(message).parts:
+            case [AtPart(target=target)]:
                 ...
-            case [TextMessage(text='complete')]:
+            case [TextPart(text='complete')]:
                 break
-            case [TextMessage(text=target)]:
+            case [TextPart(text=target)]:
                 try:
                     target = User(int(target))
                 except ValueError:
@@ -576,7 +576,7 @@ def forge_chat(message: MESSAGE, session: Session):
                 continue
 
         message.reply_text('发送消息指定发送内容.')
-        content.append(NodeMessage(target, session.pipe_get(message).messages))
+        content.append(NodePart(target, session.pipe_get(message).parts))
 
     message.reply(
         content

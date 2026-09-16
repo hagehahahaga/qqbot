@@ -105,7 +105,7 @@ class Bot:
         # 解析指令名与参数: 取首条文本部件的参数列表, 首个为指令名, 其余为 args
         # 无文本部件(如纯@/纯图片)时触发 IndexError, 视为空指令名
         try:
-            args = message.get_parts_by_type(TextMessage)[0].to_args()
+            args = message.get_parts_by_type(TextPart)[0].to_args()
             command_name, args = args[0], args[1:]
         except IndexError:
             command_name, args = '', []
@@ -119,18 +119,18 @@ class Bot:
         if isinstance(message, GroupMessage):
             if self.must_at and self.id not in map(
                     operator.attrgetter('target.id'),
-                    message.get_parts_by_type(AtMessage)
+                    message.get_parts_by_type(AtPart)
             ):
                 return
 
         if not isinstance(command, Command):
             for condition, func in self.triggers:
-                if condition(message):
-                    try:
+                try:
+                    if condition(message):
                         func(message, session)
-                    except Exception as e:
-                        LOG.ERR(e)
-                        raise
+                except Exception as e:
+                    LOG.ERR(e)
+                    continue
 
         # 处理进行中的命令
         if session.running_command and not session.getting:
@@ -169,9 +169,9 @@ class Bot:
                     command(message, session, args)
 
                 case 2:
-                    match message.messages:
-                        case [abstract.message.AtMessage(), abstract.message.TextMessage(), *part_args] if self.must_at: ...
-                        case [abstract.message.TextMessage(), *part_args]: ...
+                    match message.parts:
+                        case [abstract.message.AtPart(), abstract.message.TextPart(), *part_args] if self.must_at: ...
+                        case [abstract.message.TextPart(), *part_args]: ...
                         case final:
                             message.reply_text(f'匹配{final}失败, 检查输入.')
                             return
@@ -195,19 +195,19 @@ class Bot:
                     return
                 GroupMessage(
                     [
-                        AtMessage(User(data['operator_id'])),
-                        TextMessage(' 撤回了'),
-                        AtMessage(User(data['user_id'])),
-                        TextMessage(f' 的消息:\n{self.frame_server.get_msg(data["message_id"])["raw_message"]}'),
+                        AtPart(User(data['operator_id'])),
+                        TextPart(' 撤回了'),
+                        AtPart(User(data['user_id'])),
+                        TextPart(f' 的消息:\n{self.frame_server.get_msg(data["message_id"])["raw_message"]}'),
                     ],
                     Group(data['group_id'])
                 ).send()
             case 'group_decrease':
                 GroupMessage(
                     [
-                        TextMessage('人生自古谁无死？不幸的，'),
-                        AtMessage(User(data['user_id'])),
-                        TextMessage(' 已经无法再与您互动，让我们默哀一普朗克时间，，，')
+                        TextPart('人生自古谁无死？不幸的，'),
+                        AtPart(User(data['user_id'])),
+                        TextPart(' 已经无法再与您互动，让我们默哀一普朗克时间，，，')
                     ],
                     Group(data['group_id'])
                 ).send()
@@ -218,8 +218,8 @@ class Bot:
                 
                 GroupMessage(
                     [
-                        AtMessage(User(data['user_id'])),
-                        TextMessage(' 进群了')
+                        AtPart(User(data['user_id'])),
+                        TextPart(' 进群了')
                     ],
                     Group(data['group_id'])
                 ).send()
@@ -276,13 +276,13 @@ def help(message: MESSAGE, session: Session, args):
     if detail:
         message.reply_text(help_text)
     else:
-        message.reply(TextImageMessage(help_text))
+        message.reply(TextImagePart(help_text))
 
 
 @COMMAND_GROUP.register_command(('version', '版本', '版本信息'), info='查看机器人开发信息')
 def version(message: MESSAGE, session: Session):
     message.reply(
-        TextImageMessage(
+        TextImagePart(
             BOT.VERSION
         )
     )
@@ -301,7 +301,7 @@ def status(message: MESSAGE, session: Session):
 
 @COMMAND_GROUP.register_command(('game', '游戏'), 0 ,'游戏菜单')
 def game_menu(message: MESSAGE, session: Session):
-    text_args = message.get_parts_by_type(TextMessage)[0].to_args()[1:]
+    text_args = message.get_parts_by_type(TextPart)[0].to_args()[1:]
     match text_args:
         case []:
             return abstract.bot.help(message, session, ['game'])
@@ -317,9 +317,9 @@ def game_menu(message: MESSAGE, session: Session):
             )
         case ['info', game_name]:
             assert game_name in GAME_MANAGER, f'游戏 {game_name} 不存在, 使用 "game list" 查看可用游戏.'
-            target = message.get_parts_by_type(AtMessage)[:1]
+            target = message.get_parts_by_type(AtPart)[:1]
             if not target:
-                target = [AtMessage(message.sender)]
+                target = [AtPart(message.sender)]
             target = target[0].target
             data = target.get_game_info(game_name)
             message.reply_text(
@@ -332,14 +332,14 @@ def game_menu(message: MESSAGE, session: Session):
             assert game_name in GAME_MANAGER, f'游戏 {game_name} 不存在, 使用 "game list" 查看可用游戏.'
             game_type = GAME_MANAGER[game_name]
             targets = {
-                part.target for part in session.pipe_get_by_type(message, AtMessage, game_type.NEEDED_MEMBER_NUM - 1)
+                part.target for part in session.pipe_get_by_type(message, AtPart, game_type.NEEDED_MEMBER_NUM - 1)
             }
 
             game = GAME_MANAGER.get_game(message.sender, game_type)
             game.invite_members(message, targets)
             game.start(message)
         case ['blacklist', 'add']:
-            targets = [part.target for part in message.get_parts_by_type(AtMessage)]
+            targets = [part.target for part in message.get_parts_by_type(AtPart)]
             if BOT.must_at and BOT_USER in targets:
                 targets.remove(BOT_USER)
             targets = set(targets)
@@ -348,7 +348,7 @@ def game_menu(message: MESSAGE, session: Session):
             message.sender.game_blacklist |= targets
             message.reply_text(f'已将用户 {targets} 加入游戏黑名单.')
         case ['blacklist', 'remove']:
-            targets = [part.target for part in message.get_parts_by_type(AtMessage)]
+            targets = [part.target for part in message.get_parts_by_type(AtPart)]
             if BOT.must_at and BOT_USER in targets:
                 targets.remove(BOT_USER)
             targets = set(targets)

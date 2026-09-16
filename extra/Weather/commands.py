@@ -1,5 +1,5 @@
 from abstract.command import COMMAND_GROUP, cost, group_only, ask_for_wait
-from abstract.message import MESSAGE, ImageMessage
+from abstract.message import MESSAGE, ImagePart
 from abstract.session import Session
 from abstract.bases.exceptions import CommandCancel
 
@@ -47,9 +47,9 @@ def weather(message: MESSAGE, session: Session, args):
                     weather_city.get_weather_now_text()
                 )
             case 'hourly':
-                message.reply(ImageMessage(weather_city.get_weather_hourly()))
+                message.reply(ImagePart(weather_city.get_weather_hourly()))
             case 'daily':
-                message.reply(ImageMessage(weather_city.get_weather_daily()))
+                message.reply(ImagePart(weather_city.get_weather_daily()))
             case 'today':
                 message.reply_text(
                     '\n' +

@@ -1,7 +1,7 @@
 import abstract
 from abstract.bot import BOT
 from abstract.command import COMMAND_GROUP, group_only
-from abstract.message import MESSAGE, GroupMessage, TextMessage, NodeMessage
+from abstract.message import MESSAGE, GroupMessage, TextPart, NodePart
 from abstract.session import Session
 from abstract.target import User
 
@@ -37,9 +37,9 @@ def arcade(message: MESSAGE, session: Session, args):
                 return
             message.reply(
                 [
-                    NodeMessage(
+                    NodePart(
                         User(BOT.id),
-                        [TextMessage(text)]
+                        [TextPart(text)]
                     ) for text in ['已绑定以下机厅'] + [
                         (
                             f'{names}' if names else

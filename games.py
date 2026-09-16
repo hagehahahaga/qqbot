@@ -3,7 +3,7 @@ from abstract.bases import PIL_FONT
 from typing import Optional
 
 from abstract.game import BaseGame, GameManager, GAME_MANAGER
-from abstract.message import GroupMessage, TextMessage, ImageMessage, AtMessage, MESSAGE
+from abstract.message import GroupMessage, TextPart, ImagePart, AtPart, MESSAGE
 from abstract.target import User
 
 
@@ -74,11 +74,11 @@ class TicTacToe(BaseGame):
     def start(self, message: GroupMessage):
         self.chess_symbols = {self.members[0].id: 'X', self.members[1].id: 'O'}
         self.current_player = next(self.round_loop)
-        message.reply(ImageMessage(self._render_board()))
+        message.reply(ImagePart(self._render_board()))
         super().start(message)
 
     def _handle_condition(self, message: MESSAGE) -> bool:
-        text = message.get_parts_by_type(TextMessage)
+        text = message.get_parts_by_type(TextPart)
         if not text:
             return False
         args = text[0].to_args()
@@ -93,7 +93,7 @@ class TicTacToe(BaseGame):
         return True
 
     def handle(self, message: GroupMessage):
-        position = int(message.get_parts_by_type(TextMessage)[0].to_args()[0])
+        position = int(message.get_parts_by_type(TextPart)[0].to_args()[0])
         if message.sender != self.current_player:
             message.reply_text('现在不是你的回合.')
             return
@@ -101,14 +101,14 @@ class TicTacToe(BaseGame):
             message.reply_text('该位置已被占用, 请重新选择.')
             return
         self.board[position - 1] = self.chess_symbols[message.sender.id]
-        message.reply(ImageMessage(self._render_board()))
+        message.reply(ImagePart(self._render_board()))
         # 检查是否有玩家获胜
         winner_id = self._check_winner()
         if winner_id:
             self.winner = User(winner_id)
             message.reply(
-                TextMessage('游戏结束: 获胜者 '),
-                AtMessage(self.winner)
+                TextPart('游戏结束: 获胜者 '),
+                AtPart(self.winner)
             )
             self.end()
         # 检查是否平局
@@ -118,8 +118,8 @@ class TicTacToe(BaseGame):
         # 切换到下一位玩家
         self.current_player = next(self.round_loop)
         message.reply(
-            TextMessage('下一位玩家: '),
-            AtMessage(self.current_player)
+            TextPart('下一位玩家: '),
+            AtPart(self.current_player)
         )
 
 
@@ -257,11 +257,11 @@ class Gomoku(BaseGame):
         # 黑棋先行（X），白棋后行（O）
         self.chess_symbols = {self.members[0].id: 'X', self.members[1].id: 'O'}
         self.current_player = next(self.round_loop)
-        message.reply(ImageMessage(self._render_board()))
+        message.reply(ImagePart(self._render_board()))
         super().start(message)
 
     def _handle_condition(self, message: MESSAGE) -> bool:
-        text = message.get_parts_by_type(TextMessage)
+        text = message.get_parts_by_type(TextPart)
         if not text:
             return False
 
@@ -273,7 +273,7 @@ class Gomoku(BaseGame):
         return True
 
     def handle(self, message: GroupMessage):
-        args = message.get_parts_by_type(TextMessage)[0].to_args()
+        args = message.get_parts_by_type(TextPart)[0].to_args()
 
         if message.sender != self.current_player:
             message.reply_text('现在不是你的回合.')
@@ -298,15 +298,15 @@ class Gomoku(BaseGame):
 
         # 落子
         self.board[row][col] = self.chess_symbols[message.sender.id]
-        message.reply(ImageMessage(self._render_board()))
+        message.reply(ImagePart(self._render_board()))
 
         # 检查是否有玩家获胜
         winner_id = self._check_winner()
         if winner_id:
             self.winner = User(winner_id)
             message.reply(
-                TextMessage('游戏结束: 获胜者 '),
-                AtMessage(self.winner)
+                TextPart('游戏结束: 获胜者 '),
+                AtPart(self.winner)
             )
             self.end()
             return
@@ -320,6 +320,6 @@ class Gomoku(BaseGame):
         # 切换到下一位玩家
         self.current_player = next(self.round_loop)
         message.reply(
-            TextMessage('下一位玩家: '),
-            AtMessage(self.current_player)
+            TextPart('下一位玩家: '),
+            AtPart(self.current_player)
         )

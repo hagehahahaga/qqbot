@@ -5,7 +5,7 @@ from abstract.apis.frame_server import ONEBOT_SERVER
 from abstract.bot import BOT
 from abstract.bases.exceptions import *
 from abstract.bases.log import LOG
-from abstract.message import GroupMessage, TextImageMessage
+from abstract.message import GroupMessage, TextImagePart
 from abstract.target import Group
 from abstract.apis.receiver import MESSAGE_RECEIVER
 
@@ -33,7 +33,7 @@ def main():
         ):
             try:
                 GroupMessage(
-                    TextImageMessage(
+                    TextImagePart(
                         '机器人已重启' +
                         BOT.VERSION
                     ),

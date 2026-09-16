@@ -18,14 +18,14 @@ def get_group_message_text(message: MESSAGE) -> str:
     """
     if not isinstance(message, GroupMessage):
         return ''
-    text = message.get_parts_by_type(TextMessage)
+    text = message.get_parts_by_type(TextPart)
     if not text:
         return ''
     return text[0].text
 
 
 def get_arcade_num_condition(message: MESSAGE) -> bool:
-    text = message.get_parts_by_type(TextMessage)
+    text = message.get_parts_by_type(TextPart)
     if not text:
         return False
     text = text[0].text
@@ -39,7 +39,7 @@ def get_arcade_num_condition(message: MESSAGE) -> bool:
 @BOT.register_trigger(get_arcade_num_condition)
 def get_arcade_num(message: MESSAGE, session: Session):
     SUFFIEXES = ('几', 'j')
-    text = message.get_parts_by_type(TextMessage)[0].text
+    text = message.get_parts_by_type(TextPart)[0].text
     for suffix in SUFFIEXES:
         if text.endswith(suffix):
             text = text[:-len(suffix)]
@@ -88,7 +88,7 @@ def update_arcade_num_condition(message: MESSAGE) -> bool:
 
 @BOT.register_trigger(update_arcade_num_condition)
 def update_arcade_num(message: MESSAGE, session: Session):
-    text = message.get_parts_by_type(TextMessage)[0].text
+    text = message.get_parts_by_type(TextPart)[0].text
 
     digits = ''
     plus: Optional[bool] = None  # 判断是否加减, None为报数, True为加, 反之为减
@@ -133,10 +133,10 @@ def update_arcade_num(message: MESSAGE, session: Session):
                     message,
                     False,
                     timeout,
-                    condition=lambda a: a.messages[0].text == 'push' if a.messages and isinstance(
-                        a.messages[0], TextMessage
+                    condition=lambda a: a.parts[0].text == 'push' if a.parts and isinstance(
+                        a.parts[0], TextPart
                     ) else False
-                ).get_parts_by_type(TextMessage)
+                ).get_parts_by_type(TextPart)
                 break
             except SessionTransfer:
                 session.defer()

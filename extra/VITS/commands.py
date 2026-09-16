@@ -1,6 +1,6 @@
 from abstract.bases.exceptions import CommandCancel
 from abstract.command import COMMAND_GROUP, cost, ask_for_wait
-from abstract.message import MESSAGE, RecordMessage, TextMessage
+from abstract.message import MESSAGE, RecordPart, TextPart
 from abstract.session import Session
 
 from .speaker import SPEAKER_MANAGER
@@ -18,20 +18,20 @@ def TTS(message: MESSAGE, session: Session, args):
             return
 
     message.reply(
-        RecordMessage(SPEAKER_MANAGER[speaker].TTS(text))
+        RecordPart(SPEAKER_MANAGER[speaker].TTS(text))
     )
 
 
 @COMMAND_GROUP.register_command(
     ('svc', 'ai变音', '变音', '变声'),
-    {'needed_type': RecordMessage, 'needed_num': 1},
+    {'needed_type': RecordPart, 'needed_num': 1},
     'ai变音'
 )
 @cost(2)
 @ask_for_wait
-def SVC(message: MESSAGE, session: Session, args: list[RecordMessage]):
+def SVC(message: MESSAGE, session: Session, args: list[RecordPart]):
     try:
-        command_args = message.get_parts_by_type(TextMessage)[0].to_args()
+        command_args = message.get_parts_by_type(TextPart)[0].to_args()
         speaker = command_args[1]
         try:
             pitch = float(command_args[2])
@@ -41,7 +41,7 @@ def SVC(message: MESSAGE, session: Session, args: list[RecordMessage]):
         raise CommandCancel('未指定speaker.')
 
     message.reply(
-        RecordMessage(
+        RecordPart(
             SPEAKER_MANAGER[speaker].SVC(args[0].record, pitch)
         )
     )

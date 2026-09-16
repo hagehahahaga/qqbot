@@ -10,11 +10,11 @@ def maimai(message: MESSAGE, session: Session, args):
     night = at_night()
     match args:
         case []:
-            message.reply(ImageMessage(MAIMAIDX_STATUS_SERVICE.render(night)))
+            message.reply(ImagePart(MAIMAIDX_STATUS_SERVICE.render(night)))
 
         case ['nodes']:
             message.reply(
-                TextImageMessage(
+                TextImagePart(
                     [
                         f'{node.ID} - {node.NAME}' for node in MAIMAIDX_STATUS_SERVICE.result[1].values()
                     ]
@@ -26,7 +26,7 @@ def maimai(message: MESSAGE, session: Session, args):
             if node is None:
                 message.reply_text(f'没有{id}这个节点.')
                 return
-            message.reply(ImageMessage(node.stat_render()))
+            message.reply(ImagePart(node.stat_render()))
 
         case final:
             message.reply_text(f'匹配 {final} 失败, 检查输入.')
