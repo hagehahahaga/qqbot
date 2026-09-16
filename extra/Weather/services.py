@@ -17,7 +17,7 @@ from .exceptions import CityNotFound
 
 def _execute_weather_task(
         weather_getter: Callable,  # 获取天气数据的方法（差异化逻辑）
-        message_cls: Type,  # 消息类型（ImageMessage/TextMessage，差异化逻辑）
+        message_cls: Type,  # 消息类型（ImagePart/TextPart，差异化逻辑）
         *args, **kwargs
 ):
     """执行天气提醒任务的通用逻辑（处理群组、城市验证、消息发送）"""

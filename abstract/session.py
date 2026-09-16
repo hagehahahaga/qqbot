@@ -179,7 +179,7 @@ class Session:
         功能说明：
         - 必须在 `with session:` 持锁上下文内调用（由 _lock_checker 强制）.
         - 初始 output 由当前 message 自身的 needed_type 部件构成；若 message 首部为
-          ReplyMessage，还会从被回复的消息中提取同类型部件（支持"回复一条含图片的消息来补充图片"）.
+          ReplyPart，还会从被回复的消息中提取同类型部件（支持"回复一条含图片的消息来补充图片"）.
         - 当 output 不足 num 个时进入循环：发送"需要N个X，提供了M个，继续输入"提示，
           调用 pipe_get 阻塞等待下一条消息；新消息若首部为回复消息，同样从其回复目标提取.
         - finally 块统一删除本轮所有提示消息.

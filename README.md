@@ -666,7 +666,7 @@ def daily_reminder():
         from abstract.message import GroupMessage, TextPart
         from abstract.target import Group
 
-        # 这里需要实现具体的提醒逻辑  # GroupMessage(TextMessage('每日提醒！'), Group(group_id)).send()
+        # 这里需要实现具体的提醒逻辑  # GroupMessage(TextPart('每日提醒！'), Group(group_id)).send()
 ```
 
 ## 常见问题与解决方案

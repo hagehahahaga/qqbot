@@ -558,7 +558,7 @@ def forge_chat(message: MESSAGE, session: Session):
     content: list[NodePart] = []
 
     while True:
-        message.reply_text('发送AtMessage | qqid指定发送人, 发送complete结束添加.')
+        message.reply_text('发送AtPart | qqid指定发送人, 发送complete结束添加.')
 
         match session.pipe_get(message).parts:
             case [AtPart(target=target)]:
