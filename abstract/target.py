@@ -203,6 +203,9 @@ class Group:
     def __eq__(self, value: object) -> bool:
         return isinstance(value, self.__class__) and self.id == value.id
 
+    def __hash__(self) -> int:
+        return hash(self.id)
+
     def __contains__(self, value: User) -> bool:
         return value in self.members
 
