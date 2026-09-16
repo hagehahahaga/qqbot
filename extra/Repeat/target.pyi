@@ -1,0 +1,6 @@
+class Group:
+    @property
+    def auto_repeat(self) -> bool: ...
+
+    @auto_repeat.setter
+    def auto_repeat(self, value: bool): ...
