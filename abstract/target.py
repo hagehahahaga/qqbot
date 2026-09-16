@@ -184,9 +184,6 @@ class Group:
     registered_options: list[str] = []
 
     def __init__(self, id: int):
-        for option in ('r18', 'recall_catch', 'city', 'night_disturb'):
-            self.__class__.register_option(option)
-
         self.id = id
         self.name = ONEBOT_SERVER.get_group_info(id)['group_name']
         if not GROUP_OPTION_TABLE.find_exists('id', self.id):
@@ -241,3 +238,7 @@ class Group:
         option.__name__ = option_name
         cls.registered_options.append(option_name)
         return cls.register_attr(option)  # type: ignore[arg-type]
+
+
+for option in ('r18', 'recall_catch', 'city', 'night_disturb'):
+    Group.register_option(option)
