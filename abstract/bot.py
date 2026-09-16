@@ -44,7 +44,7 @@ class Bot:
         self.must_at = must_at
         self.services: dict[str, Service] = {}
         self.triggers: list[tuple[Callable[[MESSAGE], bool], Callable]] = []
-        self.help_text = {}
+        self.help_text: dict[str, str | list[str]] = {}
         self.id = ONEBOT_SERVER.login_id
         assert self.id in available_ids, 'It seems you have logged wrong account?'
         MESSAGE_RECEIVER.register_callback(self.router)
@@ -83,7 +83,18 @@ class Bot:
         return decorator
 
     def register_help_text(self, path: str):
-        self.help_text.update(json.loads(pathlib.Path(path).read_text(encoding='utf-8')))
+        for key, value in json.loads(pathlib.Path(path).read_text(encoding='utf-8')).items():
+            if key not in self.help_text:
+                self.help_text[key] = value
+                continue
+
+            if isinstance(self.help_text[key], str):
+                self.help_text[key] = [self.help_text[key]]
+
+            if isinstance(value, str):
+                value = [value]
+
+            self.help_text[key].extend(value)
 
     def router(self, data: dict):
         LOG.DEB(str(data))
