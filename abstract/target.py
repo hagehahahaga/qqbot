@@ -44,7 +44,7 @@ class User:
 
     @classmethod
     def register_attr(cls, func):
-        assert not hasattr(cls, func.__name__), f"注册失败!方法 {func.__name__} 已存在，覆盖需要使用override函数."
+        assert not hasattr(cls, func.__name__), f"注册失败! 方法 {func.__name__} 已存在"
         setattr(cls, func.__name__, func)
         return func
 
@@ -182,7 +182,11 @@ class User:
 
 class Group:
     registered_options: list[str] = []
+
     def __init__(self, id: int):
+        for option in ('r18', 'recall_catch', 'city', 'night_disturb'):
+            self.__class__.register_option(option)
+
         self.id = id
         self.name = ONEBOT_SERVER.get_group_info(id)['group_name']
         if not GROUP_OPTION_TABLE.find_exists('id', self.id):
@@ -211,9 +215,17 @@ class Group:
 
     @classmethod
     def register_attr(cls, func):
-        assert not hasattr(cls, func.__name__), f"注册失败!方法 {func.__name__} 已存在，覆盖需要使用override函数."
+        assert not hasattr(cls, func.__name__), f"注册失败! 方法 {func.__name__} 已存在."
         setattr(cls, func.__name__, func)
         return func
+
+    @property
+    def trusted(self):
+        return GROUP_OPTION_TABLE.get(f'where id = {self.id}', attr='trusted')[0]
+
+    @trusted.setter
+    def trusted(self, value):
+        GROUP_OPTION_TABLE.set('id', self.id, 'trusted', value)
 
     @classmethod
     def register_option(cls, option_name: str) -> property:
@@ -229,7 +241,3 @@ class Group:
         option.__name__ = option_name
         cls.registered_options.append(option_name)
         return cls.register_attr(option)  # type: ignore[arg-type]
-
-
-for option in ('trusted', 'r18', 'recall_catch', 'city', 'night_disturb'):
-    Group.register_option(option)
