@@ -179,7 +179,11 @@ def option(message: MESSAGE, session: Session, args):
         case []:
             return abstract.bot.help(message, session, ['option'])
         case [key, value]:
-            assert key != 'trusted' or message.sender.role == 'operator', '本项仅operator可修改. 你在装你妈呢我就不明白了.'
+            if key in ('trusted', ):
+                assert message.sender.role == 'operator', '本项仅operator可修改. 你在装你妈呢我就不明白了.'
+                message.target.trusted = value
+                return
+            assert key in Group.registered_options, f'{key}好像不是已有的设置?'
             try:
                 GROUP_OPTION_TABLE.set('id', message.target.id, key, value)
             except Exception as error:
@@ -194,6 +198,7 @@ def option(message: MESSAGE, session: Session, args):
 
             option.__wrapped__(message, session, (key,))
         case [key]:
+            assert key in Group.registered_options, f'{key}好像不是已有的设置?'
             try:
                 message.reply_text(
                     '查询结果:\n'
@@ -217,7 +222,7 @@ def option_private(message: MESSAGE, session: Session, args):
         case []:
             abstract.bot.help(message, session, ['set'])
         case [key, value]:
-            assert key in User.registered_options, f'没有权限访问{key}.'
+            assert key in User.registered_options, f'{key}好像不是已有的设置?'
             try:
                 USER_TABLE.set('id', message.sender.id, key, value)
             except Exception as error:
@@ -230,7 +235,7 @@ def option_private(message: MESSAGE, session: Session, args):
             else:
                 message.reply_text(f'{key}已设置为{value}')
         case [key]:
-            assert key in User.registered_options, f'没有权限访问{key}.'
+            assert key in User.registered_options, f'{key}好像不是已有的设置?'
             try:
                 message.reply_text(f'设置项 {key} 值为 {USER_TABLE.get(f"where id = {message.sender.id}", attr=key)[0]}')
             except Exception as error:
