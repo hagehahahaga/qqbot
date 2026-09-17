@@ -18,10 +18,9 @@ import games
 LOG.INF('Games registered successfully.')
 import triggers
 LOG.INF('Triggers registered successfully.')
+BOT.register_help_text('help_text.json')
 from extra import *
 LOG.INF('Extras registered successfully.')
-
-BOT.register_help_text('help_text.json')
 
 
 def main():
