@@ -1,4 +1,4 @@
-from typing import Generator
+from typing import Generator, Optional
 
 from abstract.bases.importer import abc, base64, pathlib, requests, dispatch, Iterable, PIL, io, at_night
 
@@ -131,7 +131,7 @@ class ImagePart(BasePart):
 
 
 class TextImagePart(ImagePart):
-    def __init__(self, text: str | list[str], night: bool = None):
+    def __init__(self, text: str | list[str], night: Optional[bool] = None):
         if night is None:
             night = at_night()
         # 处理文本输入
@@ -241,38 +241,42 @@ class BaseMessage(abc.ABC):
         for message_part in data['message']:
             match message_part['type']:
                 case 'reply':
-                    message_part = [ReplyPart(message_part['data']['id'])]
+                    self.parts.append(ReplyPart(message_part['data']['id']))
                 case 'at':
-                    message_part = [AtPart(
-                        target=User(int(message_part['data']['qq']))
-                    )]
+                    self.parts.append(
+                        AtPart(
+                            target=User(int(message_part['data']['qq']))
+                        )
+                    )
                 case 'text':
-                    if self.parts and isinstance(self.parts[-1], TextPart):
-                        self.parts[-1].text += message_part['data']['text']
+                    if message_part['data']['text'] == ' ':
                         continue
-                    message_part = [TextPart(message_part['data']['text'])]
+                    self.parts.append(TextPart(message_part['data']['text']))
                 case 'image':
                     url = '/'.join(['http:'] + message_part['data']['url'].split('/')[1:])
 
-                    message_part = [ImagePart(url=url)]
+                    self.parts.append(ImagePart(url=url))
                 case 'record':
-                    message_part = [RecordPart(
-                        ONEBOT_SERVER.get_record(message_part['data']['file'])
-                    )]
+                    self.parts.append(
+                        RecordPart(
+                            ONEBOT_SERVER.get_record(message_part['data']['file'])
+                        )
+                    )
                 case 'face':
-                    message_part = [FacePart(message_part['data']['id'])]
+                    self.parts.append(FacePart(message_part['data']['id']))
                 case 'forward':
-                    message_part = map(
-                        lambda a: Message(a).get_node(),
-                        ONEBOT_SERVER.get_forward_msg(
-                            message_part['data']['id']
+                    self.parts.extend(
+                        map(
+                            lambda a: Message(a).get_node(),
+                            ONEBOT_SERVER.get_forward_msg(
+                                message_part['data']['id']
+                            )
                         )
                     )
                 case 'json':
                     continue
                 case final:
                     raise ValueError(f'Uncased message type {final}!')
-            self.parts.extend(message_part)
 
     def __repr__(self):
         return f'<{self.__class__.__name__} {self.sender} -> {self.target}: {self.get_json()}> at {hex(id(self))}'
