@@ -1,12 +1,14 @@
-from abstract.bases.importer import getopt, sys
-from abstract.bases.custom_thread import CustomThread
+import os
+import pathlib
 
-from abstract.apis.frame_server import ONEBOT_SERVER
+assert (pathlib.Path(os.getcwd()) / 'main.py').exists(), 'Please run in project root directory.'
+
+
+from abstract.bases.importer import sys, threading
+
 from abstract.bot import BOT
-from abstract.bases.exceptions import *
 from abstract.bases.log import LOG
-from abstract.message import GroupMessage, TextImagePart
-from abstract.target import Group
+from abstract.option_handler import OPTION_HANDLER
 from abstract.apis.receiver import MESSAGE_RECEIVER
 
 
@@ -24,24 +26,9 @@ LOG.INF('Extras registered successfully.')
 
 
 def main():
-    opt = dict(getopt.getopt(sys.argv[1:], 'p', ['post'])[0])
-    if '-p' in opt or '--post' in opt:
-        for group_id in map(
-                lambda a: a['group_id'],
-                ONEBOT_SERVER.get_group_list()
-        ):
-            try:
-                GroupMessage(
-                    TextImagePart(
-                        '机器人已重启' +
-                        BOT.VERSION
-                    ),
-                    Group(group_id)
-                ).send()
-            except SendFailure as error:
-                LOG.WAR(error)
+    OPTION_HANDLER.handle(sys.argv[1:])
 
 
 if __name__ == '__main__':
-    CustomThread(target=main).start()
+    threading.Thread(target=main).start()
     MESSAGE_RECEIVER.start()
