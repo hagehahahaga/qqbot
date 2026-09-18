@@ -24,7 +24,6 @@ import operator
 import json
 import sys
 import inspect
-import git
 import os
 import cairosvg
 import matplotlib
@@ -42,7 +41,6 @@ import decimal
 import typing
 import importlib
 import coredumpy
-LAST_COMMIT = git.Repo(pathlib.Path(__file__).parents[2]).head.commit
 def local_time() -> datetime.datetime:
     return datetime.datetime.now().astimezone()
 SENTINEL = object()

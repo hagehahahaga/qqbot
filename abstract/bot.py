@@ -1,6 +1,6 @@
 from abstract.apis.receiver import MESSAGE_RECEIVER
 from abstract.bases.exceptions import CommandCancel, SessionTransfer
-from abstract.bases.importer import operator, LAST_COMMIT, psutil, platform, json, pathlib
+from abstract.bases.importer import operator, psutil, platform, json
 from typing import Callable
 
 import abstract
@@ -18,15 +18,9 @@ class Bot:
     VERSION = (
         '\n开发信息:\n'
         '   机器人代码: Python, 哈嗝哈哈哈嘎开发\n'
-        '   QQ机器人框架: 无头NapCatQQ\n'
+        '   QQ机器人框架: Docker部署Snowluma\n'
         '   机器人协议: Onebot, http/ws\n'
-        '   数据库使用: MySQL\n'
-        '最近一次提交:\n'
-        f'   哈希: {LAST_COMMIT.hexsha}\n'
-        f'   作者: {LAST_COMMIT.author.name}\n'
-        f'   时间: {LAST_COMMIT.committed_datetime}\n'
-        '   信息: \n'
-        f'{LAST_COMMIT.message.strip()}'
+        '   数据库使用: MySQL'
     )
     def __init__(
             self,
