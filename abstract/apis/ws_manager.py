@@ -28,7 +28,7 @@ class WSManager:
                     match e:
                         case ConnectionClosed():
                             LOG.WAR('WS服务端已断开, 正在重连.')
-                        case TimeoutError():
+                        case TimeoutError(), ConnectionRefusedError():
                             LOG.WAR('WS服务端连接超时, 正在重连.')
                         case _:
                             raise
