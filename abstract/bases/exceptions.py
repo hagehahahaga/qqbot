@@ -51,6 +51,24 @@ class PrivateChatFailed(SendFailure):
         return f'<{self.__class__.__name__} {self.user}> at {hex(id(self))}'
 
 
+class SendTimeout(SendFailure):
+    """
+    Exception raised when the frame server has not responded within the limit.
+    The request may be sent on a connection that dropped before its response arrived.
+    """
+    def __init__(self, action: str):
+        """
+        :type action: str
+        """
+        self.action = action
+
+    def __str__(self):
+        return f'发送失败: 接口 {self.action} 等待响应超时, 该请求可能已丢失.'
+
+    def __repr__(self):
+        return f'<{self.__class__.__name__} {self.action}> at {hex(id(self))}'
+
+
 class CommandCancel(BaseException):
     """
     The command is canceled
