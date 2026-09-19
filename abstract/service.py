@@ -9,7 +9,7 @@ from abstract.bases.custom_thread import CustomThread
 class Service:
     def __init__(self, func: Callable, service_name: str, loop_delay: int | float, auto_restart=False):
         def decorated(*args, **kwargs):
-            while not self.stop_flag.is_set():
+            while not self.stop:
                 try:
                     func(*args, **kwargs)
                 except SendFailure as error:
@@ -17,20 +17,20 @@ class Service:
                 except Exception as error:
                     LOG.ERR(error)
                     if self.auto_restart:
-                        time.sleep(60)
                         LOG.WAR(f'Service {self} automatically restarting...')
+                        time.sleep(60)
                         continue
                     LOG.WAR(f'Service {self} failed.')
                 time.sleep(loop_delay)
             else:
-                self.stop_flag.clear()
+                self.stop = False
         self.thread = CustomThread()
         self.args = None
         self.kwargs = None
         self.func = decorated
         self.service_name: str = service_name
         self.auto_restart: bool = auto_restart
-        self.stop_flag = threading.Event()
+        self.stop = False
 
     def __str__(self):
         return self.service_name
@@ -49,8 +49,8 @@ class Service:
 
     def stop(self, timeout=None):
         LOG.INF(f'Service {self} stopping...')
-        self.stop_flag.set()
-        self.thread.join(timeout)
+        self.stop = True
+        self.thread.stop(timeout)
         LOG.INF(f'Service {self} stopped.')
 
     def is_alive(self):
