@@ -1,7 +1,7 @@
 import time, itertools, pandas, datetime, io
-from typing import Callable, MutableMapping, Iterator, KeysView, ValuesView, ItemsView, Optional
+from typing import Callable, Optional, TypedDict
 
-from abstract.bases.importer import matplotlib, PIL
+from abstract.bases.importer import matplotlib, PIL, SENTINEL
 
 from abstract.bases.log import LOG
 from abstract.apis.table import GROUP_OPTION_TABLE
@@ -10,6 +10,11 @@ from abstract.target import Group
 
 from .weather import WEATHER_API, WeatherAPI
 from .exceptions import CityNotFound
+
+
+class _Predict(TypedDict):
+    fxTime: datetime.datetime
+    status: Optional[str]
 
 
 class WeatherCity:
@@ -32,7 +37,7 @@ class WeatherCity:
         self.coo: tuple[float, float] = (
             float(search_result['location'][0]['lon']), float(search_result['location'][0]['lat'])
         )
-        self.predicted = False
+        self.predicted = SENTINEL  # 上次通报的降水变化目标, SENTINEL 表示尚未通报过
         self.cache = {}
 
     def flush_cache(self, function: Callable = None):
@@ -546,13 +551,17 @@ class WeatherCity:
         """
         获取未来30分钟内的降水情况变化
         
-        该方法检查未来30分钟内的降水情况是否会发生变化。
+        该方法以当前所处时段的降水状态为基准，检查未来30分钟内的降水情况是否会发生变化。
         如果30分钟内降水情况有改变，返回描述变化的字符串；
+        如果上次通报的降水变化已消失，返回取消该预报的字符串；
         否则返回None。
         
         :return: 描述降水变化的字符串，或None表示无变化
         """
-        if self.cache.get(self.get_minutely_rain_change.__name__) is None:
+        name = self.get_minutely_rain_change.__name__
+        if self.cache.get(name, SENTINEL) is SENTINEL:
+            # 先占位缓存: 无变化/无数据时同样写入 None, 避免同城多群重复请求接口
+            self.cache[name] = None
             # 获取分钟级预报数据
             response = self.api.get_weather_prediction_minutely(self.coo)
             translation = {'snow': '下雪', 'rain': '下雨'}
@@ -562,41 +571,64 @@ class WeatherCity:
             # 计算30分钟后的时间
             future_time = now + datetime.timedelta(minutes=30)
             
-            # 解析API返回的时间，并过滤出30分钟内的预报
-            predicts: list[dict['str', datetime.datetime | str | None]] = []
-            for predict in response['minutely']:
-                fx_time = datetime.datetime.fromisoformat(predict['fxTime'])
-                # 只保留未来30分钟内的预报
-                if now <= fx_time <= future_time:
-                    predicts.append({
-                        'fxTime': fx_time,
-                        'status': translation[predict['type']] if float(predict['precip']) else None
-                    })
+            # 解析API返回的时间
+            parsed: list[_Predict] = [
+                {
+                    'fxTime': datetime.datetime.fromisoformat(predict['fxTime']),
+                    'status': translation[predict['type']] if float(predict['precip']) else None
+                }
+                for predict in response['minutely']
+            ]
 
-            if not predicts:
+            # 基准取当前所处时段(fxTime <= now 的最后一条), 接口未返回过去时段时退回最早的一条
+            past_indexes = [i for i, predict in enumerate(parsed) if predict['fxTime'] <= now]
+            baseline_index = past_indexes[-1] if past_indexes else 0
+
+            # 只保留基准之后、未来30分钟内的预报用于检测变化
+            predicts = [
+                predict for predict in parsed[baseline_index + 1:]
+                if predict['fxTime'] <= future_time
+            ]
+
+            if not parsed or not predicts:
                 LOG.WAR(f"No valid minutely rain data available for city {self.city_name}")
                 return None
 
-            nearest_status = predicts[0]['status']
-            for predict in predicts:
-                if predict['status'] != nearest_status:
-                    predicted_data = predict
-                    break
-            else:
-                return None
+            nearest_status: Optional[str] = parsed[baseline_index]['status']
+
+            # 首个与基准状态不同的预报, 即为降水情况发生变化的时间点
+            predicted_data = next(
+                (predict for predict in predicts if predict['status'] != nearest_status),
+                None
+            )
+            # 上次通报的目标尚未兑现(基准状态与目标不一致)
+            stale = self.predicted is not SENTINEL and nearest_status != self.predicted
+
+            if predicted_data is None:
+                # 无变化: 上次预报尚未兑现时, 说明该变化已消失, 通报取消
+                if not stale:
+                    return None
+                if self.predicted is None:
+                    canceled = f'停止{nearest_status}'
+                else:
+                    canceled = {'下雨': '降雨', '下雪': '降雪'}.get(self.predicted, self.predicted)
+                self.predicted = SENTINEL
+                self.cache[name] = f'根据天气预报, 刚才预报的{canceled}已取消.'
+                return self.cache[name]
 
             output = '根据天气预报, '
-            if predicted_data['status'] != self.predicted:
+            # 上次通报的目标尚未兑现、且与本次预报不一致时, 才说明上次预报有误
+            if stale and predicted_data['status'] != self.predicted:
                 output += '刚才预报有误, '
             self.predicted = predicted_data['status']
-            # 计算时间差（分钟）
-            time_diff = int((predicted_data['fxTime'] - now).total_seconds() / 60)
+            # 计算时间差（分钟）, 不足1分钟按1分钟计, 避免出现"约0分钟后"
+            time_diff = max(1, round((predicted_data['fxTime'] - now).total_seconds() / 60))
             output += f'约{time_diff}分钟后将会'
             output += ('停止' + nearest_status) if predicted_data['status'] is None else predicted_data['status']
-            self.cache[self.get_minutely_rain_change.__name__] = output + '.'
-        return self.cache[self.get_minutely_rain_change.__name__]
+            self.cache[name] = output + '.'
+        return self.cache[name]
 
-class WeatherCityManager(MutableMapping[str, 'WeatherCity']):
+class WeatherCityManager(dict):
     """
     城市天气管理器，键为城市名，值为WeatherCity对象
     
@@ -604,50 +636,13 @@ class WeatherCityManager(MutableMapping[str, 'WeatherCity']):
     It allows easy access to weather data for different cities.
     """
     
-    def __init__(self):
-        self._data: dict[str, 'WeatherCity'] = {}
-    
-    def __setitem__(self, key: str, value: 'WeatherCity') -> None:
-        """Set a WeatherCity instance for a city."""
-        self._data[key] = value
-    
-    def __getitem__(self, item: str) -> 'WeatherCity':
+    def __getitem__(self, item: str) -> WeatherCity:
         """Get the WeatherCity instance for the specified city."""
-        if item not in self._data:
-            self._data[item] = WeatherCity(item)
-        return self._data[item]
-    
-    def __delitem__(self, key: str) -> None:
-        """Delete a WeatherCity instance for a city."""
-        del self._data[key]
-    
-    def __iter__(self) -> Iterator[str]:
-        """Iterate over city names."""
-        return iter(self._data)
-    
-    def __len__(self) -> int:
-        """Get the number of cities."""
-        return len(self._data)
-    
-    def keys(self) -> KeysView[str]:
-        """Get all city names."""
-        return self._data.keys()
-    
-    def values(self) -> ValuesView[WeatherCity]:
-        """Get all WeatherCity instances."""
-        return self._data.values()
-    
-    def items(self) -> ItemsView[str, WeatherCity]:
-        """Get all (city, WeatherCity) pairs."""
-        return self._data.items()
-    
-    def get(self, key: str, default: WeatherCity = None) -> WeatherCity:
-        """Get the WeatherCity instance for the specified city, or default if not found."""
-        if key not in self._data:
-            if default is not None:
-                return default
-            self._data[key] = WeatherCity(key)
-        return self._data[key]
+        try:
+            return super().__getitem__(item)
+        except KeyError:
+            self[item] = WeatherCity(item)
+            return super().__getitem__(item)
 
 
 LOG.INF('Loading weather modules...')
