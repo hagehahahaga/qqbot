@@ -249,7 +249,7 @@ class BaseMessage(abc.ABC):
                         )
                     )
                 case 'text':
-                    if message_part['data']['text'] == ' ':
+                    if message_part['data']['text'].isspace():
                         continue
                     self.parts.append(TextPart(message_part['data']['text']))
                 case 'image':
