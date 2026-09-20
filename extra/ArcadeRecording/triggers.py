@@ -1,7 +1,3 @@
-from typing import Optional
-
-from abstract.bases.importer import local_time, datetime
-
 from .commands import arcade
 from abstract.bases.exceptions import CommandCancel, SessionTransfer
 from abstract.message import *
@@ -16,8 +12,6 @@ def get_group_message_text(message: MESSAGE) -> str:
     :param message: 消息对象
     :return: 文本内容，若不满足条件则返回空字符串
     """
-    if not isinstance(message, GroupMessage):
-        return ''
     text = message.get_parts_by_type(TextPart)
     if not text:
         return ''
@@ -25,10 +19,7 @@ def get_group_message_text(message: MESSAGE) -> str:
 
 
 def get_arcade_num_condition(message: MESSAGE) -> bool:
-    text = message.get_parts_by_type(TextPart)
-    if not text:
-        return False
-    text = text[0].text
+    text = get_group_message_text(message)
     SUFFIEXES = ('几', 'j')
     for suffix in SUFFIEXES:
         if text.endswith(suffix):
@@ -74,10 +65,12 @@ def get_arcade_num(message: MESSAGE, session: Session):
 
 
 def update_arcade_num_condition(message: MESSAGE) -> bool:
+    if not isinstance(message, GroupMessage):
+        return False
     text = get_group_message_text(message)
     digits = ''
     for letter in text[::-1]:
-        if letter.isdigit():
+        if letter.isdecimal():
             digits += letter
         else:
             break
