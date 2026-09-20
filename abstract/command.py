@@ -70,7 +70,7 @@ class CommandGroup(set):
             raise TypeError('CommandGroup only supports adding Command')
         super().add(command)
 
-    def match(self: set[Command], command_name, need_prefix=True) -> Optional[Command | str]:
+    def match(self: set[Command], command_name: str, need_prefix=True) -> Optional[Command | str]:
         """
         匹配命令名与命令组中的命令
         
@@ -91,6 +91,8 @@ class CommandGroup(set):
         for command in self:
             if command.match(command_name):
                 return command  # 识别到存在的指令
+        if not command_name.isalnum():
+            return None
         return command_name  # 不存在对应指令
 
     def register_command(self, command_name: str | Iterable, type: int | dict[str, MESSAGE_PART | int] = 0, info=''):
