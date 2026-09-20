@@ -39,7 +39,7 @@ class WSManager:
                     match e:
                         case ConnectionClosed():
                             LOG.WAR(f'WS服务端已断开, 正在重连. {e}')
-                        case TimeoutError(), ConnectionRefusedError():
+                        case TimeoutError() | ConnectionRefusedError():
                             LOG.WAR('WS服务端连接超时, 正在重连.')
                         case _:
                             raise
@@ -52,7 +52,8 @@ class WSManager:
     def _connect(self):
         con = connect(
             self._url,
-            open_timeout=None
+            open_timeout=None,
+            max_size=None
         ).__enter__()
         with self.lock:
             self._con = con
