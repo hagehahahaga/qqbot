@@ -37,7 +37,8 @@ class WeatherCity:
         self.coo: tuple[float, float] = (
             float(search_result['location'][0]['lon']), float(search_result['location'][0]['lat'])
         )
-        self.predicted = SENTINEL  # 上次通报的降水变化目标, SENTINEL 表示尚未通报过
+        # 上次通报的降水变化 (目标状态, 预报时间), SENTINEL 表示尚未通报过
+        self.predicted = SENTINEL
         self.cache = {}
 
     def flush_cache(self, function: Callable = None):
@@ -601,26 +602,27 @@ class WeatherCity:
                 (predict for predict in predicts if predict['status'] != nearest_status),
                 None
             )
-            # 上次通报的目标尚未兑现(基准状态与目标不一致)
-            stale = self.predicted is not SENTINEL and nearest_status != self.predicted
+            # 上次通报的预报(目标状态, 预报时间)尚未兑现(基准状态与目标不一致)
+            stale = self.predicted is not SENTINEL and nearest_status != self.predicted[0]
 
             if predicted_data is None:
                 # 无变化: 上次预报尚未兑现时, 说明该变化已消失, 通报取消
                 if not stale:
                     return None
-                if self.predicted is None:
+                if self.predicted[0] is None:
                     canceled = f'停止{nearest_status}'
                 else:
-                    canceled = {'下雨': '降雨', '下雪': '降雪'}.get(self.predicted, self.predicted)
+                    canceled = {'下雨': '降雨', '下雪': '降雪'}.get(self.predicted[0], self.predicted[0])
                 self.predicted = SENTINEL
                 self.cache[name] = f'根据天气预报, 刚才预报的{canceled}已取消.'
                 return self.cache[name]
 
+            forecast = (predicted_data['status'], predicted_data['fxTime'])
             output = '根据天气预报, '
-            # 上次通报的目标尚未兑现、且与本次预报不一致时, 才说明上次预报有误
-            if stale and predicted_data['status'] != self.predicted:
+            # 上次通报尚未兑现, 且本次预报的状态或时间与上次通报不一致时, 说明上次预报有误
+            if stale and forecast != self.predicted:
                 output += '刚才预报有误, '
-            self.predicted = predicted_data['status']
+            self.predicted = forecast
             # 计算时间差（分钟）, 不足1分钟按1分钟计, 避免出现"约0分钟后"
             time_diff = max(1, round((predicted_data['fxTime'] - now).total_seconds() / 60))
             output += f'约{time_diff}分钟后将会'
