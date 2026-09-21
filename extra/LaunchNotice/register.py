@@ -32,18 +32,19 @@ def post(_: str):
 
     message = []
     for commit in latest_commits[::-1]:
+        text_image_part = TextImagePart(
+            f'{commit.committed_datetime} 的提交:\n'
+            f'    哈希: {commit.hexsha}\n'
+            f'    作者: {commit.author.name}\n'
+            f'    信息: \n'
+            f'{commit.message.strip()}'
+            )
         message.append(
             NodePart(
                 sender=BOT_USER, content=[
-                    TextImagePart(
-                        f'{commit.committed_datetime} 的提交:\n'
-                        f'    哈希: {commit.hexsha}\n'
-                        f'    作者: {commit.author.name}\n'
-                        f'    信息: \n'
-                        f'{commit.message.strip()}'
-                    )
+                    text_image_part
                 ]
-            )
+            ) if latest_commits[1:] else text_image_part
         )
 
     messages: list[list[MESSAGE_PART]] = [[TextPart('机器人已重启' + BOT.VERSION)]]
