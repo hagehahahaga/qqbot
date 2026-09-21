@@ -15,7 +15,7 @@ from abstract.target import Group
 @OPTION_HANDLER.register('--post')
 def post(_: str):
     REPO = git.Repo(os.getcwd())
-    LAST_COMMIT_FILE = pathlib.Path(__file__).parent / 'last_commit'
+    LAST_COMMIT_FILE = pathlib.Path(__file__).parent / 'last_commit.tmp'
     last_hexsha = REPO.head.commit.hexsha
 
     if not LAST_COMMIT_FILE.exists():
