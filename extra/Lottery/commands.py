@@ -15,7 +15,7 @@ def lottery(message: MESSAGE, session: Session):
             message.reply_text(f'恐怖! 特大奖来袭! 奖池清空, 一共{data.pool}个韭菜盒子. 无语, 典型的特大思维.')
             message.sender.points += data.pool
             data.pool = 50
-        case score if score <= 10:
+        case score if score <= 5:
             message.reply_text('50个韭菜盒子, 大奖.')
             message.sender.points += 50
             data.pool -= 50
