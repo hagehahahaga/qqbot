@@ -32,7 +32,7 @@ def lottery(message: MESSAGE, session: Session):
 
     if data.pool < 0:
         data.time = time.time() + 5 * 60
-        data.pool = 0
+        data.pool = 50
         message.reply_text('彩票店破产跑路了! 接盘侠预计在 5 分钟后赶来.')
         return
     message.reply_text(f'当前奖池: {data.pool}个.')
