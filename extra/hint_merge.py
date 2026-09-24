@@ -13,7 +13,7 @@ extra/hint_merge.py
 2. 冲突检查: 所有 extra 的 target.pyi 中, 同一类(User/Group)的同一成员名
    不得被多个组件注册.
 3. 合并: 通过检查后, 将各 extra 的 target.pyi 与 abstract/target_core.pyi
-   合并输出为 abstract/target.pyi. (因已检查冲突, 无需处理 override)
+   合并输出为 abstract/target.pyi.
 
 用法:
     python extra/hint_merge.py
