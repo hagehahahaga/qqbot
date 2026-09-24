@@ -6,7 +6,7 @@
 
 ## 技术架构概述
 
-QQBot 是一个基于 Python 的模块化 QQ 机器人框架，采用 Onebot 协议与 NapCatQQ 框架通信。项目采用分层架构设计，核心模块位于 `abstract` 目录下，提供基础功能；扩展模块位于 `extra` 目录下，通过统一的注册机制动态集成。
+QQBot 是一个基于 Python 的模块化 QQ 机器人框架，采用 Onebot 协议与 Snowluma（Docker 部署）框架通信。项目采用分层架构设计，核心模块位于 `abstract` 目录下，提供基础功能；扩展模块位于 `extra` 目录下，通过统一的注册机制动态集成。
 
 ### 核心模块
 
@@ -117,7 +117,7 @@ service 模块用于创建后台运行的任务，支持定时执行和循环逻
 
 #### 2.2 核心类
 
-- **Service**: 服务基类，定义服务生命周期方法（实际使用中更多直接使用装饰器）。
+- **Service**: 服务包装类，管理后台服务的线程与重启（通常经 `BOT.register_service` 装饰器间接使用）。
 
 #### 2.3 注册机制
 
@@ -136,8 +136,8 @@ def weather_predictor_hourly():
 
 **参数说明**：
 - 第一个参数：服务名称
-- 第二个参数：初始延迟（秒）
-- `auto_restart`: 异常时是否自动重启
+- 第二个参数：循环间隔（秒），每轮服务函数执行完毕后休眠的时长
+- `auto_restart`: 异常时是否自动重启（重启前等待 60 秒）
 
 #### 2.4 服务设计模式
 
@@ -155,19 +155,23 @@ trigger 模块提供条件触发器，当消息满足特定条件时自动执行
 
 ```python
 from abstract.bot import BOT
+from abstract.message import MESSAGE, TextPart
+from abstract.session import Session
 
-@BOT.register_trigger
-def trigger_condition(message):
+
+def hello_condition(message: MESSAGE) -> bool:
     # 条件函数，返回布尔值
-    return 'hello' in message.text
+    texts = message.get_parts_by_type(TextPart)
+    return bool(texts) and 'hello' in texts[0].text
 
-@trigger_condition.register
-def trigger_response(message, session):
+
+@BOT.register_trigger(hello_condition)
+def hello_response(message: MESSAGE, session: Session):
     # 响应函数
     message.reply_text('Hello!')
 ```
 
-触发器由条件函数和响应函数组成。条件函数接收 `MESSAGE` 对象，返回布尔值；响应函数接收 `MESSAGE` 和 `Session` 对象。
+注册触发器时，将条件函数作为参数传入 `register_trigger`，被装饰的函数即响应函数。条件函数接收 `MESSAGE` 对象，返回布尔值；响应函数接收 `MESSAGE` 和 `Session` 对象。注意 `MESSAGE` 本身没有 `text` 属性，文本需通过 `get_parts_by_type(TextPart)` 获取。
 
 #### 3.3 执行顺序
 
@@ -191,16 +195,20 @@ game 模块提供回合制游戏框架，支持多玩家游戏、状态管理和
 ```python
 from abstract.game import GAME_MANAGER, BaseGame
 
-@GAME_MANAGER.register_game('guess_number', '猜数字游戏')
+
+@GAME_MANAGER.register_game
 class GuessNumberGame(BaseGame):
-    def handle(self, message, session):
+    NAME = '猜数字游戏'
+    NEEDED_MEMBER_NUM = 2
+
+    def handle(self, message):
         # 游戏逻辑
         pass
 ```
 
-**参数说明**：
-- 第一个参数：游戏标识符
-- 第二个参数：游戏显示名称
+**说明**：
+- `register_game` 接收游戏类本身作为唯一参数。
+- 游戏标识符与显示名称由类属性 `NAME` 提供，参与人数由 `NEEDED_MEMBER_NUM` 提供。
 
 #### 4.4 游戏生命周期
 
@@ -211,7 +219,7 @@ class GuessNumberGame(BaseGame):
 
 #### 4.5 游戏数据存储
 
-游戏数据通过 `User` 类的 `game_data` 属性持久化存储，支持胜率统计和黑名单功能。
+游戏数据通过 `User` 的 `get_game_data(game)` 读取、`win_game` / `lose_game` / `draw_game` 写入并持久化，支持胜率统计（`get_game_info`）与黑名单（`game_blacklist`）功能。
 
 ### 5. Target 模块
 
@@ -236,7 +244,7 @@ points = user.points
 user.points += 10
 
 # 获取用户游戏数据
-game_data = user.game_data['guess_number']
+game_data = user.get_game_data('猜数字游戏')
 ```
 
 #### 5.4 动态扩展
@@ -258,9 +266,49 @@ def get_weather_history(self, days=7):
 user.get_weather_history(3)
 ```
 
-#### 5.5 方法重写
+#### 5.5 成员扩展的限制
 
-使用 `@User.override` 装饰器可以重写已有的方法（谨慎使用）。
+`User`、`Group` 与消息类（`BaseMessage` 子类，如 `GroupMessage`）均只提供 `register_attr`，且注册时断言同名成员不存在，因此无法直接覆盖已有成员；如需覆盖，须在类上自行赋值。
+
+#### 5.6 选项属性的注册（register_option）
+
+`register_option` 把数据表字段注册为 `User` / `Group` 的可读写属性，并登记到 `registered_options`；`option` / `set` 指令即据此校验参数并读写选项：
+
+```python
+from abstract.target import Group
+
+# 将 group_options 表的 auto_repeat 列注册为 Group 的可读写属性
+Group.register_option('auto_repeat')
+```
+
+注册后即可直接读写：
+
+```python
+group.auto_repeat = 0
+```
+
+前提是 `init.sql` 中已存在对应列，否则注册时断言失败。由于 `User` 与 `Group` 的 `register_attr` 不允许同名成员重复注册，同一选项名只能由单个组件注册。
+
+#### 5.7 类型存根与合并（target.pyi / hint_merge.py）
+
+组件在自身目录放置 `target.pyi`，声明其注册到 `User` / `Group` 的成员，供类型检查使用：
+
+```python
+class Group:
+    @property
+    def auto_repeat(self) -> bool: ...
+
+    @auto_repeat.setter
+    def auto_repeat(self, value: bool): ...
+```
+
+执行 `python extra/hint_merge.py` 可校验并合并类型存根，该脚本会：
+
+1. **对等性检查**：每个组件的 `target.pyi` 所注解成员，必须与 `register.py` 中实际注册的成员一致（含 `register_option` 动态注册的选项）。
+2. **冲突检查**：不同组件的 `target.pyi` 不得为同一类的同一成员名重复声明。
+3. **合并**：检查通过后，将 `abstract/target_core.pyi` 与各组件 `target.pyi` 合并生成 `abstract/target.pyi`。
+
+该脚本依赖 PEP 695 泛型语法解析，需要 Python 3.12 及以上版本。
 
 ## Extra 组件开发规范
 
@@ -275,6 +323,7 @@ extra/ComponentName/
 ├── services.py          # 服务定义
 ├── triggers.py          # 触发器定义
 ├── register.py          # User/Group 方法扩展
+├── target.pyi           # 类型存根（扩展 User/Group 成员时）
 ├── help_text.json       # 帮助文本（可选）
 └── ...                  # 其他模块文件
 ```
@@ -333,13 +382,17 @@ def example_service():
 
 ```python
 from abstract.bot import BOT
+from abstract.message import MESSAGE, TextPart
+from abstract.session import Session
 
-@BOT.register_trigger
-def example_condition(message):
-    return 'keyword' in message.text
 
-@example_condition.register
-def example_response(message, session):
+def example_condition(message: MESSAGE) -> bool:
+    texts = message.get_parts_by_type(TextPart)
+    return bool(texts) and 'keyword' in texts[0].text
+
+
+@BOT.register_trigger(example_condition)
+def example_response(message: MESSAGE, session: Session):
     message.reply_text('触发响应！')
 ```
 
@@ -448,6 +501,7 @@ LOG.ERR('错误日志')
 | `SESSION_MANAGER` | `SessionManager` | 会话管理器 |
 | `ONEBOT_SERVER` | `BaseOneBotServer` | OneBot 服务器（HTTP/WS 双模式） |
 | `BOT_USER` | `User` | 机器人自身用户对象 |
+| `MESSAGE_RECEIVER` | `MessageReceiver` | 消息接收器，接收 OneBot 上报并回调注册的 router |
 | `USER_TABLE` | `Table` | 用户数据表 |
 | `GROUP_OPTION_TABLE` | `Table` | 群组选项表 |
 
@@ -485,12 +539,16 @@ LOG.ERR('错误日志')
 
 代表接收到的消息，主要属性与方法：
 
-- `text`: 消息文本内容
+- `data`: 原始上报数据（dict）
 - `sender`: 发送者（User 对象）
 - `target`: 接收目标（User 或 Group 对象）
-- `parts`: 消息部件列表
+- `message_id`: 消息 ID
+- `parts`: 消息部件列表（`TextPart` / `ImagePart` / `AtPart` 等）
 - `reply_text(text)`: 回复文本消息
-- `reply(message_part)`: 回复消息部件
+- `reply(messages)`: 回复消息部件
+- `get_parts_by_type(part_type)`: 按类型筛选消息部件（取文本的规范做法：`message.get_parts_by_type(TextPart)[0].text`）
+- `split_when(condition)`: 按条件切分消息部件
+- `send()` / `get_json()` / `get_node()`: 发送 / 序列化 / 转合并转发节点
 - `delete()`: 删除消息
 
 #### Session 类
@@ -504,6 +562,9 @@ LOG.ERR('错误日志')
 - `pipe_put(message)`: 向管道投递消息
 - `pipe_get(message, inform=True, timeout=30, condition=SENTINEL)`: 阻塞等待用户输入，支持超时（`None` 为无限期）、`condition` 过滤与 `SessionTransfer` 让锁信号
 - `pipe_get_by_type(message, needed_type, num=1)`: 收集指定数量的特定类型消息部件
+- `defer()`: 让锁 —— 释放当前锁并等待重新获取（内联处理 `SessionTransfer` 的等价写法）
+- 超时抛 `InputTimeout`、用户输入 "cancel" 抛 `InputCancel`，二者均为 `CommandCancel` 的子类
+- `SESSION_MANAGER` 以 `User` 对象为键管理各用户的 session
 
 #### User 类
 
@@ -514,16 +575,23 @@ LOG.ERR('错误日志')
 - `points`: 用户点数（property，支持读写）
 - `sign_date`: 最近签到日期（property）
 - `update_sign_date()`: 更新签到日期
-- `game_data`: 游戏数据字典
+- `get_game_data(game)`: 读取指定游戏的战绩字典（count/win/draw）
+- `get_game_info(game)`: 读取含胜率的统计信息
+- `win_game(game)` / `lose_game(game)` / `draw_game(game)`: 写入战绩
 - `game_blacklist`: 游戏黑名单（`set[User]`，支持 `|=` / `-=`）
-- `register_attr` / `override`: 动态扩展 / 重写方法
+- `register_attr`: 动态扩展方法或属性
+- `register_option(option_name)`: 将数据表字段注册为可读写属性（如 `todo_notice`）
 
 #### Group 类
 
 代表群组，主要属性与方法：
 
 - `id`: 群组 ID
-- `settings`: 群组设置字典
+- `name`: 群组名称
+- `members`: 群成员集合（`set[User]`，支持 `user in group`）
+- `trusted`: 群是否受信任（仅 operator 可修改）
+- `register_attr`: 动态扩展方法或属性
+- `register_option(option_name)`: 将群设置字段注册为可读写属性（内置 `r18` / `recall_catch` / `city` / `night_disturb`）
 
 ## 集成步骤
 
@@ -601,13 +669,17 @@ def hello_command(message: MESSAGE, session: Session, args):
 
 ```python
 from abstract.bot import BOT
+from abstract.message import MESSAGE, TextPart
+from abstract.session import Session
 
-@BOT.register_trigger
-def morning_trigger(message):
-    return '早上好' in message.text
 
-@morning_trigger.register
-def morning_response(message, session):
+def morning_condition(message: MESSAGE) -> bool:
+    texts = message.get_parts_by_type(TextPart)
+    return bool(texts) and '早上好' in texts[0].text
+
+
+@BOT.register_trigger(morning_condition)
+def morning_response(message: MESSAGE, session: Session):
     message.reply_text('早上好！今天也是充满希望的一天！')
 ```
 
@@ -732,5 +804,5 @@ def daily_reminder():
 
 ---
 
-*文档版本: 1.2*
-*最后更新: 2026-09-03*
+*文档版本: 1.3*
+*最后更新: 2026-09-24*
