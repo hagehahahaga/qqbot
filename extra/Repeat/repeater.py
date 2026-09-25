@@ -19,8 +19,8 @@ class Repeater:
             return
 
         if random.choice([True, False]):
-            message.send()
             self.last_messages[message.target][1] = True
+            message.send()
 
 
 REPEATER = Repeater()
