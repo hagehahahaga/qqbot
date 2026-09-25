@@ -47,7 +47,7 @@ def post(_: str):
             ) if latest_commits[1:] else text_image_part
         )
 
-    messages: list[list[MESSAGE_PART]] = [[TextPart('机器人已重启' + BOT.VERSION)]]
+    messages: list[list[MESSAGE_PART]] = [[TextPart(('机器人已更新' if message else '机器人已重启') + BOT.VERSION)]]
     if message:
         messages[0][0].text += '\n以下是最近几次提交:'
         messages.append(message)
