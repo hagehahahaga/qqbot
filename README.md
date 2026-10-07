@@ -307,6 +307,7 @@ class Group:
 1. **对等性检查**：每个组件的 `target.pyi` 所注解成员，必须与 `register.py` 中实际注册的成员一致（含 `register_option` 动态注册的选项）。
 2. **冲突检查**：不同组件的 `target.pyi` 不得为同一类的同一成员名重复声明。
 3. **合并**：检查通过后，将 `abstract/target_core.pyi` 与各组件 `target.pyi` 合并生成 `abstract/target.pyi`。
+4. **导入改写与校验**：组件存根中的相对导入会被改写为绝对导入（如 `from . import X` → `from extra.<组件> import X`），否则合并进 `abstract` 包后语义改变、无法解析；写出前会校验结果中没有残留相对导入，且指向本仓库的模块确实存在，任一不满足则不写入。
 
 该脚本依赖 PEP 695 泛型语法解析，需要 Python 3.12 及以上版本。
 
