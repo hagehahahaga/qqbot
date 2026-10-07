@@ -14,6 +14,10 @@ extra/hint_merge.py
    不得被多个组件注册.
 3. 合并: 通过检查后, 将各 extra 的 target.pyi 与 abstract/target_core.pyi
    合并输出为 abstract/target.pyi.
+4. 导入改写与校验: 组件存根中的相对导入会被改写为绝对导入
+   (如 from . import X -> from extra.<组件> import X), 否则合并进 abstract 包后
+   语义改变、无法解析; 写出前会校验结果中没有残留相对导入, 且指向本仓库的
+   模块确实存在.
 
 用法:
     python extra/hint_merge.py
@@ -159,8 +163,41 @@ def _join(block: list[str]) -> str:
     return text if text.endswith('\n') else text + '\n'
 
 
-def extract_blocks(path: Path) -> dict:
-    """将 .pyi 拆分为 imports / 其他顶层块 / 各类的声明行与 body."""
+def _package_of(path: Path) -> str:
+    """由文件路径推出其所在包(相对仓库根), 如 extra/ArcadeRecording/target.pyi
+    -> 'extra.ArcadeRecording'."""
+    return '.'.join(path.resolve().relative_to(ROOT).parts[:-1])
+
+
+def _absolute_import(node: ast.ImportFrom, package: str) -> str:
+    """把相对导入改写为绝对导入, 使其在合并结果(位于 abstract 包)中仍可解析.
+
+    - `from . import X`      -> `from <package> import X`
+    - `from .mod import X`   -> `from <package>.mod import X`
+    - `from .. import X`     -> 上溯一级包
+    """
+    parts = package.split('.')
+    if node.level > 1:
+        drop = node.level - 1
+        if drop >= len(parts):
+            raise ValueError(f'相对导入层级超出包深度: level={node.level}, package={package}')
+        parts = parts[:len(parts) - drop]
+    base = '.'.join(parts)
+    module = f'{base}.{node.module}' if node.module else base
+    names = ', '.join(
+        f'{alias.name} as {alias.asname}' if alias.asname else alias.name
+        for alias in node.names
+    )
+    return f'from {module} import {names}\n'
+
+
+def extract_blocks(path: Path, package: str | None = None) -> dict:
+    """将 .pyi 拆分为 imports / 其他顶层块 / 各类的声明行与 body.
+
+    收集 imports 时, 相对导入会先按 `package`(缺省由 `path` 推断)改写为绝对导入,
+    避免合并到 abstract 包后无法解析.
+    """
+    package = package or _package_of(path)
     text = path.read_text(encoding='utf-8')
     lines = text.splitlines(keepends=True)
     tree = ast.parse(text)
@@ -168,7 +205,9 @@ def extract_blocks(path: Path) -> dict:
 
     imports, others, classes = [], [], {}
     for node in top:
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
+        if isinstance(node, ast.ImportFrom) and node.level:
+            imports.append(_absolute_import(node, package))
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
             imports.append(_join(_node_lines(lines, node)))
         elif isinstance(node, ast.ClassDef) and node.name in TARGET_CLASSES:
             classes[node.name] = node
@@ -230,8 +269,44 @@ def merge(core: dict, extras: list[dict], output: Path) -> None:
             chunks.extend(extra['class_body'].get(cls, []))
         chunks.append('\n')
 
-    output.write_text(''.join(chunks), encoding='utf-8')
-    ast.parse(output.read_text(encoding='utf-8'))  # 生成结果语法校验
+    text = ''.join(chunks)
+    tree = ast.parse(text)                      # 生成结果语法校验
+    problems = check_merged_tree(tree)          # 生成结果导入可解析性校验
+    if problems:
+        raise ValueError('\n    '.join(problems))
+    output.write_text(text, encoding='utf-8')
+
+
+def check_merged_tree(tree: ast.Module) -> list[str]:
+    """校验合并结果中的导入可在本仓库中解析.
+
+    - 残留的相对导入在 abstract 包中语义会改变, 直接判为问题;
+    - 指向 abstract/extra 的绝对导入, 要求目标模块文件存在.
+    """
+    problems: list[str] = []
+    for node in tree.body:
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if node.level:
+            dots = '.' * node.level
+            problems.append(
+                f'合并结果残留相对导入 {dots}{node.module or ""}'
+                f'(在 abstract 包中无法解析, 请检查 extract_blocks 的改写)'
+            )
+            continue
+        if not node.module:
+            continue
+        root = node.module.split('.')[0]
+        if root not in ('abstract', 'extra'):
+            continue
+        target = ROOT.joinpath(*node.module.split('.'))
+        if not (
+            target.is_file()
+            or target.with_suffix('.py').is_file()
+            or (target / '__init__.py').is_file()
+        ):
+            problems.append(f'导入无法解析: from {node.module} import ... (缺少对应模块文件)')
+    return problems
 
 
 # ---------- 入口 ----------
@@ -284,6 +359,9 @@ def main() -> int:
         merge(core, extras, OUTPUT_PYI)
     except SyntaxError as error:
         print(f'合并结果语法错误, 未写入: {error}')
+        return 1
+    except ValueError as error:
+        print(f'合并结果导入校验未通过, 未写入:\n    {error}')
         return 1
 
     print(f'检查通过, 已生成 {OUTPUT_PYI.relative_to(ROOT)}:')
