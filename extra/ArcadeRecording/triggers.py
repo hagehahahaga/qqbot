@@ -62,9 +62,10 @@ def get_arcade_num(message: MESSAGE, session: Session):
         if isinstance(target, User):
             message.reply_text(f'没有绑定机厅为 {text}.')
             return
+
         try:
-            result: Arcade = target.arcades[text]
-        except KeyError:
+            result = Arcade(target, text)
+        except AssertionError:
             message.reply_text(f'没有名为 {text} 的机厅或绑定.')
             return
 
