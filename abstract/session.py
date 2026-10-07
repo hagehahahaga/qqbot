@@ -96,12 +96,12 @@ class Session:
         功能说明：
         - 必须在 `with session:` 持锁上下文内调用（由 _lock_checker 强制）.
         - inform=True 时会发送"正在等待输入..."提示消息，取到消息后删除该提示.
-        - timeout 为等待超时秒数：None 表示无限期等待；超时或队列空时抛 CommandCancel.
+        - timeout 为等待超时秒数：None 表示无限期等待；超时或队列空时抛 InputTimeout（CommandCancel 子类）.
         - condition 用 SENTINEL 哨兵区分"未传参"与"显式传 None"：
           * 仅当 condition is not SENTINEL 时才更新 self.put_condition（传 None 即清空条件）；
           * 设定后 pipe_put 会据此决定投递真实消息还是 SessionTransfer 让锁信号.
         - 取到的消息若来自其它会话目标，会提示用户去对应会话处理并继续等待.
-        - 若用户输入"cancel"，抛 CommandCancel 取消当前输入请求.
+        - 若用户输入"cancel"，抛 InputCancel（CommandCancel 子类）取消当前输入请求.
         - 取到 SessionTransfer 信号时向外抛出，由上层（如 game.runner）释放锁并等待重新获取.
 
         :param message: 触发本次输入请求的消息（用于回复提示与校验目标）
@@ -135,7 +135,7 @@ class Session:
     ) -> MESSAGE:
         if self.deadline is not None:
             if self.deadline < time.time():
-                raise CommandCancel('未继续输入.')
+                raise InputTimeout()
             timeout = self.deadline - time.time()
         else:
             timeout = None
@@ -184,7 +184,7 @@ class Session:
           调用 pipe_get 阻塞等待下一条消息；新消息若首部为回复消息，同样从其回复目标提取.
         - finally 块统一删除本轮所有提示消息.
         - 返回 output[:num]，即截断到恰好 num 个部件.
-        - 内部依赖 pipe_get，故会透传其 CommandCancel（超时/取消）与 SessionTransfer（让锁）异常.
+        - 内部依赖 pipe_get，故会透传其 InputTimeout / InputCancel（均为 CommandCancel 子类）与 SessionTransfer（让锁）异常.
 
         :param message: 触发本次收集请求的消息
         :type message: MESSAGE
@@ -194,7 +194,8 @@ class Session:
         :type num: int
         :return: 收集到的消息部件列表，长度恰为 num
         :rtype: list[MESSAGE_PART]
-        :raises CommandCancel: 等待输入超时或用户输入"cancel"时由 pipe_get 抛出
+        :raises InputTimeout: 等待输入超时时由 pipe_get 抛出
+        :raises InputCancel: 用户输入"cancel"时由 pipe_get 抛出
         :raises SessionTransfer: 收到让锁信号时由 pipe_get 抛出
         """
         output = message.get_parts_by_type(needed_type)
