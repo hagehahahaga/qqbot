@@ -12,10 +12,6 @@ class Registerable(Protocol):
 
 class User:
     role: Literal["member", "admin", "owner", "operator"]
-    init_tables: ClassVar[list[Table]]
-    registered_options: list[str]
-    id: int
-    name: str
     """
     用户角色:
     - member: 普通成员
@@ -23,6 +19,11 @@ class User:
     - owner: 群主
     - operator: Bot操作员（最高权限）
     """
+
+    init_tables: ClassVar[list[Table]]
+    registered_options: list[str]
+    id: int
+    name: str
 
     @overload
     def __init__(self, data: dict) -> None: ...
