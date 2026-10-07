@@ -16,7 +16,6 @@ def noticer():
                 ...
             case 'week':
                 if notice[2].weekday() > time.localtime().tm_wday:
-                    time.sleep(1)
                     continue
             case _:
                 if notice[2].date() > datetime.datetime.now().date():
