@@ -1,3 +1,3 @@
-from abstract.apis.table import _con, Table
+from abstract.apis.table import con, Table
 
-STOCK_TABLE = Table(_con, 'stocks')
+STOCK_TABLE = Table(con, 'stocks')

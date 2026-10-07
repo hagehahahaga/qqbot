@@ -45,14 +45,15 @@ class LLM:
         self.name = name
         self.vision = vision
         self.r18 = r18
-        if not self.messages_table.get(f'where target = "{self.name}" and role = "system"'):
+        if not self.messages_table.find_exists(target=self.name, role='system'):
             for message in prompts:
                 self.messages_table.add(None, self.name, message['role'], message['content'], 'text')
 
         self.messages = []
         messages_data = self.messages_table.get_all(
-            f'where target = "{self.name}"',
-            attr='role, type, text'
+            'where target = %s',
+            self.name,
+            'role, type, text'
         )
 
         for role, group in itertools.groupby(messages_data, key=operator.itemgetter(0)):

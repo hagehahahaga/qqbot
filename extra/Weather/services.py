@@ -27,7 +27,7 @@ def _execute_weather_task(
     case = 'where weather_notice = 1'
     if at_midnight():
         case += ' and night_disturb = 1'
-    for id, city in GROUP_OPTION_TABLE.get_all(case, attr="id, city"):
+    for id, city in GROUP_OPTION_TABLE.get_all(case, (), 'id', 'city'):
         group_id = int(id)
         try:
             # 处理未设置城市的情况

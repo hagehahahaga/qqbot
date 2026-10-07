@@ -23,8 +23,9 @@ class User:
         if self.id in CONFIG.bot_config.operators:
             self.role = 'operator'
         for table in self.init_tables:
-            if not table.find_exists('id', self.id):
-                table.add(f'{self.id}' + ', DEFAULT' * (table.get_len() - 1))
+            if not table.find_exists(id=self.id):
+                # 只提供主键, 其余列交给表定义里的 DEFAULT
+                table.add(id=self.id)
 
     @dispatch
     def __init__(self, id: int | str):
@@ -53,11 +54,15 @@ class User:
         assert USER_TABLE.have_key(option_name), f'The table {USER_TABLE.name} has no column {option_name}. Have you forgot to init.sql?'
         @property
         def option(self):
-            return USER_TABLE.get(f'where id = {self.id}', attr=option_name)[0]
+            return USER_TABLE.get('where id = %s', self.id, option_name)[0]
 
         @option.setter
         def option(self, value):
-            USER_TABLE.set('id', self.id, option_name, value)
+            USER_TABLE.set(
+                'where id = %s',
+                self.id,
+                **{option_name: value}
+            )
 
         option.__name__ = option_name
 
@@ -66,32 +71,39 @@ class User:
 
     @property
     def points(self) -> int:
-        return int(USER_TABLE.get(f'where id = {self.id}', attr='points')[0])
+        return int(USER_TABLE.get('where id = %s', self.id, 'points')[0])
 
     @points.setter
     def points(self, value: int):
         USER_TABLE.set(
-            'id',
+            'where id = %s',
             self.id,
-            'points',
-            value
+            points=value
         )
 
     @property
     def sign_date(self) -> datetime.date:
-        return USER_TABLE.get(f'where id = {self.id}', attr='sign_date')[0]
+        return USER_TABLE.get('where id = %s', self.id, 'sign_date')[0]
 
     @sign_date.setter
     def sign_date(self, value: datetime.date):
-        USER_TABLE.set('id', self.id, 'sign_date', value)
+        USER_TABLE.set(
+            'where id = %s',
+            self.id,
+            sign_date=value
+        )
 
     def update_sign_date(self):
-        USER_TABLE.set('id', self.id, 'sign_date', local_time().astimezone(UTC).date())
+        USER_TABLE.set(
+            'where id = %s',
+            self.id,
+            sign_date=local_time().astimezone(UTC).date()
+        )
 
     def game_data_exist(self, game: str) -> bool:
         return bool(
             GAME_DATA_TABLE.get(
-                f'where id = {self.id}', attr=f'json_contains(json_keys(game_data), \'"{game}"\')'
+                'where id = %s', self.id, f'json_contains(json_keys(game_data), \'"{game}"\')'
             )[0]
         )
 
@@ -101,8 +113,9 @@ class User:
         with GAME_DATA_TABLE as cursor:
             cursor.execute(
                 f'update {cursor.table_name} '
-                f'set game_data = json_set(game_data, "$.{game}", json_object("count", 0, "win", 0, "draw", 0))'
-                f'where id = {self.id}'
+                'set game_data = json_set(game_data, %s, json_object("count", 0, "win", 0, "draw", 0)) '
+                'where id = %s',
+                (f'$.{game}', self.id)
             )
 
     @staticmethod
@@ -118,7 +131,7 @@ class User:
     def get_game_data(self, game: str) -> dict:
         return json.loads(
             GAME_DATA_TABLE.get(
-                f'where id = {self.id}', attr=f'json_extract(game_data, "$.{game}")'
+                'where id = %s', self.id, f'json_extract(game_data, "$.{game}")'
             )[0]
         )
 
@@ -135,10 +148,15 @@ class User:
         with GAME_DATA_TABLE as cursor:
             cursor.execute(
                 f'update {cursor.table_name} '
-                f'set game_data = json_set(game_data, '
-                f'"$.{game}.count", json_extract(game_data, "$.{game}.count") + 1, '
-                f'"$.{game}.win", json_extract(game_data, "$.{game}.win") + 1) '
-                f'where id = {self.id}'
+                'set game_data = json_set(game_data, '
+                '%s, json_extract(game_data, %s) + 1, '
+                '%s, json_extract(game_data, %s) + 1) '
+                'where id = %s',
+                (
+                    f'$.{game}.count', f'$.{game}.count',
+                    f'$.{game}.win', f'$.{game}.win',
+                    self.id,
+                )
             )
 
     @check_game_data
@@ -147,9 +165,14 @@ class User:
             cursor.execute(
                 f'update {cursor.table_name} '
                 'set game_data = json_set(game_data, '
-                f'"$.{game}.count", json_extract(game_data, "$.{game}.count") + 1, '
-                f'"$.{game}.draw", json_extract(game_data, "$.{game}.draw") + 1) '
-                f'where id = {self.id}'
+                '%s, json_extract(game_data, %s) + 1, '
+                '%s, json_extract(game_data, %s) + 1) '
+                'where id = %s',
+                (
+                    f'$.{game}.count', f'$.{game}.count',
+                    f'$.{game}.draw', f'$.{game}.draw',
+                    self.id,
+                )
             )
 
     @check_game_data
@@ -158,8 +181,12 @@ class User:
             cursor.execute(
                 f'update {cursor.table_name} '
                 'set game_data = json_set(game_data, '
-                f'"$.{game}.count", json_extract(game_data, "$.{game}.count") + 1) '
-                f'where id = {self.id}'
+                '%s, json_extract(game_data, %s) + 1) '
+                'where id = %s',
+                (
+                    f'$.{game}.count', f'$.{game}.count',
+                    self.id,
+                )
             )
 
     @property
@@ -167,7 +194,7 @@ class User:
         return set(
             User(user_id) for user_id in json.loads(
                 GAME_DATA_TABLE.get(
-                    f'where id = {self.id}', attr='black_list'
+                    'where id = %s', self.id, 'black_list'
                 )[0]
             )
         )
@@ -177,8 +204,11 @@ class User:
         value = [
             user.id for user in value
         ]
-        GAME_DATA_TABLE.set('id', self.id, 'black_list', json.dumps(value))
-
+        GAME_DATA_TABLE.set(
+            'where id = %s',
+            self.id,
+            black_list=json.dumps(value)
+        )
 
 class Group:
     registered_options: list[str] = []
@@ -186,8 +216,8 @@ class Group:
     def __init__(self, id: int):
         self.id = id
         self.name = ONEBOT_SERVER.get_group_info(id)['group_name']
-        if not GROUP_OPTION_TABLE.find_exists('id', self.id):
-            GROUP_OPTION_TABLE.add(str(self.id) + ',default' * (GROUP_OPTION_TABLE.get_len() - 1))
+        if not GROUP_OPTION_TABLE.find_exists(id=self.id):
+            GROUP_OPTION_TABLE.add(id=self.id)
 
     @property
     def members(self) -> set[User]:
@@ -218,23 +248,30 @@ class Group:
 
     @property
     def trusted(self):
-        return GROUP_OPTION_TABLE.get(f'where id = {self.id}', attr='trusted')[0]
+        return GROUP_OPTION_TABLE.get('where id = %s', self.id, 'trusted')[0]
 
     @trusted.setter
     def trusted(self, value):
-        GROUP_OPTION_TABLE.set('id', self.id, 'trusted', value)
+        GROUP_OPTION_TABLE.set(
+            'where id = %s',
+            self.id,
+            trusted=value
+        )
 
     @classmethod
     def register_option(cls, option_name: str) -> property:
         assert GROUP_OPTION_TABLE.have_key(option_name), f'The table {GROUP_OPTION_TABLE.name} has no column {option_name}. Have you forgot to init.sql?'
         @property
         def option(self):
-            return GROUP_OPTION_TABLE.get(f'where id = {self.id}', attr=option_name)[0]
+            return GROUP_OPTION_TABLE.get('where id = %s', self.id, option_name)[0]
 
         @option.setter
         def option(self, value):
-            GROUP_OPTION_TABLE.set('id', self.id, option_name, value)
-
+            GROUP_OPTION_TABLE.set(
+                'where id = %s',
+                self.id,
+                **{option_name: value}
+            )
         option.__name__ = option_name
         cls.registered_options.append(option_name)
         return cls.register_attr(option)  # type: ignore[arg-type]

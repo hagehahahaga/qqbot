@@ -1,6 +1,7 @@
 import time
 
 import abstract
+from abstract.bases.importer import local_time
 from abstract.bot import BOT
 from abstract.command import COMMAND_GROUP
 from abstract.message import MESSAGE
@@ -16,7 +17,9 @@ def stock(message: MESSAGE, session: Session, args):
     commission = message.sender.commission
     trade = message.sender.trade
     STOCK_TABLE.set(
-        'id', BOT.id, 'commission_time', f"'{time.strftime('%Y-%m-%d %H:%M:%S')}'"
+        'where id = %s',
+        BOT.id,
+        commission_time=local_time()
     )
     if str(commission['time']).split(' ')[0] < date and commission['type'] != 'none':
         message.sender.cancel_commission()
@@ -47,7 +50,7 @@ def stock(message: MESSAGE, session: Session, args):
                         f'  最后一次交易数量: {trade["num"]}'
                     )
                 case ['stock']:
-                    trade = User(STOCK_TABLE.get('ORDER BY trade_time desc', attr='id')[0]).trade
+                    trade = User(int(STOCK_TABLE.get('ORDER BY trade_time desc', (), 'id')[0])).trade
                     message.reply_text(
                         '\n当前股市状态:\n'
                         f'  最后一次交易价格: {trade["price"]}\n'
@@ -101,11 +104,13 @@ def stock(message: MESSAGE, session: Session, args):
 
     message.sender.set_commission(action, price, num)
     while target_id := STOCK_TABLE.get(
-            f"where (commission_type, date(commission_time)) = ('{'sell' if action == 'buy' else 'buy'}', curdate())"
-            f"and commission_price {'<=' if action == 'buy' else '>'} {price}",
+            "where (commission_type, date(commission_time)) = (%s, curdate()) "
+            f"and commission_price {'<=' if action == 'buy' else '>'} {price} "
             f"order by commission_price {'asc' if action == 'buy' else 'desc'}, commission_time asc",
-            attr='id'
+            'sell' if action == 'buy' else 'buy',
+            'id'
     )[0]:
+        target_id = int(target_id)
         target = User(target_id)
         target_commission = target.commission
         if num < target_commission['num']:

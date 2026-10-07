@@ -649,20 +649,39 @@ class WeatherCityManager(dict):
 
 LOG.INF('Loading weather modules...')
 
-_groups = set(itertools.chain(*GROUP_OPTION_TABLE.get_all('where city is not NULL', attr='city')))
+_groups = set(
+    itertools.chain(
+        *GROUP_OPTION_TABLE.get_all(
+            'where city is not NULL',
+            (),
+            'city'
+        )
+    )
+)
 WEATHER_CITY_MANAGER = WeatherCityManager()
 for city in _groups:
     try:
         WEATHER_CITY_MANAGER[city] = WeatherCity(city)
     except CityNotFound:
-        for id, city in GROUP_OPTION_TABLE.get_all('where city is not NULL', attr='id, city'):
+        for id, city in GROUP_OPTION_TABLE.get_all(
+            'where city is not NULL',
+            (),
+            'id',
+            'city'
+        ):
             id = int(id)
             GroupMessage(
                 f'未能找到此群默认城市 {city}, 已重置天气选项.',
                 Group(id)
             ).send()
-        GROUP_OPTION_TABLE.set('city', city, 'weather_notice', 0)
-        GROUP_OPTION_TABLE.set('city', city, 'city', None)
+        GROUP_OPTION_TABLE.set(
+            'where city = %s',
+            city,
+            **{
+                'weather_notice': False,
+                'city': None
+            }
+        )
         LOG.WAR(f'City {city} not found, reset weather option of groups.')
 
 LOG.INF(

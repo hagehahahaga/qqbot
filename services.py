@@ -9,7 +9,7 @@ from abstract.target import Group, User
 
 @BOT.register_service('noticer', 1, auto_restart=True)
 def noticer():
-    for notice in NOTICE_SCHEDULE_TABLE.get_all(f'where time(time) = "{time.strftime("%H:%M:%S")}"'):
+    for notice in NOTICE_SCHEDULE_TABLE.get_all('where time(time) = %s', datetime.datetime.now().time().replace(microsecond=0)):
         target_id = int(notice[0])
         match notice[4]:
             case 'day':
@@ -22,7 +22,7 @@ def noticer():
                 if notice[2].date() > datetime.datetime.now().date():
                     continue
                 NOTICE_SCHEDULE_TABLE.delete(
-                    '(id, type, time)',
+                    'where (id, type, time) = (%s, %s, %s)',
                     (target_id, notice[1], notice[2])
                 )
 
@@ -40,7 +40,7 @@ def noticer():
                     ).send()
         except GroupNotJoined:
             NOTICE_SCHEDULE_TABLE.delete(
-                f'(id, type, time)',
+                'where (id, type, time) = (%s, %s, %s)',
                 (target_id, notice[1], notice[2])
             )
 

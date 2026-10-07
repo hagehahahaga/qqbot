@@ -1,6 +1,5 @@
+from abstract.bases.importer import itertools, numpy, pymysql, json, local_time, datetime
 from datetime import UTC
-
-from abstract.bases.importer import itertools, time, numpy, pymysql, json, local_time
 
 from PicImageSearch.sync import *
 
@@ -185,7 +184,11 @@ def option(message: MESSAGE, session: Session, args):
                 return
             assert key in Group.registered_options, f'{key}好像不是已有的设置?'
             try:
-                GROUP_OPTION_TABLE.set('id', message.target.id, key, value)
+                GROUP_OPTION_TABLE.set(
+                    'where id = %s',
+                    message.target.id,
+                    **{key: value}
+                )
             except Exception as error:
                 match error:
                     case pymysql.OperationalError(args=(1054, _)):
@@ -202,7 +205,7 @@ def option(message: MESSAGE, session: Session, args):
             try:
                 message.reply_text(
                     '查询结果:\n'
-                    f"  {key} - {GROUP_OPTION_TABLE.get(f'where id = {message.target.id}', attr=key)[0]}"
+                    f"  {key} - {GROUP_OPTION_TABLE.get('where id = %s', message.target.id, key)[0]}"
                 )
             except Exception as error:
                 match error:
@@ -224,7 +227,11 @@ def option_private(message: MESSAGE, session: Session, args):
         case [key, value]:
             assert key in User.registered_options, f'{key}好像不是已有的设置?'
             try:
-                USER_TABLE.set('id', message.sender.id, key, value)
+                USER_TABLE.set(
+                    'where id = %s',
+                    message.sender.id,
+                    **{key: value}
+                )
             except Exception as error:
                 match error:
                     case pymysql.OperationalError(args=(3819, _)):
@@ -237,7 +244,7 @@ def option_private(message: MESSAGE, session: Session, args):
         case [key]:
             assert key in User.registered_options, f'{key}好像不是已有的设置?'
             try:
-                message.reply_text(f'设置项 {key} 值为 {USER_TABLE.get(f"where id = {message.sender.id}", attr=key)[0]}')
+                message.reply_text(f'设置项 {key} 值为 {USER_TABLE.get("where id = %s", message.sender.id, key)[0]}')
             except Exception as error:
                 LOG.WAR(f'Group option {key} query failed.')
                 raise CommandCancel(f'错误: {error}.')
@@ -399,8 +406,9 @@ def notice(message: MESSAGE, session: Session, args):
                     map(
                         lambda a: f'时间: {a[0].strftime('%Y%m%d%H%M%S')}, 每: {a[1]}, 内容: {a[2]}',
                         NOTICE_SCHEDULE_TABLE.get_all(
-                            f'where (id, type) = ({id}, "{notice_type}")',
-                            attr='time, every, text'
+                            'where (id, type) = (%s, %s)',
+                            (id, notice_type),
+                            'time, every, text'
                         )
                     )
                 )
@@ -408,11 +416,11 @@ def notice(message: MESSAGE, session: Session, args):
             return
 
         case ['remove', 'all']:
-            NOTICE_SCHEDULE_TABLE.delete('(id, type)', (id, notice_type))
+            NOTICE_SCHEDULE_TABLE.delete('where (id, type) = (%s, %s)', (id, notice_type))
 
         case ['remove', time]:
             time = datetime.datetime.strptime(time, '%Y%m%d%H%M%S')
-            NOTICE_SCHEDULE_TABLE.delete('(id, type, time)', (id, notice_type, time))
+            NOTICE_SCHEDULE_TABLE.delete('where (id, type, time) = (%s, %s, %s)', (id, notice_type, time))
 
         case final:
             message.reply_text(f'匹配 {final} 失败, 检查输入.')

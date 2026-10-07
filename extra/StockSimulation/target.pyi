@@ -4,7 +4,7 @@ import datetime
 
 
 class Commission(TypedDict):
-    type: Literal['buy', 'sell']
+    type: Literal['buy', 'sell', 'none']
     price: int
     num: int
     time: datetime.datetime

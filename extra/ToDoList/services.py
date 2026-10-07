@@ -36,7 +36,8 @@ def todo_noticer():
         result = cursor.fetchall()
 
     for id, does in result:
-        user = User(int(id))
+        id = int(id)
+        user = User(id)
         try:
             PrivateMessage(
                 '你设定的以下待办还未完成:\n' + '\n'.join(does.split(',')),

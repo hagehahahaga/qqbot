@@ -9,62 +9,76 @@ from .tables import STOCK_TABLE
 
 
 @property
-def stocks(self) -> int:
-    return int(STOCK_TABLE.get(f'where id = {self.id}', attr='stocks')[0])
+def stocks(self: User) -> int:
+    return int(STOCK_TABLE.get('where id = %s', self.id, 'stocks')[0])
 
 
 @User.register_attr
 @stocks.setter
-def stocks(self, value: int):
-    STOCK_TABLE.set('id', self.id, 'stocks', value)
+def stocks(self: User, value: int):
+    STOCK_TABLE.set(
+        'where id = %s',
+        self.id,
+        stocks=value
+    )
 
 
 @property
-def stocks_bought(self) -> int:  # 当日购入股票数操作
-    return int(STOCK_TABLE.get(f'where id = {self.id}', attr='stocks_bought')[0])
+def stocks_bought(self: User) -> int:  # 当日购入股票数操作
+    return int(STOCK_TABLE.get('where id = %s', self.id, 'stocks_bought')[0])
 
 
 @User.register_attr
 @stocks_bought.setter
-def stocks_bought(self, value: int):
-    STOCK_TABLE.set('id', self.id, 'stocks_bought', value)
+def stocks_bought(self: User, value: int):
+    STOCK_TABLE.set(
+        'where id = %s',
+        self.id,
+        stocks_bought=value
+    )
 
 
 @User.register_attr
-def store_stocks_bought(self):
+def store_stocks_bought(self: User):
     self.stocks += self.stocks_bought
     self.stocks_bought = 0
 
 
 @property
-def points_sold(self) -> int:  # 当日收益操作
-    return STOCK_TABLE.get(f'where id = {self.id}', attr='points_sold')[0]
+def points_sold(self: User) -> int:  # 当日收益操作
+    return STOCK_TABLE.get('where id = %s', self.id, 'points_sold')[0]
 
 
 @User.register_attr
 @points_sold.setter
-def points_sold(self, value: int):
-    STOCK_TABLE.set('id', self.id, 'points_sold', value)
+def points_sold(self: User, value: int):
+    STOCK_TABLE.set(
+        'where id = %s',
+        self.id,
+        points_sold=value
+    )
 
 
 @User.register_attr
-def store_points_sold(self):
+def store_points_sold(self: User):
     self.points += self.points_sold
     self.points_sold = 0
 
 
 @User.register_attr
 @property
-def commission(self) -> dict:  # 交易委托操作
+def commission(self: User) -> dict:  # 交易委托操作
     result = STOCK_TABLE.get(
-        f'where id = {self.id}', attr='(commission_type, commission_price, commission_num, commission_time)', )
+        'where id = %s', self.id,
+        'commission_type', 'commission_price', 'commission_num', 'commission_time'
+    )
     return {
         'type': result[0], 'price': result[1], 'num': result[2], 'time': result[3],
     }
 
 
 @User.register_attr
-def set_commission(self, type: Literal['buy', 'sell'], price: int, num: int):
+def set_commission(self: User, type: Literal['buy', 'sell'], price: int, num: int):
     assert price >= 0 and num > 0
     match type:
         case 'buy':
@@ -81,24 +95,34 @@ def set_commission(self, type: Literal['buy', 'sell'], price: int, num: int):
             raise ValueError(f'Unknown commission type: {others}.')
 
     STOCK_TABLE.set(
-        'id', self.id, 'commission_type', f"'{type}'", ).set(
-        'id', self.id, 'commission_price', price, ).set(
-        'id', self.id, 'commission_num', num, ).set(
-        'id', self.id, 'commission_time', local_time().astimezone(UTC))
+        'where id = %s',
+        self.id,
+        **{
+            'commission_type': type,
+            'commission_price': price,
+            'commission_num': num,
+            'commission_time': local_time().astimezone(UTC)
+        }
+    )
 
 
 @User.register_attr
-def reset_commission(self):
+def reset_commission(self: User):
     STOCK_TABLE.set(
-        'id', self.id, 'commission_type', 'default', ).set(
-        'id', self.id, 'commission_price', 'default', ).set(
-        'id', self.id, 'commission_num', 'default', ).set(
-        'id', self.id, 'commission_time', local_time().astimezone(UTC), ).set(
-        'id', self.id, 'points_sold_using', 'default', )
+        'where id = %s',
+        self.id,
+        **{
+            'commission_type': 'none',
+            'commission_price': 0,
+            'commission_num': 0,
+            'commission_time': local_time().astimezone(UTC),
+            'points_sold_using': 0
+        }
+    )
 
 
 @User.register_attr
-def cancel_commission(self):
+def cancel_commission(self: User):
     commission = self.commission
     match commission['type']:
         case 'buy':
@@ -111,7 +135,7 @@ def cancel_commission(self):
 
 
 @User.register_attr
-def achieve_commission(self, price, num):
+def achieve_commission(self: User, price, num):
     commission = self.commission
     result_num = commission['num'] - num
     match commission['type']:
@@ -122,7 +146,11 @@ def achieve_commission(self, price, num):
             self.points_sold += num * price
         case 'none':
             return
-    STOCK_TABLE.set('id', self.id, 'commission_num', result_num)
+    STOCK_TABLE.set(
+        'where id = %s',
+        self.id,
+        commission_num=result_num
+    )
     self.update_trade(price, num)
     if result_num <= 0:
         self.points_sold += self.points_sold_using
@@ -130,30 +158,41 @@ def achieve_commission(self, price, num):
 
 
 @property
-def points_sold_using(self) -> int:  # 用于撤销/完成交易委托时计算
-    return STOCK_TABLE.get(f'where id = {self.id}', attr='points_sold_using')[0]
+def points_sold_using(self: User) -> int:  # 用于撤销/完成交易委托时计算
+    return STOCK_TABLE.get('where id = %s', self.id, 'points_sold_using')[0]
 
 
 @User.register_attr
 @points_sold_using.setter
-def points_sold_using(self, value: int):
+def points_sold_using(self: User, value: int):
     assert value >= 0
-    STOCK_TABLE.set('id', self.id, 'points_sold_using', value)
+    STOCK_TABLE.set(
+        'where id = %s',
+        self.id,
+        points_sold_using=value
+    )
 
 
 @User.register_attr
 @property
-def trade(self) -> dict:  # 最后一次交易时间操作
+def trade(self: User) -> dict:  # 最后一次交易时间操作
     result = STOCK_TABLE.get(
-        f'where id = {self.id}', attr='(trade_price, trade_num, trade_time)', )
+        'where id = %s', self.id,
+        'trade_price', 'trade_num', 'trade_time'
+    )
     return {
-        'price': int(result[0]), 'num': int(result[1]), 'time': result[2],
+        'price': int(result[0]), 'num': int(result[1]), 'time': result[2]
     }
 
 
 @User.register_attr
-def update_trade(self, price: int, num: int):
+def update_trade(self: User, price: int, num: int):
     STOCK_TABLE.set(
-        'id', self.id, 'trade_price', price, ).set(
-        'id', self.id, 'trade_num', num, ).set(
-        'id', self.id, 'trade_time', f"'{time.strftime('%Y-%m-%d %H:%M:%S')}'", )
+        'where id = %s',
+        self.id,
+        **{
+            'trade_price': price,
+            'trade_num': num,
+            'trade_time': local_time().astimezone(UTC)
+        }
+    )

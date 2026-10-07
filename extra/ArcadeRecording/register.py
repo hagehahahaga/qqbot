@@ -108,7 +108,7 @@ def arcades(self) -> dict:
         - hash: 机厅哈希标识（bytes类型）
     """
     result = ARCADES_TABLE.get_all(
-        f'where group_id = {self.id}', attr='hash', )
+        'where group_id = %s', self.id, 'hash', )
     response = {}
     for hash, in result:
         arcade = _get_arcade(hash)
@@ -156,7 +156,7 @@ def remove_arcade(self, name: str):
     assert name not in itertools.chain(*map(operator.itemgetter('subnames'), arcades.values())), '安全起见移除不能使用机厅别名.'
     assert name in arcades, f'{name} 未在此群设置.'
     assert not arcades[name]['subnames'], '安全起见移除机厅需要先移除机厅所有别名.'
-    ARCADES_BIND_TABLE.delete('hash', arcades[name]['hash'])
+    ARCADES_BIND_TABLE.delete('where hash = %s', arcades[name]['hash'])
     with ARCADES_TABLE as cursor:
         cursor.execute(
             f'delete from {cursor.table_name} '
@@ -250,7 +250,7 @@ def arcade_names(self) -> list[str]:
         itertools.chain(
             *map(
                 json.loads, itertools.chain(
-                    *ARCADES_TABLE.get_all(f'where group_id = {self.id}', attr='names'), ), ), ), )
+                    *ARCADES_TABLE.get_all('where group_id = %s', self.id, 'names'), ), ), ), )
 
 
 @Group.register_attr
@@ -353,15 +353,15 @@ def bind_arcade(self, hash: bytes):
     """
     if isinstance(self, Group):
         assert not ARCADES_TABLE.find_exists(
-            ('group_id', 'hash'), (self.id, hash), ), '不能绑定本群机厅.'
+            group_id=self.id, hash=hash, ), '不能绑定本群机厅.'
         type = 'group'
     else:
         type = 'private'
 
     assert not ARCADES_BIND_TABLE.find_exists(
-        ('type', 'id', 'hash'), (type, self.id, hash), ), '已绑定此机厅.'
+        type=type, id=self.id, hash=hash, ), '已绑定此机厅.'
     assert ARCADES_TABLE.find_exists(
-        'hash', hash, ), '此机厅不存在.'
+        hash=hash, ), '此机厅不存在.'
 
     ARCADES_BIND_TABLE.add(type, self.id, hash, json.dumps([]))
     return _get_arcade(hash)
@@ -388,9 +388,9 @@ def unbind_arcade(self, hash: bytes):
 
     assert hash not in self.arcade_binding_names, '解绑应该用hash而不是别名.'
     assert ARCADES_BIND_TABLE.find_exists(
-        ('type', 'id', 'hash'), (type, self.id, hash), ), f'未绑定 {hash.hex()} 这个机厅.'
+        type=type, id=self.id, hash=hash, ), f'未绑定 {hash.hex()} 这个机厅.'
 
-    ARCADES_BIND_TABLE.delete(('type', 'id', 'hash'), (type, self.id, hash))
+    ARCADES_BIND_TABLE.delete('where (type, id, hash) = (%s, %s, %s)', (type, self.id, hash))
     return _get_arcade(hash)
 
 
@@ -480,7 +480,7 @@ def arcade_binding_hashes(self) -> list[bytes]:
     return list(
         map(
             operator.itemgetter(0), ARCADES_BIND_TABLE.get_all(
-                f'where type = {type!r}', f'and id = {self.id}', attr='hash', ), ), )
+                'where (type, id) = (%s, %s)', (type, self.id), 'hash', ), ), )
 
 
 @Group.register_attr
@@ -589,7 +589,7 @@ def arcade_binding_names(self) -> list[str]:
             *map(
                 json.loads, itertools.chain(
                     *ARCADES_BIND_TABLE.get_all(
-                        f'where type = {type!r}', f' and id = {self.id}', attr='names', ), ), ), ), )
+                        'where (type, id) = (%s, %s)', (type, self.id), 'names', ), ), ), ), )
 
 
 @Group.register_attr

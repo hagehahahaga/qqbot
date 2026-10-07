@@ -11,13 +11,13 @@ def todo(message: MESSAGE, session: Session, args):
         case []:
             todo(message, session, ['list'])
         case ['add', text]:
-            assert not TODOLIST_TABLE.find_exists('(user_id, do)', (message.sender.id, text)), f'你已设置 {text} 这个待办.'
-            TODOLIST_TABLE.add(f'{message.sender.id}, "{text}", DEFAULT')
+            assert not TODOLIST_TABLE.find_exists(user_id=message.sender.id, do=text), f'你已设置 {text} 这个待办.'
+            TODOLIST_TABLE.add(user_id=message.sender.id, do=text)
             message.reply_text(f'待办{text}已添加.')
         case ['remove', text]:
-            assert TODOLIST_TABLE.find_exists('(user_id, do)', (message.sender.id, text)), f'你并没有设置 {text} 这个待办.'
-            if TODOLIST_TABLE.get(f'where user_id = {message.sender.id} and do = "{text}"', attr='finished')[0]:
-                TODOLIST_TABLE.delete('(user_id, do)', (message.sender.id, text))
+            assert TODOLIST_TABLE.find_exists(user_id=message.sender.id, do=text), f'你并没有设置 {text} 这个待办.'
+            if TODOLIST_TABLE.get('where user_id = %s and do = %s', (message.sender.id, text), 'finished')[0]:
+                TODOLIST_TABLE.delete('where (user_id, do) = (%s, %s)', (message.sender.id, text))
                 message.reply_text(f'已删除待办 {text}.')
                 return
 
@@ -32,11 +32,11 @@ def todo(message: MESSAGE, session: Session, args):
                 response.reply_text('待办未放弃.')
                 return
 
-            TODOLIST_TABLE.delete('(user_id, do)', (message.sender.id, text))
+            TODOLIST_TABLE.delete('where (user_id, do) = (%s, %s)', (message.sender.id, text))
             response.reply_text(f'已删除待办 {text}.')
 
         case ['list', *all]:
-            results = TODOLIST_TABLE.get_all(f'where user_id = {message.sender.id}', attr='do, finished')
+            results = TODOLIST_TABLE.get_all('where user_id = %s', message.sender.id, 'do, finished')
             if not all or all[0] != 'all':
                 results = list(filter(lambda a: not a[1], results))
             if not results:
@@ -48,8 +48,8 @@ def todo(message: MESSAGE, session: Session, args):
             )
 
         case ['finish', text]:
-            assert TODOLIST_TABLE.find_exists('(user_id, do)', (message.sender.id, text)), f'你并没有设置 {text} 这个待办.'
-            assert TODOLIST_TABLE.find_exists('(user_id, do, finished)', (message.sender.id, text, False)), f'{text} 这个待办已经完成了.'
+            assert TODOLIST_TABLE.find_exists(user_id=message.sender.id, do=text), f'你并没有设置 {text} 这个待办.'
+            assert TODOLIST_TABLE.find_exists(user_id=message.sender.id, do=text, finished=False), f'{text} 这个待办已经完成了.'
             with TODOLIST_TABLE as cursor:
                 cursor.execute(
                     f"UPDATE {cursor.table_name} SET `finished` = 1 WHERE (`user_id`, `do`) = (%s, %s)",

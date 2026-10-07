@@ -1,3 +1,7 @@
+from typing import Any, Optional
+
+from pymysql.cursors import Cursor
+
 from abstract.bases.importer import functools, threading, pymysql, dispatch, time
 
 
@@ -14,14 +18,23 @@ class Table:
         self._cursor.table_name = name
         self.name = name
 
-    def __enter__(self):
+    def __enter__(self) -> Cursor:
         self.LOCK.acquire()
-        self._con.ping()
+        try:
+            self._con.ping(reconnect=True)
+        except Exception:
+            self.LOCK.release()
+            raise
         return self._cursor
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._con.commit()
-        self.LOCK.release()
+        try:
+            if exc_type is None:
+                self._con.commit()
+            else:
+                self._con.rollback()
+        finally:
+            self.LOCK.release()
 
     @staticmethod
     def _with_lock(func):
@@ -71,106 +84,85 @@ class Table:
         ))
 
     @_with_lock
-    def get(self, *conditions: str, attr: str = '*'):
-        self._cursor.execute(f"SELECT {attr} FROM {self.name} " + ' '.join(conditions))
+    def get(self, condition: str, param: tuple[Any, ...] | Any = tuple(), *attr: str) -> Optional[tuple[Any, ...]]:
+        if not attr:
+            attr = ('*', )
+        if not isinstance(param, tuple):
+            param = (param, )
+        self._cursor.execute(f"SELECT {','.join(attr)} FROM {self.name} " + condition, param)
         result = self._cursor.fetchone()
         return result
 
     @_with_lock
-    def get_all(self, *conditions: str, attr: str = '*'):
-        self._cursor.execute(f"SELECT {attr} FROM {self.name} " + ' '.join(conditions))
+    def get_all(self, condition: str, param: tuple[Any, ...] | Any = tuple(), *attr: str):
+        if not attr:
+            attr = ('*', )
+        if not isinstance(param, tuple):
+            param = (param, )
+        self._cursor.execute(f"SELECT {','.join(attr)} FROM {self.name} " + condition, param)
         return self._cursor.fetchall()
 
     @_with_lock
-    def set(self, key, value, attr, target):
-        self._cursor.execute(f"UPDATE {self.name} SET `{attr}` = %s WHERE `{key}` = %s", (target, value))
-        return self
+    def set(self, condition: str, param: tuple[Any, ...] | Any, **attrs: Any):
+        if not isinstance(param, tuple):
+            param = (param, )
+        assert condition.strip() and condition.isprintable(), '空condition 的 Update 语句会立刻更新所有表行'
+
+        return self._cursor.execute(
+            f'UPDATE {self.name} SET {",".join(f"{attr} = %s" for attr in attrs)} ' + condition,
+            (*attrs.values(), *param)
+        )
 
     @_with_lock
     @dispatch
-    def add(self, *args):
+    def add(self, *args: Any):
         self._cursor.execute(f"INSERT INTO {self.name} VALUES ({','.join(['%s'] * len(args))})", args)
         return self
 
     @_with_lock
     @dispatch
-    def add(self, args: tuple):
-        self._cursor.execute(f"INSERT INTO {self.name} VALUES ({','.join(['%s'] * len(args))})", args)
-        return self
-
-    @_with_lock
-    @dispatch
-    def add(self, arg: str):
-        self._cursor.execute(f"INSERT INTO {self.name} VALUES ({arg})")
-
-    @_with_lock
-    @dispatch
-    def delete(self, key: str, value):
+    def add(self, **kwargs: Any):
         self._cursor.execute(
-            f"DELETE FROM {self.name} WHERE {key} = %s",
-            value
+            f"INSERT INTO {self.name} ({','.join(kwargs)}) VALUES ({','.join(['%s'] * len(kwargs))})",
+            tuple(kwargs.values())
         )
         return self
 
     @_with_lock
-    @dispatch
-    def delete(self, keys: tuple, values:tuple):
+    def delete(self, condition: str, param: tuple[Any, ...] | Any = tuple()):
+        if not isinstance(param, tuple):
+            param = (param, )
+        assert condition.strip() and condition.isprintable(), '空condition 的 Delete 语句会清除表中的所有数据'
         self._cursor.execute(
-            f"DELETE FROM {self.name} "
-            f"WHERE ({','.join(keys)}) = ({','.join(['%s'] * len(values))})",
-            values
+            f"DELETE FROM {self.name} " + condition,
+            param
         )
         return self
 
     @_with_lock
-    @dispatch
-    def find_exists(self, key: str, value):
+    def find_exists(self, **kwargs):
         return bool(
             self._cursor.execute(
-                f"SELECT * FROM {self.name} WHERE {key} = %s",
-                (value,)
+                f"SELECT 1 FROM {self.name} "
+                f"WHERE ({','.join(kwargs)}) = ({','.join(['%s'] * len(kwargs))})",
+                tuple(kwargs.values())
             )
         )
-
-    @_with_lock
-    @dispatch
-    def find_exists(self, keys: tuple, values: tuple):
-        return bool(
-            self._cursor.execute(
-                f"SELECT * FROM {self.name} "
-                f"WHERE ({','.join(keys)}) = ({','.join(['%s'] * len(values))})",
-                values
-            )
-        )
-
-
-class Default:
-    def __repr__(self):
-        return 'default'
-
-
-class Null:
-    def __repr__(self):
-        return 'null'
-
-
-DEFAULT = Default()
-NULL = Null()
 
 LOG.INF('Connecting to MySQL database...')
 while True:
     try:
-        _con = pymysql.connect(**CONFIG.sql_config.model_dump())
+        con = pymysql.connect(**CONFIG.sql_config.model_dump())
         break
     except pymysql.MySQLError as e:
         LOG.WAR(f'MySQL error: {e}')
         time.sleep(1)
-LOG.INF(f'Connected to MySQL database: {_con.get_server_info()} at {_con.host}:{_con.port}')
+LOG.INF(f'Connected to MySQL database: {con.get_server_info()} at {con.host}:{con.port}')
 LOG.INF('Loading database tables...')
-USER_TABLE = Table(_con, 'qq_users')
-GROUP_OPTION_TABLE = Table(_con, 'group_options')
-NOTICE_SCHEDULE_TABLE = Table(_con, 'notice_schedule')
-GAME_DATA_TABLE = Table(_con, 'game_data')
+USER_TABLE = Table(con, 'qq_users')
+GROUP_OPTION_TABLE = Table(con, 'group_options')
+NOTICE_SCHEDULE_TABLE = Table(con, 'notice_schedule')
+GAME_DATA_TABLE = Table(con, 'game_data')
 LOG.INF(
     'Loaded database tables:\n' +
     ',\n'.join(
