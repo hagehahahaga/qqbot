@@ -61,7 +61,7 @@ class Command:
 class CommandGroup(set):
     command_prefixes = ()
 
-    def set_prefixes(self, prefixes: tuple[str]):
+    def set_prefixes(self, prefixes: tuple[str, ...]):
         self.command_prefixes = prefixes
         return self
 
