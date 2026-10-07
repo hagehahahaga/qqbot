@@ -433,14 +433,27 @@ extra 组件可通过 `abstract.apis.table` 模块访问数据库表：
 
 **基础查询方法**：
 
+所有条件都写成 `'where ...'` 片段，取值一律用 `%s` 占位符并由驱动转义，不要自己拼字符串：
+
 ```python
 from abstract.apis.table import USER_TABLE, GROUP_OPTION_TABLE
 
-# 查询用户数据
-user_data = USER_TABLE.get(f'where id = {user_id}', attr='points, sign_date')
+# 查询用户数据 (标量参数会自动包成单元素元组; 要选的列放在后面)
+user_data = USER_TABLE.get('where id = %s', user_id, 'points', 'sign_date')
 
-# 更新群组选项
-GROUP_OPTION_TABLE.set('id', group_id, 'weather_notice', 1)
+# 更新群组选项 (列名即关键字名)
+GROUP_OPTION_TABLE.set('where id = %s', group_id, weather_notice=1)
+
+# 一次更新多个字段
+USER_TABLE.set(
+    'where id = %s',
+    user_id,
+    points=100,
+    sign_date='2026-01-01',
+)
+
+# 列名是变量时用 ** 展开
+USER_TABLE.set('where id = %s', user_id, **{column_name: value})
 ```
 
 **使用上下文管理器执行自定义 SQL**：
@@ -510,13 +523,14 @@ LOG.ERR('错误日志')
 
 | 方法 | 说明 |
 |------|------|
-| `get(conditions, attr='*')` | 查询单条记录 |
-| `get_all(conditions, attr='*')` | 查询多条记录 |
-| `set(key, value, attr, target)` | 更新指定字段 |
-| `add(*args)` | 插入新记录（支持变长参数、元组、字符串三种重载） |
-| `delete(key, value)` | 删除记录。`key` 为字符串时按单字段删除；`key` 为元组时按多字段组合条件删除 |
-| `find_exists(key, value)` | 检查记录是否存在。`key` 为字符串时按单字段检查；`key` 为元组时按多字段组合条件检查。均使用参数化查询防止 SQL 注入 |
-| `__enter__ / __exit__` | 上下文管理器支持，返回带 `table_name` 属性的 cursor 对象 |
+| `get(condition, param=(), *attr)` | 查询单条记录。`condition` 为 `'where ...'` 片段，`param` 为占位符参数（标量会自动包成单元素元组）；`attr` 是要选的列或表达式，省略即 `*`；无结果返回 `None` |
+| `get_all(condition, param=(), *attr)` | 查询多条记录，参数含义同 `get`，返回行元组列表 |
+| `set(condition, param, **attrs)` | 更新字段，**列名直接做关键字名**：`set('where id = %s', uid, points=10)`；列名是变量时写 `set(cond, param, **{name: value})`；`condition` 为空会被断言拦截，避免更新整表 |
+| `add(*args)` | 按位置插入：`INSERT INTO t VALUES (...)`，值的个数必须与表的列数一致 |
+| `add(**kwargs)` | 按列名插入：`INSERT INTO t (列...) VALUES (...)`，未给出的列走表定义中的 `DEFAULT` / `NULL`（推荐，也不受列顺序影响） |
+| `delete(condition, param=())` | 按 `condition` 删除记录；`condition` 为空会被断言拦截，避免清空整表 |
+| `find_exists(**kwargs)` | 按列名检查是否存在：`find_exists(id=1)`、`find_exists(user_id=1, do='x')`；均为参数化查询 |
+| `__enter__ / __exit__` | 上下文管理器：进入时取表锁并 `ping(reconnect=True)`，正常退出提交、异常退出回滚，返回带 `table_name` 属性的 cursor |
 
 ### 常用装饰器
 
