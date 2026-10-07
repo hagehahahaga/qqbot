@@ -151,6 +151,8 @@ def update_arcade_num(message: GroupMessage, session: Session):
         timeout = 30
         message.reply_text(f'{arcade.name} {num}人的记录已寄存. {timeout}秒内发送cancel取消提交, 发送push马上提交. 可以继续发送 机台名+人数 记录机台人数.')
         cabs_nums = {}
+        if len(arcade.cabs) == 1:
+            cabs_nums[arcade.cabs[0].name] = num
         while True:
             try:
                 message_got = session.pipe_get(
