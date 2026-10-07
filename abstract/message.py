@@ -249,9 +249,9 @@ class BaseMessage(abc.ABC):
                         )
                     )
                 case 'text':
-                    if message_part['data']['text'].isspace():
+                    if not message_part['data']['text'].strip():
                         continue
-                    self.parts.append(TextPart(message_part['data']['text']))
+                    self.parts.append(TextPart(message_part['data']['text'].strip()))
                 case 'image':
                     url = '/'.join(['http:'] + message_part['data']['url'].split('/')[1:])
 
