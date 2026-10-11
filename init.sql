@@ -16,17 +16,17 @@ CREATE TABLE `game_data` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `group_options` (
-  `id` decimal(65,0) NOT NULL,
-  `trusted` tinyint(1) DEFAULT 0,
-  `r18` tinyint(1) DEFAULT 0,
-  `recall_catch` tinyint(1) DEFAULT 0,
+  `id` decimal(12,0) NOT NULL,
+  `trusted` tinyint(1) DEFAULT '0',
+  `r18` tinyint(1) DEFAULT '0',
+  `recall_catch` tinyint(1) DEFAULT '0',
   `city` varchar(30) DEFAULT NULL,
-  `weather_notice` tinyint(1) NOT NULL DEFAULT 0,
-  `maimai_notice` tinyint(1) NOT NULL DEFAULT 0,
-  `night_disturb` tinyint(1) NOT NULL DEFAULT 1,
-  `auto_repeat` tinyint(1) NOT NULL DEFAULT 1,
+  `weather_notice` tinyint(1) NOT NULL DEFAULT '0',
+  `maimai_notice` tinyint(1) NOT NULL DEFAULT '0',
+  `night_disturb` tinyint(1) DEFAULT '1',
+  `auto_repeat` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
-  CONSTRAINT `check_trusted` CHECK (`trusted` = 1 and 2 >= `r18` >= 0 or `trusted` = 0 and `r18` = 0)
+  CONSTRAINT `check_trusted` CHECK ((((`trusted` = 1) and ((2 >= `r18`) >= 0)) or ((`trusted` = 0) and (`r18` = 0))))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `notice_schedule` (
