@@ -104,9 +104,10 @@ class Table:
 
     @_with_lock
     def set(self, condition: str, param: tuple[Any, ...] | Any, **attrs: Any):
+        assert attrs, '空attrs 的 Update 语句会缺少 SET 子句'
+        assert condition.strip() and condition.isprintable(), '空condition 的 Update 语句会立刻更新所有表行'
         if not isinstance(param, tuple):
             param = (param, )
-        assert condition.strip() and condition.isprintable(), '空condition 的 Update 语句会立刻更新所有表行'
 
         return self._cursor.execute(
             f'UPDATE {self.name} SET {",".join(f"{attr} = %s" for attr in attrs)} ' + condition,
@@ -116,12 +117,14 @@ class Table:
     @_with_lock
     @dispatch
     def add(self, *args: Any):
+        assert args, '空args 的 Insert 语句没有给出任何值'
         self._cursor.execute(f"INSERT INTO {self.name} VALUES ({','.join(['%s'] * len(args))})", args)
         return self
 
     @_with_lock
     @dispatch
     def add(self, **kwargs: Any):
+        assert kwargs, '空kwargs 的 Insert 语句会插入一行全为默认值的记录'
         self._cursor.execute(
             f"INSERT INTO {self.name} ({','.join(kwargs)}) VALUES ({','.join(['%s'] * len(kwargs))})",
             tuple(kwargs.values())
@@ -130,9 +133,9 @@ class Table:
 
     @_with_lock
     def delete(self, condition: str, param: tuple[Any, ...] | Any = tuple()):
+        assert condition.strip() and condition.isprintable(), '空condition 的 Delete 语句会清除表中的所有数据'
         if not isinstance(param, tuple):
             param = (param, )
-        assert condition.strip() and condition.isprintable(), '空condition 的 Delete 语句会清除表中的所有数据'
         self._cursor.execute(
             f"DELETE FROM {self.name} " + condition,
             param
@@ -141,6 +144,7 @@ class Table:
 
     @_with_lock
     def find_exists(self, **kwargs):
+        assert kwargs, '空kwargs 的 Find 语句会生成空的 WHERE 条件'
         return bool(
             self._cursor.execute(
                 f"SELECT 1 FROM {self.name} "
