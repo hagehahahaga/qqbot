@@ -79,10 +79,13 @@ def get_arcade_num(message: MESSAGE, session: Session):
         f'\n{text}{result.num}\n' +
         '\n'.join(
             (
-                f'{cab.name}: {"未记录人数" if cab.num is None else cab.num}, 预计'
-                f'{2.5 * cab.tracks * cab.num / cab.slot * (2 if cab.must_pickup else 1):.0f}' +
-                (f' - {2.5 * (cab.tracks + 1) * cab.num / cab.slot:.0f}' if cab.pickup_bonus else '') +
-                '分钟1pc'
+                f'{cab.name}: ' + (
+                    '未记录人数' if cab.num is None else
+                    f'{cab.num}, 预计'
+                    f'{2.5 * cab.tracks * cab.num / cab.slot * (2 if cab.must_pickup else 1):.0f}' +
+                    (f' - {2.5 * (cab.tracks + 1) * cab.num / cab.slot:.0f}' if cab.pickup_bonus else '') +
+                    '分钟1pc'
+                )
             ) for cab in result.cabs
         ) +
         (f'\n剩余{others}人未记录' if others and others != result.num else '') +

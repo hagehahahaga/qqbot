@@ -1,3 +1,5 @@
+from typing import Optional
+
 from abstract.bases.cached_property import cached_property
 
 from .tables import ARCADES_CABS_TABLE
@@ -97,7 +99,7 @@ class Cab:
         )
 
     @cached_property
-    def num(self) -> int:
+    def num(self) -> Optional[int]:
         return ARCADES_CABS_TABLE.get(
             'where hash = %s and name = %s',
             (self.arcade_hash, self.name),
@@ -105,7 +107,7 @@ class Cab:
         )[0]
 
     @num.setter
-    def num(self, value: int):
+    def num(self, value: Optional[int]):
         ARCADES_CABS_TABLE.set(
             'where hash = %s and name = %s',
             (self.arcade_hash, self.name),
