@@ -10,7 +10,7 @@ from abstract.bases.log import LOG
 
 
 class Table:
-    LOCK = threading.Lock()
+    LOCK = threading.RLock()
 
     def __init__(self, _con: pymysql.Connection, name: str):
         self._con = _con
