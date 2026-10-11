@@ -103,15 +103,14 @@ def stock(message: MESSAGE, session: Session, args):
                 return
 
     message.sender.set_commission(action, price, num)
-    while target_id := STOCK_TABLE.get(
+    while result := STOCK_TABLE.get(
             "where (commission_type, date(commission_time)) = (%s, curdate()) "
             f"and commission_price {'<=' if action == 'buy' else '>'} {price} "
             f"order by commission_price {'asc' if action == 'buy' else 'desc'}, commission_time asc",
             'sell' if action == 'buy' else 'buy',
             'id'
-    )[0]:
-        target_id = int(target_id)
-        target = User(target_id)
+    ):
+        target = User(int(result[0]))
         target_commission = target.commission
         if num < target_commission['num']:
             deal_num = num
