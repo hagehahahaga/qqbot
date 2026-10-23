@@ -113,7 +113,7 @@ def random_pic(message: MESSAGE, session: Session, args):
             output = output['data'][0]
             image = PIL.Image.open(
                 io.BytesIO(
-                    requests.get(output["urls"].get("regular", output["urls"]['original'])).content
+                    requests.get(output["urls"].get("regular", output["urls"]['original']), proxies=CONFIG.proxies).content
                 )
             )
         except IndexError:

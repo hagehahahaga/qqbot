@@ -91,6 +91,7 @@ class _Config(BaseConfig):
     commands_configs: _CommandsConfig = Field(default_factory=_CommandsConfig)
     log_level: Literal['DEB', 'INF', 'WAR', 'ERR'] = 'INF'
     zh_font_path: FilePath = Field(default='C:/Windows/Fonts/msyh.ttc', strict=False)
+    proxies: Optional[dict[str, HttpUrl]] = None
 
 
 CONFIG = _Config.load('./config.json')

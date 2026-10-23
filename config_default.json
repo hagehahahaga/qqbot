@@ -48,5 +48,6 @@
     }
   },
   "log_level": "INF",
-  "zh_font_path": "C:/Windows/Fonts/msyh.ttc"
+  "zh_font_path": "C:/Windows/Fonts/msyh.ttc",
+  "proxies": null
 }
