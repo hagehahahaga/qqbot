@@ -67,7 +67,7 @@ class _Config(BaseConfig):
             characters: dict[str, _Character] = Field(default_factory=dict)
 
             @model_validator(mode='after')
-            def check_ai_config_consistency(self) -> '_Config._CommandsConfig._ChatAIConfig':
+            def check_ai_config_consistency(self) -> _Config._CommandsConfig._ChatAIConfig:
                 # 判断各字段是否“有效”
                 has_api_key = bool(self.api_key)  # 非空字符串
                 has_base_url = self.base_url is not None
