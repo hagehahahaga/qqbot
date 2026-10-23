@@ -113,7 +113,14 @@ def random_pic(message: MESSAGE, session: Session, args):
             output = output['data'][0]
             image = PIL.Image.open(
                 io.BytesIO(
-                    requests.get(output["urls"].get("regular", output["urls"]['original']), proxies=CONFIG.proxies).content
+                    requests.get(
+                        output["urls"].get("regular", output["urls"]['original']).replace('i.pixiv.re', 'i.pximg.net'),
+                        proxies=CONFIG.proxies,
+                        headers={
+                            "Referer": "https://www.pixiv.net/",
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                        }
+                    ).content
                 )
             )
         except IndexError:
